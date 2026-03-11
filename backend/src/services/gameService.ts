@@ -9,9 +9,12 @@ import { config } from '../config/index.js';
 // ═══════════════════════════════════════════════════════
 
 export async function bootstrapUser(userId: string, email?: string): Promise<User> {
+  // Check if user already exists (fast path)
   const existing = await db.getUser(userId);
   if (existing) return existing;
 
+  // Race protection: If two concurrent bootstrap calls arrive for the same
+  // user, the second create will fail. We catch that and return the existing user.
   const now = new Date().toISOString();
   const newUser: User = {
     id: userId,
@@ -28,7 +31,14 @@ export async function bootstrapUser(userId: string, email?: string): Promise<Use
     createdAt: now,
   };
 
-  await db.createUser(newUser);
+  try {
+    await db.createUser(newUser);
+  } catch (err: any) {
+    // If user was created between our check and create, return it
+    const raceUser = await db.getUser(userId);
+    if (raceUser) return raceUser;
+    throw err; // Re-throw if it's a genuinely unexpected error
+  }
 
   // Create starter district
   const district: District = {
@@ -44,8 +54,18 @@ export async function bootstrapUser(userId: string, email?: string): Promise<Use
     prestigeLevel: 1,
     createdAt: now,
   };
-  await db.createDistrict(district);
-  await db.updateUser(userId, { districtId: district.id });
+
+  try {
+    await db.createDistrict(district);
+    await db.updateUser(userId, { districtId: district.id });
+  } catch (err: any) {
+    // District may already exist from a race — attempt to read it
+    const existingDistrict = await db.getDistrict(userId);
+    if (existingDistrict) {
+      return { ...newUser, districtId: existingDistrict.id };
+    }
+    throw err;
+  }
 
   return { ...newUser, districtId: district.id };
 }

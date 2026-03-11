@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../providers/profile_provider.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../data/models/user.dart';
 
-/// Profile / Me screen — wired with providers
+/// Profile / Me screen — wired with providers and navigation
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -35,26 +37,58 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: MimzSpacing.xxl),
               // Stats row — from provider
               Row(
-                children: stats.entries.map((e) => Expanded(
-                  child: _StatCard(value: e.value, label: e.key),
-                )).toList()
-                  ..insert(1, const SizedBox(width: MimzSpacing.md) as Widget)
-                  ..insert(3, const SizedBox(width: MimzSpacing.md) as Widget),
+                children: [
+                  ...stats.entries.toList().asMap().entries.expand((entry) {
+                    final widgets = <Widget>[
+                      Expanded(
+                        child: _StatCard(value: entry.value.value, label: entry.value.key),
+                      ),
+                    ];
+                    if (entry.key < stats.length - 1) {
+                      widgets.add(const SizedBox(width: MimzSpacing.md));
+                    }
+                    return widgets;
+                  }),
+                ],
               ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
               const SizedBox(height: MimzSpacing.xxl),
-              // Menu items
-              _MenuItem(icon: Icons.map, title: 'My District',
-                  subtitle: '${user.districtName} • ${user.sectors} sectors'),
-              _MenuItem(icon: Icons.inventory_2, title: 'Reward Vault',
-                  subtitle: '12 blueprints collected'),
-              _MenuItem(icon: Icons.people, title: 'My Squad',
-                  subtitle: '4 members'),
-              _MenuItem(icon: Icons.bar_chart, title: 'Leaderboard',
-                  subtitle: 'Rank #142'),
-              _MenuItem(icon: Icons.settings, title: 'Settings',
-                  subtitle: 'Account, privacy, notifications'),
-              _MenuItem(icon: Icons.help, title: 'Help',
-                  subtitle: 'FAQ, support, feedback'),
+              // Menu items — all wired to routes
+              _MenuItem(
+                icon: Icons.map,
+                title: 'My District',
+                subtitle: '${user.districtName} • ${user.sectors} sectors',
+                onTap: () => context.go('/world'),
+              ),
+              _MenuItem(
+                icon: Icons.inventory_2,
+                title: 'Reward Vault',
+                subtitle: '12 blueprints collected',
+                onTap: () => context.push('/rewards'),
+              ),
+              _MenuItem(
+                icon: Icons.people,
+                title: 'My Squad',
+                subtitle: '4 members',
+                onTap: () => context.go('/squad'),
+              ),
+              _MenuItem(
+                icon: Icons.bar_chart,
+                title: 'Leaderboard',
+                subtitle: 'Rank #142',
+                onTap: () => context.push('/leaderboard'),
+              ),
+              _MenuItem(
+                icon: Icons.settings,
+                title: 'Settings',
+                subtitle: 'Account, privacy, notifications',
+                onTap: () => context.push('/settings'),
+              ),
+              _MenuItem(
+                icon: Icons.help,
+                title: 'Help',
+                subtitle: 'FAQ, support, feedback',
+                onTap: () {},
+              ),
             ],
           ),
         ),
@@ -95,46 +129,54 @@ class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback onTap;
 
   const _MenuItem({
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: MimzSpacing.sm),
-      padding: const EdgeInsets.all(MimzSpacing.base),
-      decoration: BoxDecoration(
-        color: MimzColors.white,
-        borderRadius: BorderRadius.circular(MimzRadius.md),
-        border: Border.all(color: MimzColors.borderLight),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: MimzColors.mossCore.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(MimzRadius.sm),
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: MimzSpacing.sm),
+        padding: const EdgeInsets.all(MimzSpacing.base),
+        decoration: BoxDecoration(
+          color: MimzColors.white,
+          borderRadius: BorderRadius.circular(MimzRadius.md),
+          border: Border.all(color: MimzColors.borderLight),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: MimzColors.mossCore.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(MimzRadius.sm),
+              ),
+              child: Icon(icon, color: MimzColors.mossCore, size: 20),
             ),
-            child: Icon(icon, color: MimzColors.mossCore, size: 20),
-          ),
-          const SizedBox(width: MimzSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: MimzTypography.headlineSmall),
-                Text(subtitle, style: MimzTypography.bodySmall),
-              ],
+            const SizedBox(width: MimzSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: MimzTypography.headlineSmall),
+                  Text(subtitle, style: MimzTypography.bodySmall),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right, color: MimzColors.textTertiary),
-        ],
+            const Icon(Icons.chevron_right, color: MimzColors.textTertiary),
+          ],
+        ),
       ),
     );
   }

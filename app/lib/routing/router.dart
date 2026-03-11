@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/splash_screen.dart';
 import '../features/auth/presentation/welcome_screen.dart';
@@ -9,8 +8,10 @@ import '../features/onboarding/presentation/microphone_permission_screen.dart';
 import '../features/onboarding/presentation/camera_permission_screen.dart';
 import '../features/onboarding/presentation/live_onboarding_screen.dart';
 import '../features/onboarding/presentation/onboarding_summary_screen.dart';
+import '../features/onboarding/presentation/emblem_selection_screen.dart';
 import '../features/onboarding/presentation/district_naming_screen.dart';
 import '../features/world/presentation/world_home_screen.dart';
+import '../features/world/presentation/leaderboard_screen.dart';
 import '../features/live/presentation/play_hub_screen.dart';
 import '../features/live/presentation/live_quiz_screen.dart';
 import '../features/live/presentation/round_result_screen.dart';
@@ -20,6 +21,7 @@ import '../features/squads/presentation/squad_hub_screen.dart';
 import '../features/events/presentation/events_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/rewards/presentation/reward_vault_screen.dart';
+import '../features/settings/presentation/settings_screen.dart';
 import 'app_shell.dart';
 
 final appRouter = GoRouter(
@@ -63,6 +65,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/onboarding/summary',
       builder: (context, state) => const OnboardingSummaryScreen(),
+    ),
+    GoRoute(
+      path: '/district/emblem',
+      builder: (context, state) => const EmblemSelectionScreen(),
     ),
     GoRoute(
       path: '/district/name',
@@ -113,9 +119,19 @@ final appRouter = GoRouter(
       path: '/play/vision/success',
       builder: (context, state) => const VisionQuestSuccessScreen(),
     ),
+
+    // Standalone screens (pushed over shell)
     GoRoute(
       path: '/rewards',
       builder: (context, state) => const RewardVaultScreen(),
+    ),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: '/leaderboard',
+      builder: (context, state) => const LeaderboardScreen(),
     ),
   ],
 );

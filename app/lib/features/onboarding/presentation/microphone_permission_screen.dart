@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../design_system/components/waveform_visualizer.dart';
+import '../providers/onboarding_provider.dart';
 
 /// Screen 6 — Microphone permission
-class MicrophonePermissionScreen extends StatelessWidget {
+class MicrophonePermissionScreen extends ConsumerWidget {
   const MicrophonePermissionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -154,9 +158,13 @@ class MicrophonePermissionScreen extends StatelessWidget {
             MimzButton(
               label: 'Enable Microphone',
               variant: MimzButtonVariant.accent,
-              onPressed: () {
-                // TODO: Request actual mic permission
-                context.go('/permissions');
+              onPressed: () async {
+                HapticFeedback.mediumImpact();
+                final status = await Permission.microphone.request();
+                if (status.isGranted || status.isLimited) {
+                  ref.read(permissionsProvider.notifier).grantMicrophone();
+                }
+                if (context.mounted) context.go('/permissions');
               },
             ),
             const SizedBox(height: MimzSpacing.md),

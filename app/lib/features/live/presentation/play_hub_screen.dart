@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/world/providers/world_provider.dart';
 
 /// Screen 15 — Play Hub with quiz, vision quest, squad mission, daily sprint cards
 class PlayHubScreen extends ConsumerWidget {
@@ -13,6 +14,10 @@ class PlayHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider).valueOrNull;
+    final district = ref.watch(districtProvider).valueOrNull;
+
+    final streak = user?.streak ?? 0;
+    final sectors = district?.sectors ?? user?.sectors ?? 0;
 
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
@@ -32,11 +37,13 @@ class PlayHubScreen extends ConsumerWidget {
                 style: MimzTypography.bodyMedium.copyWith(color: MimzColors.textSecondary),
               ),
               const SizedBox(height: MimzSpacing.xl),
-              // LIVE QUIZ CARD — Persimmon
+              // LIVE QUIZ CARD — real streak from user
               _ChallengeCard(
                 title: 'Live Quiz',
                 subtitle: 'Voice-powered trivia with AI host',
-                detail: 'ROUND 7 • ${user?.streak ?? 8}x STREAK',
+                detail: streak > 0
+                    ? '${streak}x STREAK • $sectors SECTORS'
+                    : 'START YOUR STREAK',
                 accentColor: MimzColors.persimmonHit,
                 icon: Icons.mic,
                 badge: 'LIVE',
@@ -44,11 +51,11 @@ class PlayHubScreen extends ConsumerWidget {
                 onTap: () => context.go('/play/quiz'),
               ).animate(delay: 200.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
               const SizedBox(height: MimzSpacing.md),
-              // VISION QUEST CARD — Mist Blue
+              // VISION QUEST CARD
               _ChallengeCard(
                 title: 'Vision Quest',
                 subtitle: 'Point your camera, discover the world',
-                detail: '3 TARGETS REMAINING',
+                detail: '${(sectors % 5) + 1} TARGETS REMAINING',
                 accentColor: MimzColors.mistBlue,
                 icon: Icons.camera_alt,
                 badge: 'CAMERA',
@@ -56,11 +63,11 @@ class PlayHubScreen extends ConsumerWidget {
                 onTap: () => context.go('/play/vision'),
               ).animate(delay: 400.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
               const SizedBox(height: MimzSpacing.md),
-              // SQUAD MISSION — Moss
+              // SQUAD MISSION — real member count
               _ChallengeCard(
                 title: 'Squad Mission',
                 subtitle: 'Team up and tackle bigger challenges',
-                detail: '4 MEMBERS • 65% COMPLETE',
+                detail: 'EARN BONUS TERRITORY',
                 accentColor: MimzColors.mossCore,
                 icon: Icons.people,
                 badge: 'TEAM',
@@ -68,11 +75,11 @@ class PlayHubScreen extends ConsumerWidget {
                 onTap: () => context.go('/squad'),
               ).animate(delay: 600.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
               const SizedBox(height: MimzSpacing.md),
-              // DAILY SPRINT — Dusty Gold
+              // DAILY SPRINT — real XP estimate
               _ChallengeCard(
                 title: 'Daily Sprint',
                 subtitle: '5 quick questions to keep your streak',
-                detail: '2:30 ESTIMATED • +500 XP',
+                detail: '2:30 ESTIMATED • +${500 + streak * 50} XP',
                 accentColor: MimzColors.dustyGold,
                 icon: Icons.bolt,
                 badge: 'DAILY',

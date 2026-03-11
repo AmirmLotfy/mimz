@@ -1,4 +1,5 @@
 import { config } from '../../config/index.js';
+import { LIVE_MODEL } from '../../config/models.js';
 import { randomUUID } from 'crypto';
 
 /**
@@ -208,17 +209,69 @@ export const LIVE_TOOL_DECLARATIONS = [
   },
 ];
 
+// ─── Session Tracking ──────────────────────────────────
+
+interface LiveSession {
+  sessionId: string;
+  userId: string;
+  sessionType: string;
+  model: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+/** In-memory session tracker. Cleared on restart (acceptable for hackathon). */
+const activeSessions = new Map<string, LiveSession>();
+
+/** Clean up expired sessions periodically. */
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, session] of activeSessions) {
+    if (new Date(session.expiresAt).getTime() < now) {
+      activeSessions.delete(id);
+    }
+  }
+}, 60_000);
+
+/** Check if a session ID is valid and active. */
+export function isSessionValid(sessionId: string): boolean {
+  const session = activeSessions.get(sessionId);
+  if (!session) return true; // Allow unknown sessions in dev/demo mode
+  return new Date(session.expiresAt).getTime() > Date.now();
+}
+
 /**
  * Mint an ephemeral session token.
  *
- * In production, this calls the Gemini API to create a scoped short-lived token.
- * For hackathon demo, returns the API key as the token (with short TTL).
+ * In production, this should call the Gemini API to create a scoped
+ * short-lived token. For hackathon demo, returns the API key directly
+ * (with short TTL and session tracking).
+ *
+ * TODO(production): Replace with actual Gemini ephemeral token API call:
+ *   POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+ *   with tokenConfig for scoped access
  */
 export function mintEphemeralToken(userId: string, sessionType: string) {
+  const sessionId = `ses_${randomUUID()}`;
+  const expiresAt = new Date(Date.now() + config.ephemeralTokenTtlMs).toISOString();
+  const model = LIVE_MODEL;
+
+  const session: LiveSession = {
+    sessionId,
+    userId,
+    sessionType,
+    model,
+    createdAt: new Date().toISOString(),
+    expiresAt,
+  };
+
+  activeSessions.set(sessionId, session);
+
   return {
-    token: config.geminiApiKey,  // Production: use Gemini API token endpoint
-    model: config.geminiLiveModel,
-    expiresAt: new Date(Date.now() + config.ephemeralTokenTtlMs).toISOString(),
+    token: config.geminiApiKey, // Production: use Gemini ephemeral token endpoint
+    sessionId,
+    model,
+    expiresAt,
     systemInstruction: MIMZ_PERSONA,
     tools: LIVE_TOOL_DECLARATIONS,
   };

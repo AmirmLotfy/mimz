@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../providers/onboarding_provider.dart';
 
 /// Screen 7 — Camera permission
-class CameraPermissionScreen extends StatelessWidget {
+class CameraPermissionScreen extends ConsumerWidget {
   const CameraPermissionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -135,7 +139,14 @@ class CameraPermissionScreen extends StatelessWidget {
             MimzButton(
               label: 'Start Exploration',
               variant: MimzButtonVariant.accent,
-              onPressed: () => context.go('/permissions'),
+              onPressed: () async {
+                HapticFeedback.mediumImpact();
+                final status = await Permission.camera.request();
+                if (status.isGranted || status.isLimited) {
+                  ref.read(permissionsProvider.notifier).grantCamera();
+                }
+                if (context.mounted) context.go('/permissions');
+              },
             ),
             const SizedBox(height: MimzSpacing.md),
             MimzButton(

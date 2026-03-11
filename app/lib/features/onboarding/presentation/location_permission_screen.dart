@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../providers/onboarding_provider.dart';
 
 /// Screen 5 — Location permission dedicated screen
-class LocationPermissionScreen extends StatelessWidget {
+class LocationPermissionScreen extends ConsumerWidget {
   const LocationPermissionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -100,9 +104,13 @@ class LocationPermissionScreen extends StatelessWidget {
                   MimzButton(
                     label: 'Allow Location Access',
                     icon: Icons.navigation,
-                    onPressed: () {
-                      // TODO: Request actual location permission
-                      context.go('/permissions');
+                    onPressed: () async {
+                      HapticFeedback.mediumImpact();
+                      final status = await Permission.location.request();
+                      if (status.isGranted || status.isLimited) {
+                        ref.read(permissionsProvider.notifier).grantLocation();
+                      }
+                      if (context.mounted) context.go('/permissions');
                     },
                   ),
                   const SizedBox(height: MimzSpacing.base),

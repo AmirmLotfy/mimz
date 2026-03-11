@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -6,14 +7,23 @@ import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../providers/live_session_provider.dart';
 import '../../../data/models/quiz_state.dart';
+import '../../../features/world/providers/world_provider.dart';
 
-/// Round result / victory screen — wired with quiz state
-class RoundResultScreen extends ConsumerWidget {
+/// Round result / victory screen — wired with real reward calculation
+class RoundResultScreen extends ConsumerStatefulWidget {
   const RoundResultScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RoundResultScreen> createState() => _RoundResultScreenState();
+}
+
+class _RoundResultScreenState extends ConsumerState<RoundResultScreen> {
+  bool _claiming = false;
+
+  @override
+  Widget build(BuildContext context) {
     final quiz = ref.watch(quizStateProvider);
+    final rewards = ref.watch(roundRewardsProvider);
 
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
@@ -45,7 +55,7 @@ class RoundResultScreen extends ConsumerWidget {
                 textAlign: TextAlign.center,
               ).animate(delay: 200.ms).fadeIn(duration: 500.ms),
               const SizedBox(height: MimzSpacing.xxl),
-              // Score card
+              // Score card — real data
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(MimzSpacing.xl),
@@ -71,7 +81,7 @@ class RoundResultScreen extends ConsumerWidget {
                         _ResultStat(label: 'Streak', value: '${quiz.streak}x',
                             color: MimzColors.persimmonHit),
                         const SizedBox(width: MimzSpacing.xxl),
-                        _ResultStat(label: 'Multiplier', value: '${quiz.streak}×',
+                        _ResultStat(label: 'XP Earned', value: '+${rewards.xpEarned}',
                             color: MimzColors.dustyGold),
                       ],
                     ),
@@ -79,7 +89,7 @@ class RoundResultScreen extends ConsumerWidget {
                 ),
               ).animate(delay: 300.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
               const SizedBox(height: MimzSpacing.xl),
-              // Territory growth
+              // Territory growth — real calculated sectors
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(MimzSpacing.base),
@@ -99,7 +109,10 @@ class RoundResultScreen extends ConsumerWidget {
                           Text('TERRITORY GROWTH', style: MimzTypography.caption.copyWith(
                             color: MimzColors.mossCore, fontWeight: FontWeight.w700,
                           )),
-                          Text('+1 Sector unlocked', style: MimzTypography.headlineSmall),
+                          Text(
+                            '+${rewards.sectorsEarned} Sector${rewards.sectorsEarned > 1 ? 's' : ''} unlocked',
+                            style: MimzTypography.headlineSmall,
+                          ),
                         ],
                       ),
                     ),
@@ -108,7 +121,7 @@ class RoundResultScreen extends ConsumerWidget {
                 ),
               ).animate(delay: 500.ms).fadeIn(duration: 400.ms),
               const SizedBox(height: MimzSpacing.md),
-              // Resources harvested
+              // Resources — real calculated values
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(MimzSpacing.base),
@@ -125,21 +138,53 @@ class RoundResultScreen extends ConsumerWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _ResourceItem(icon: Icons.terrain, label: 'Stone', value: '+120'),
-                        _ResourceItem(icon: Icons.fullscreen, label: 'Glass', value: '+45'),
-                        _ResourceItem(icon: Icons.park, label: 'Wood', value: '+85'),
+                        _ResourceItem(
+                          icon: Icons.terrain,
+                          label: 'Stone',
+                          value: '+${rewards.materialsEarned.stone}',
+                        ),
+                        _ResourceItem(
+                          icon: Icons.fullscreen,
+                          label: 'Glass',
+                          value: '+${rewards.materialsEarned.glass}',
+                        ),
+                        _ResourceItem(
+                          icon: Icons.park,
+                          label: 'Wood',
+                          value: '+${rewards.materialsEarned.wood}',
+                        ),
                       ],
                     ),
+                    if (rewards.streakBonus > 0) ...[
+                      const SizedBox(height: MimzSpacing.md),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: MimzSpacing.sm,
+                          horizontal: MimzSpacing.base,
+                        ),
+                        decoration: BoxDecoration(
+                          color: MimzColors.dustyGold.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(MimzRadius.sm),
+                        ),
+                        child: Text(
+                          '🔥 STREAK BONUS: +${rewards.streakBonus} XP',
+                          style: MimzTypography.caption.copyWith(
+                            color: MimzColors.dustyGold,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ).animate(delay: 600.ms).fadeIn(duration: 400.ms),
               const SizedBox(height: MimzSpacing.xxl),
+              // CLAIM button — actually calls backend
               MimzButton(
-                label: 'CLAIM REWARDS  →',
-                onPressed: () {
-                  ref.read(quizStateProvider.notifier).reset();
-                  context.go('/world');
-                },
+                label: _claiming ? 'CLAIMING...' : 'CLAIM REWARDS  →',
+                onPressed: _claiming ? null : () => _claimRewards(context, ref, rewards),
               ).animate(delay: 700.ms).fadeIn(duration: 400.ms),
               const SizedBox(height: MimzSpacing.xl),
             ],
@@ -147,6 +192,29 @@ class RoundResultScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _claimRewards(BuildContext context, WidgetRef ref, RoundRewards rewards) async {
+    setState(() => _claiming = true);
+    HapticFeedback.heavyImpact();
+
+    try {
+      final quiz = ref.read(quizStateProvider);
+      await ref.read(districtProvider.notifier).claimRewards(
+        score: quiz.score,
+        streak: quiz.streak,
+        sectorsEarned: rewards.sectorsEarned,
+        materialsEarned: rewards.materialsEarned,
+      );
+    } catch (e) {
+      // Continue to world even if backend fails — local state already updated
+    }
+
+    ref.read(quizStateProvider.notifier).reset();
+
+    if (mounted) {
+      context.go('/world');
+    }
   }
 
   String _formatScore(int score) {

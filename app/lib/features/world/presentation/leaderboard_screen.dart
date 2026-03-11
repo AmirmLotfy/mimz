@@ -1,0 +1,340 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../../../design_system/tokens.dart';
+import '../../../features/auth/providers/auth_provider.dart';
+
+/// Leaderboard screen with podium, tabs, and ranked player list
+class LeaderboardScreen extends ConsumerStatefulWidget {
+  const LeaderboardScreen({super.key});
+
+  @override
+  ConsumerState<LeaderboardScreen> createState() => _LeaderboardScreenState();
+}
+
+class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // Demo leaderboard data
+  static const _players = [
+    _LeaderboardEntry(rank: 1, name: 'Atlas Runner', xp: 28400, district: 'Verdant Reach'),
+    _LeaderboardEntry(rank: 2, name: 'Stone Mason', xp: 24100, district: 'Cedar Ridge'),
+    _LeaderboardEntry(rank: 3, name: 'Neon Walker', xp: 21800, district: 'Greyrock Bay'),
+    _LeaderboardEntry(rank: 4, name: 'Moss Scout', xp: 18600, district: 'Sylvan Grove'),
+    _LeaderboardEntry(rank: 5, name: 'Dusk Ranger', xp: 16200, district: 'Elder Peak'),
+    _LeaderboardEntry(rank: 6, name: 'Ember Crafter', xp: 14800, district: 'Mossy Hollow'),
+    _LeaderboardEntry(rank: 7, name: 'Wave Finder', xp: 13100, district: 'Coral Reach'),
+    _LeaderboardEntry(rank: 8, name: 'Explorer', xp: 12450, district: 'Verdant Reach', isCurrentUser: true),
+    _LeaderboardEntry(rank: 9, name: 'Root Walker', xp: 11200, district: 'Cedar Ridge'),
+    _LeaderboardEntry(rank: 10, name: 'Star Gazer', xp: 9800, district: 'Elder Peak'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: MimzColors.cloudBase,
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back),
+        ),
+        title: const Text('Leaderboard'),
+      ),
+      body: Column(
+        children: [
+          // Tab bar
+          Container(
+            margin: const EdgeInsets.symmetric(
+              horizontal: MimzSpacing.base,
+              vertical: MimzSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: MimzColors.surfaceLight,
+              borderRadius: BorderRadius.circular(MimzRadius.md),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                color: MimzColors.white,
+                borderRadius: BorderRadius.circular(MimzRadius.md),
+                boxShadow: [
+                  BoxShadow(
+                    color: MimzColors.deepInk.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelColor: MimzColors.deepInk,
+              unselectedLabelColor: MimzColors.textSecondary,
+              labelStyle: MimzTypography.labelLarge.copyWith(fontSize: 13),
+              dividerColor: Colors.transparent,
+              tabs: const [
+                Tab(text: 'GLOBAL'),
+                Tab(text: 'DISTRICT'),
+                Tab(text: 'SQUAD'),
+              ],
+            ),
+          ),
+          // Podium
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: MimzSpacing.xl,
+              vertical: MimzSpacing.base,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // 2nd place
+                Expanded(
+                  child: _PodiumItem(
+                    entry: _players[1],
+                    height: 80,
+                    color: MimzColors.textSecondary,
+                    medal: '🥈',
+                  ),
+                ),
+                const SizedBox(width: MimzSpacing.md),
+                // 1st place
+                Expanded(
+                  child: _PodiumItem(
+                    entry: _players[0],
+                    height: 100,
+                    color: MimzColors.dustyGold,
+                    medal: '🥇',
+                  ),
+                ),
+                const SizedBox(width: MimzSpacing.md),
+                // 3rd place
+                Expanded(
+                  child: _PodiumItem(
+                    entry: _players[2],
+                    height: 64,
+                    color: MimzColors.persimmonHit,
+                    medal: '🥉',
+                  ),
+                ),
+              ],
+            ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
+          ),
+          const SizedBox(height: MimzSpacing.md),
+          // Rankings list
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.base),
+              itemCount: _players.length - 3,
+              itemBuilder: (context, index) {
+                final entry = _players[index + 3];
+                return _RankingTile(entry: entry)
+                    .animate(delay: Duration(milliseconds: 100 * index))
+                    .fadeIn(duration: 300.ms);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LeaderboardEntry {
+  final int rank;
+  final String name;
+  final int xp;
+  final String district;
+  final bool isCurrentUser;
+
+  const _LeaderboardEntry({
+    required this.rank,
+    required this.name,
+    required this.xp,
+    required this.district,
+    this.isCurrentUser = false,
+  });
+}
+
+class _PodiumItem extends StatelessWidget {
+  final _LeaderboardEntry entry;
+  final double height;
+  final Color color;
+  final String medal;
+
+  const _PodiumItem({
+    required this.entry,
+    required this.height,
+    required this.color,
+    required this.medal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(medal, style: const TextStyle(fontSize: 24)),
+        const SizedBox(height: MimzSpacing.sm),
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: color.withValues(alpha: 0.15),
+          child: Text(
+            entry.name[0],
+            style: MimzTypography.headlineMedium.copyWith(color: color),
+          ),
+        ),
+        const SizedBox(height: MimzSpacing.sm),
+        Text(
+          entry.name,
+          style: MimzTypography.labelLarge.copyWith(fontSize: 12),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          '${_formatXp(entry.xp)} XP',
+          style: MimzTypography.caption.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: MimzSpacing.sm),
+        Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(MimzRadius.md),
+              topRight: Radius.circular(MimzRadius.md),
+            ),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
+          ),
+          child: Center(
+            child: Text(
+              '#${entry.rank}',
+              style: MimzTypography.headlineLarge.copyWith(
+                color: color,
+                fontSize: 20,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RankingTile extends StatelessWidget {
+  final _LeaderboardEntry entry;
+
+  const _RankingTile({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: MimzSpacing.sm),
+      padding: const EdgeInsets.all(MimzSpacing.base),
+      decoration: BoxDecoration(
+        color: entry.isCurrentUser
+            ? MimzColors.mossCore.withValues(alpha: 0.05)
+            : MimzColors.white,
+        borderRadius: BorderRadius.circular(MimzRadius.md),
+        border: Border.all(
+          color: entry.isCurrentUser
+              ? MimzColors.mossCore.withValues(alpha: 0.3)
+              : MimzColors.borderLight,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: entry.isCurrentUser
+                  ? MimzColors.mossCore
+                  : MimzColors.borderLight,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '#${entry.rank}',
+                style: MimzTypography.caption.copyWith(
+                  color: entry.isCurrentUser
+                      ? MimzColors.white
+                      : MimzColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: MimzSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      entry.name,
+                      style: MimzTypography.headlineSmall,
+                    ),
+                    if (entry.isCurrentUser) ...[
+                      const SizedBox(width: MimzSpacing.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: MimzSpacing.sm,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: MimzColors.mossCore,
+                          borderRadius: BorderRadius.circular(MimzRadius.sm),
+                        ),
+                        child: Text(
+                          'YOU',
+                          style: MimzTypography.caption.copyWith(
+                            color: MimzColors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(entry.district, style: MimzTypography.bodySmall),
+              ],
+            ),
+          ),
+          Text(
+            '${_formatXp(entry.xp)} XP',
+            style: MimzTypography.bodySmall.copyWith(
+              color: MimzColors.mossCore,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatXp(int xp) {
+  if (xp >= 1000) {
+    return '${(xp / 1000).toStringAsFixed(1)}k';
+  }
+  return '$xp';
+}

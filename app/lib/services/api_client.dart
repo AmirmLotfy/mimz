@@ -60,13 +60,25 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> updates) async {
-    final res = await _dio.put('/profile', data: updates);
+    final res = await _dio.patch('/profile', data: updates);
     return res.data as Map<String, dynamic>;
   }
 
   // ─── District ──────────────────────────────────────────
   Future<Map<String, dynamic>> getDistrict() async {
     final res = await _dio.get('/district');
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> expandTerritory(int sectors) async {
+    final res = await _dio.post('/district/expand', data: {
+      'sectors': sectors,
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> addResources(Map<String, dynamic> resources) async {
+    final res = await _dio.post('/district/resources', data: resources);
     return res.data as Map<String, dynamic>;
   }
 
@@ -79,12 +91,12 @@ class ApiClient {
 
   // ─── Squads ────────────────────────────────────────────
   Future<Map<String, dynamic>> createSquad(String name) async {
-    final res = await _dio.post('/squad/create', data: {'name': name});
+    final res = await _dio.post('/squad', data: {'name': name});
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> joinSquad(String squadId) async {
-    final res = await _dio.post('/squad/join', data: {'squadId': squadId});
+  Future<Map<String, dynamic>> joinSquad(String joinCode) async {
+    final res = await _dio.post('/squad/join', data: {'joinCode': joinCode});
     return res.data as Map<String, dynamic>;
   }
 
@@ -95,7 +107,7 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> joinEvent(String eventId) async {
-    final res = await _dio.post('/events/join', data: {'eventId': eventId});
+    final res = await _dio.post('/events/$eventId/join');
     return res.data as Map<String, dynamic>;
   }
 
@@ -138,9 +150,28 @@ class _AuthInterceptor extends Interceptor {
   }
 
   @override
-  void onError(DioException err, ErrorInterceptorHandler handler) {
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      // TODO: Trigger re-authentication flow
+      // Token expired — attempt to refresh and retry once
+      try {
+        final newToken = await _storage.read(key: 'firebase_id_token');
+        if (newToken != null) {
+          err.requestOptions.headers['Authorization'] = 'Bearer $newToken';
+          // Retry the request with the refreshed token
+          final dio = Dio();
+          final response = await dio.request(
+            err.requestOptions.path,
+            options: Options(
+              method: err.requestOptions.method,
+              headers: err.requestOptions.headers,
+            ),
+            data: err.requestOptions.data,
+          );
+          return handler.resolve(response);
+        }
+      } catch (_) {
+        // Retry failed — fall through to error
+      }
     }
     handler.next(err);
   }

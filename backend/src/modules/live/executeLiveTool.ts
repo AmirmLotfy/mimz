@@ -319,7 +319,12 @@ const handlers: Record<string, ToolHandler> = {
   // ─── Squads ──────────────────────────────────────
   async join_squad_mission(args, ctx) {
     const missionId = args.missionId as string;
-    // Mark participation
+
+    // Find user's squad and mark participation
+    await game.audit(ctx.userId, 'join_squad_mission', { missionId }, {
+      toolName: 'join_squad_mission', sessionId: ctx.sessionId,
+    });
+
     return {
       success: true,
       data: { missionId, message: 'Joined squad mission!' },
@@ -330,14 +335,21 @@ const handlers: Record<string, ToolHandler> = {
     const missionId = args.missionId as string;
     const amount = args.amount as number;
 
-    // Find user's squad and update
-    // For MVP, accept the contribution
+    // Find user's squad and update mission progress
+    // For now, award XP equivalent as direct reward
+    await db.incrementUserXp(ctx.userId, Math.floor(amount * 10));
+    await game.grantReward(ctx.userId, 'xp', Math.floor(amount * 10), 'contribute_squad_progress', ctx.sessionId);
+    await game.audit(ctx.userId, 'contribute_squad_progress', { missionId, amount }, {
+      toolName: 'contribute_squad_progress', sessionId: ctx.sessionId,
+    });
+
     return {
       success: true,
       data: {
         missionId,
         contributed: amount,
-        message: `Contributed ${amount} progress to squad mission!`,
+        xpEarned: Math.floor(amount * 10),
+        message: `Contributed ${amount} progress to squad mission! +${Math.floor(amount * 10)} XP`,
       },
     };
   },

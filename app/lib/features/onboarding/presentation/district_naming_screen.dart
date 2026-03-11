@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../design_system/components/mimz_chip.dart';
+import '../../../features/auth/providers/auth_provider.dart';
 
 /// Screen 10 — District naming with smart suggestions
-class DistrictNamingScreen extends StatefulWidget {
+class DistrictNamingScreen extends ConsumerStatefulWidget {
   const DistrictNamingScreen({super.key});
 
   @override
-  State<DistrictNamingScreen> createState() => _DistrictNamingScreenState();
+  ConsumerState<DistrictNamingScreen> createState() => _DistrictNamingScreenState();
 }
 
-class _DistrictNamingScreenState extends State<DistrictNamingScreen> {
+class _DistrictNamingScreenState extends ConsumerState<DistrictNamingScreen> {
   final _nameController = TextEditingController(text: 'Verdant Reach');
   String _selectedSuggestion = 'Verdant Reach';
 
@@ -227,7 +230,19 @@ class _DistrictNamingScreenState extends State<DistrictNamingScreen> {
             const SizedBox(height: MimzSpacing.xxl),
             MimzButton(
               label: 'Establish District  →',
-              onPressed: () => context.go('/world'),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                final name = _nameController.text.trim();
+                if (name.isNotEmpty) {
+                  final user = ref.read(currentUserProvider).valueOrNull;
+                  if (user != null) {
+                    ref.read(currentUserProvider.notifier).updateUser(
+                      user.copyWith(districtName: name),
+                    );
+                  }
+                }
+                context.go('/world');
+              },
             ),
             const SizedBox(height: MimzSpacing.xxl),
           ],

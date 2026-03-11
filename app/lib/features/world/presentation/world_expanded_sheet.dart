@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/world_provider.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/squads/providers/squad_provider.dart';
 
 /// Screen 14 — World Expanded Sheet (DraggableScrollableSheet overlay)
 /// Shows district stats, current mission, district evolution, squad progress, and claim CTA
@@ -21,9 +24,22 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
     final district = ref.watch(districtProvider).valueOrNull;
     final user = ref.watch(currentUserProvider).valueOrNull;
     final mission = ref.watch(currentMissionProvider);
+    final squadMissions = ref.watch(squadMissionsProvider);
 
     final districtName = district?.name ?? user?.districtName ?? 'Mimz District';
     final sectorCount = district?.sectors ?? user?.sectors ?? 7;
+    final population = district?.populationFormatted ?? '850';
+    final growthRate = district?.growthRate.toStringAsFixed(1) ?? '1.0';
+    final prestigeLevel = district?.totalPrestige ?? user?.xp != null
+        ? _prestigeFromXp(user?.xp ?? 0)
+        : 1;
+    final stoneCount = district?.resources.stone ?? 0;
+    final glassCount = district?.resources.glass ?? 0;
+    final woodCount = district?.resources.wood ?? 0;
+
+    // Next structure to unlock
+    final structureCount = district?.structures.length ?? 0;
+    final nextStructure = _getNextStructure(structureCount);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -64,6 +80,21 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                 ),
               ),
               const SizedBox(height: MimzSpacing.lg),
+              // PLAY Button integrated into the sheet
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                child: MimzButton(
+                  text: 'PLAY',
+                  onPressed: () {
+                    HapticFeedback.heavyImpact();
+                    context.push('/play');
+                  },
+                  type: MimzButtonType.primary,
+                  isFullWidth: true,
+                  size: MimzButtonSize.large,
+                ),
+              ),
+              const SizedBox(height: MimzSpacing.xl),
               // District header
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
@@ -76,7 +107,7 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                         children: [
                           Text(districtName, style: MimzTypography.displayMedium),
                           Text(
-                            'SEKTOR ${sectorCount.toString().padLeft(2, '0')} • ARCHIVE HUB',
+                            'SEKTOR ${sectorCount.toString().padLeft(2, '0')} • ${district?.area ?? '1.0 sq km'}',
                             style: MimzTypography.caption.copyWith(
                               color: MimzColors.textSecondary,
                             ),
@@ -84,34 +115,22 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                         ],
                       ),
                     ),
-                    // Inhabitant avatars
-                    SizedBox(
-                      width: 80,
-                      height: 36,
-                      child: Stack(
-                        children: [
-                          _AvatarCircle(offset: 0, color: MimzColors.persimmonHit),
-                          _AvatarCircle(offset: 20, color: MimzColors.mossCore),
-                          Positioned(
-                            left: 40,
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: MimzColors.surfaceLight,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: MimzColors.white, width: 2),
-                              ),
-                              child: Center(
-                                child: Text('+12', style: MimzTypography.caption.copyWith(
-                                  color: MimzColors.persimmonHit,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 10,
-                                )),
-                              ),
-                            ),
-                          ),
-                        ],
+                    // Structure count badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: MimzSpacing.md,
+                        vertical: MimzSpacing.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: MimzColors.mossCore.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(MimzRadius.pill),
+                      ),
+                      child: Text(
+                        '$structureCount structures',
+                        style: MimzTypography.caption.copyWith(
+                          color: MimzColors.mossCore,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -161,10 +180,10 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                                       ),
                                     ),
                                     const SizedBox(height: MimzSpacing.md),
-                                    Text('Speak to the Archive',
+                                    Text(mission,
                                         style: MimzTypography.headlineMedium),
                                     Text(
-                                      'Decipher the terminal at the old clocktower.',
+                                      'Complete challenges to grow your district.',
                                       style: MimzTypography.bodySmall.copyWith(
                                         color: MimzColors.textSecondary,
                                         fontStyle: FontStyle.italic,
@@ -173,7 +192,6 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                                   ],
                                 ),
                               ),
-                              // Mission image placeholder
                               Container(
                                 width: 72,
                                 height: 72,
@@ -186,17 +204,6 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: MimzSpacing.base),
-                          // Countdown timer
-                          Row(
-                            children: [
-                              _TimerBox(value: '02', label: 'HRS'),
-                              const SizedBox(width: MimzSpacing.md),
-                              _TimerBox(value: '45', label: 'MIN'),
-                              const SizedBox(width: MimzSpacing.md),
-                              _TimerBox(value: '12', label: 'SEC', isActive: true),
-                            ],
-                          ),
                         ],
                       ),
                     ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05),
@@ -204,29 +211,50 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                 ),
               ),
               const SizedBox(height: MimzSpacing.lg),
-              // Stat chips
+              // Real stat chips
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
                 child: Wrap(
                   spacing: MimzSpacing.md,
                   runSpacing: MimzSpacing.md,
                   children: [
-                    _StatChip(icon: Icons.people, value: '14.2k', label: 'POP'),
-                    _StatChip(icon: Icons.trending_up, value: '+4.2%', label: 'GROWTH',
+                    _StatChip(icon: Icons.people, value: population, label: 'POP'),
+                    _StatChip(icon: Icons.trending_up, value: '+$growthRate%', label: 'GROWTH',
                         color: MimzColors.mossCore),
-                    _StatChip(icon: Icons.diamond, value: 'LVL 08', label: 'PRESTIGE',
-                        color: MimzColors.dustyGold),
+                    _StatChip(icon: Icons.diamond, value: 'LVL ${prestigeLevel.toString().padLeft(2, '0')}',
+                        label: 'PRESTIGE', color: MimzColors.dustyGold),
                   ],
                 ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
               ),
+              const SizedBox(height: MimzSpacing.lg),
+              // Resources bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                child: Container(
+                  padding: const EdgeInsets.all(MimzSpacing.base),
+                  decoration: BoxDecoration(
+                    color: MimzColors.white,
+                    borderRadius: BorderRadius.circular(MimzRadius.lg),
+                    border: Border.all(color: MimzColors.borderLight),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _ResourceChip(icon: Icons.terrain, value: '$stoneCount', label: 'Stone'),
+                      _ResourceChip(icon: Icons.fullscreen, value: '$glassCount', label: 'Glass'),
+                      _ResourceChip(icon: Icons.park, value: '$woodCount', label: 'Wood'),
+                    ],
+                  ),
+                ).animate(delay: 250.ms).fadeIn(duration: 400.ms),
+              ),
               const SizedBox(height: MimzSpacing.xl),
-              // District Evolution
+              // District Evolution — next structure
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('District Evolution', style: MimzTypography.headlineMedium),
+                    Text('Next Structure', style: MimzTypography.headlineMedium),
                     const SizedBox(height: MimzSpacing.md),
                     Container(
                       decoration: BoxDecoration(
@@ -236,9 +264,8 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                       ),
                       child: Column(
                         children: [
-                          // Structure image
                           Container(
-                            height: 160,
+                            height: 120,
                             width: double.infinity,
                             decoration: BoxDecoration(
                               color: MimzColors.deepInk.withValues(alpha: 0.85),
@@ -248,20 +275,18 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                               ),
                             ),
                             child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: MimzColors.white.withValues(alpha: 0.15),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.lock,
-                                        color: MimzColors.white, size: 24),
-                                  ),
-                                ],
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: MimzColors.white.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  nextStructure.unlocked ? Icons.check : Icons.lock,
+                                  color: MimzColors.white,
+                                  size: 24,
+                                ),
                               ),
                             ),
                           ),
@@ -273,12 +298,14 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text('The Great Library',
+                                    Text(nextStructure.name,
                                         style: MimzTypography.headlineSmall),
                                     Text(
-                                      'EXPANSION STAGE II',
+                                      nextStructure.unlocked ? 'UNLOCKED' : 'LOCKED',
                                       style: MimzTypography.caption.copyWith(
-                                        color: MimzColors.persimmonHit,
+                                        color: nextStructure.unlocked
+                                            ? MimzColors.mossCore
+                                            : MimzColors.persimmonHit,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -288,7 +315,7 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(MimzRadius.sm),
                                   child: LinearProgressIndicator(
-                                    value: 0.35,
+                                    value: nextStructure.progress,
                                     backgroundColor: MimzColors.borderLight,
                                     color: MimzColors.mistBlue,
                                     minHeight: 4,
@@ -296,7 +323,7 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                                 ),
                                 const SizedBox(height: MimzSpacing.sm),
                                 Text(
-                                  'LOCKED: Reach Prestige Level 10 to begin restoration.',
+                                  nextStructure.requirementText,
                                   style: MimzTypography.bodySmall.copyWith(
                                     color: MimzColors.textTertiary,
                                   ),
@@ -311,120 +338,52 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                 ),
               ),
               const SizedBox(height: MimzSpacing.xl),
-              // Squad Progress
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
-                child: Container(
-                  padding: const EdgeInsets.all(MimzSpacing.base),
-                  decoration: BoxDecoration(
-                    color: MimzColors.white,
-                    borderRadius: BorderRadius.circular(MimzRadius.lg),
-                    border: Border.all(color: MimzColors.borderLight),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Squad Progress', style: MimzTypography.headlineSmall),
-                          Text(
-                            '68% Total',
-                            style: MimzTypography.bodySmall.copyWith(
-                              color: MimzColors.persimmonHit,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: MimzSpacing.md),
-                      Row(
-                        children: [
-                          // Squad avatar stack
-                          SizedBox(
-                            width: 60,
-                            height: 28,
-                            child: Stack(
-                              children: [
-                                _SmallAvatar(offset: 0, color: MimzColors.dustyGold),
-                                _SmallAvatar(offset: 16, color: MimzColors.mossCore),
-                                _SmallAvatar(offset: 32, color: MimzColors.persimmonHit),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: MimzSpacing.md),
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(MimzRadius.sm),
-                              child: LinearProgressIndicator(
-                                value: 0.68,
-                                backgroundColor: MimzColors.borderLight,
+              // Squad Progress — wired to provider
+              if (squadMissions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                  child: Container(
+                    padding: const EdgeInsets.all(MimzSpacing.base),
+                    decoration: BoxDecoration(
+                      color: MimzColors.white,
+                      borderRadius: BorderRadius.circular(MimzRadius.lg),
+                      border: Border.all(color: MimzColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Squad Progress', style: MimzTypography.headlineSmall),
+                            Text(
+                              '${(squadMissions.first.progress * 100).toInt()}% Total',
+                              style: MimzTypography.bodySmall.copyWith(
                                 color: MimzColors.persimmonHit,
-                                minHeight: 8,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: MimzSpacing.md),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(MimzRadius.sm),
+                          child: LinearProgressIndicator(
+                            value: squadMissions.first.progress,
+                            backgroundColor: MimzColors.borderLight,
+                            color: MimzColors.persimmonHit,
+                            minHeight: 8,
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ).animate(delay: 400.ms).fadeIn(duration: 400.ms),
-              ),
-              const SizedBox(height: MimzSpacing.xl),
-              // Claim CTA
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
-                child: GestureDetector(
-                  onTap: () {},
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: MimzSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: MimzColors.persimmonHit,
-                      borderRadius: BorderRadius.circular(MimzRadius.lg),
-                      boxShadow: [
-                        BoxShadow(
-                          color: MimzColors.persimmonHit.withValues(alpha: 0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
+                        ),
+                        const SizedBox(height: MimzSpacing.sm),
+                        Text(
+                          squadMissions.first.title,
+                          style: MimzTypography.bodySmall.copyWith(color: MimzColors.textSecondary),
                         ),
                       ],
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.auto_awesome, color: MimzColors.white, size: 22),
-                        const SizedBox(width: MimzSpacing.md),
-                        Text(
-                          'CLAIM PERSIMMON HIT',
-                          style: MimzTypography.buttonText.copyWith(
-                            color: MimzColors.white,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                        const SizedBox(width: MimzSpacing.md),
-                        Text(
-                          '+150 XP',
-                          style: MimzTypography.bodySmall.copyWith(
-                            color: MimzColors.white.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ).animate(delay: 500.ms).fadeIn(duration: 400.ms).scale(
-                      begin: const Offset(0.95, 0.95), duration: 300.ms),
-              ),
-              const SizedBox(height: MimzSpacing.md),
-              Center(
-                child: Text(
-                  'NEXT REWARD AVAILABLE IN 14:22:01',
-                  style: MimzTypography.caption.copyWith(
-                    color: MimzColors.textTertiary,
-                  ),
+                  ).animate(delay: 400.ms).fadeIn(duration: 400.ms),
                 ),
-              ),
               const SizedBox(height: MimzSpacing.xxl),
             ],
           ),
@@ -432,92 +391,57 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
       },
     );
   }
-}
 
-class _AvatarCircle extends StatelessWidget {
-  final double offset;
-  final Color color;
-  const _AvatarCircle({required this.offset, required this.color});
+  int _prestigeFromXp(int xp) {
+    if (xp >= 50000) return 10;
+    if (xp >= 30000) return 8;
+    if (xp >= 15000) return 6;
+    if (xp >= 8000) return 4;
+    if (xp >= 3000) return 2;
+    return 1;
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: offset,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.2),
-          shape: BoxShape.circle,
-          border: Border.all(color: MimzColors.white, width: 2),
-        ),
-        child: Icon(Icons.person, color: color, size: 16),
-      ),
+  _NextStructureInfo _getNextStructure(int currentCount) {
+    const structures = [
+      _NextStructureInfo('Library', 5, 500, false, 0),
+      _NextStructureInfo('Observatory', 10, 1500, false, 0),
+      _NextStructureInfo('Archive', 15, 3000, false, 0),
+      _NextStructureInfo('Park Pavilion', 20, 5000, false, 0),
+      _NextStructureInfo('Maker Hub', 30, 8000, false, 0),
+    ];
+
+    if (currentCount >= structures.length) {
+      return const _NextStructureInfo('All Structures Built', 0, 0, true, 1.0);
+    }
+
+    final next = structures[currentCount];
+    final user = ref.read(currentUserProvider).valueOrNull;
+    final userSectors = user?.sectors ?? 0;
+    final progress = (userSectors / next.requiredSectors).clamp(0.0, 1.0);
+    final unlocked = progress >= 1.0;
+
+    return _NextStructureInfo(
+      next.name,
+      next.requiredSectors,
+      next.requiredXp,
+      unlocked,
+      progress,
     );
   }
 }
 
-class _SmallAvatar extends StatelessWidget {
-  final double offset;
-  final Color color;
-  const _SmallAvatar({required this.offset, required this.color});
+class _NextStructureInfo {
+  final String name;
+  final int requiredSectors;
+  final int requiredXp;
+  final bool unlocked;
+  final double progress;
 
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: offset,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.3),
-          shape: BoxShape.circle,
-          border: Border.all(color: MimzColors.white, width: 1.5),
-        ),
-      ),
-    );
-  }
-}
+  const _NextStructureInfo(this.name, this.requiredSectors, this.requiredXp, this.unlocked, this.progress);
 
-class _TimerBox extends StatelessWidget {
-  final String value;
-  final String label;
-  final bool isActive;
-
-  const _TimerBox({
-    required this.value,
-    required this.label,
-    this.isActive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 52,
-          height: 44,
-          decoration: BoxDecoration(
-            color: MimzColors.surfaceLight,
-            borderRadius: BorderRadius.circular(MimzRadius.sm),
-            border: isActive
-                ? Border.all(color: MimzColors.persimmonHit, width: 1.5)
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              value,
-              style: MimzTypography.headlineLarge.copyWith(
-                color: isActive ? MimzColors.persimmonHit : MimzColors.deepInk,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: MimzTypography.caption),
-      ],
-    );
-  }
+  String get requirementText => unlocked
+      ? 'Ready to build!'
+      : 'Requires $requiredSectors sectors and ${requiredXp.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} XP';
 }
 
 class _StatChip extends StatelessWidget {
@@ -565,6 +489,28 @@ class _StatChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ResourceChip extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+
+  const _ResourceChip({required this.icon, required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: MimzColors.mossCore, size: 20),
+        const SizedBox(height: 4),
+        Text(value, style: MimzTypography.headlineSmall.copyWith(
+          color: MimzColors.mossCore, fontSize: 14,
+        )),
+        Text(label, style: MimzTypography.caption.copyWith(fontSize: 10)),
+      ],
     );
   }
 }

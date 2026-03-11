@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { mintEphemeralToken } from '../modules/live/liveService.js';
+import { mintEphemeralToken, isSessionValid } from '../modules/live/liveService.js';
 import { executeTool, type ToolContext } from '../modules/live/executeLiveTool.js';
 import { LiveSessionTokenRequestSchema, LiveToolExecutionRequestSchema } from '../models/types.js';
 import { randomUUID } from 'crypto';
@@ -20,7 +20,7 @@ export async function liveRoutes(server: FastifyInstance) {
     });
 
     server.log.info({ userId, sessionType }, 'Ephemeral token minted');
-    return { session: { token: session.token, model: session.model, expiresAt: session.expiresAt, tools: session.tools } };
+    return { session: { token: session.token, sessionId: session.sessionId, model: session.model, expiresAt: session.expiresAt, tools: session.tools } };
   });
 
   // ─── POST /live/tool-execute ─────────────────────
@@ -41,6 +41,14 @@ export async function liveRoutes(server: FastifyInstance) {
       sessionId,
       correlationId: correlationId || `corr_${randomUUID().substring(0, 8)}`,
     };
+
+    // Validate session is still active
+    if (sessionId && !isSessionValid(sessionId)) {
+      return reply.status(410).send({
+        success: false,
+        error: 'Session expired. Request a new ephemeral token.',
+      });
+    }
 
     server.log.info({ userId, toolName, sessionId, correlationId: ctx.correlationId }, 'Tool execution');
 

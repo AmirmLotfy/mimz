@@ -225,3 +225,42 @@ class MimzTheme {
         ),
       );
 }
+
+/// Elevation tokens
+class MimzElevation {
+  MimzElevation._();
+
+  static List<BoxShadow> get sm => [
+    BoxShadow(
+      color: MimzColors.deepInk.withValues(alpha: 0.04),
+      blurRadius: 4,
+      offset: const Offset(0, 1),
+    ),
+  ];
+
+  static List<BoxShadow> get md => [
+    BoxShadow(
+      color: MimzColors.deepInk.withValues(alpha: 0.06),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  static List<BoxShadow> get lg => [
+    BoxShadow(
+      color: MimzColors.deepInk.withValues(alpha: 0.08),
+      blurRadius: 16,
+      offset: const Offset(0, 4),
+    ),
+  ];
+}
+
+/// Motion duration tokens
+class MimzMotion {
+  MimzMotion._();
+
+  static const Duration fast = Duration(milliseconds: 200);
+  static const Duration normal = Duration(milliseconds: 300);
+  static const Duration slow = Duration(milliseconds: 500);
+  static const Duration dramatic = Duration(milliseconds: 800);
+}
