@@ -1,0 +1,520 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+
+import '../domain/live_connection_phase.dart';
+import '../domain/live_event.dart';
+import '../domain/live_session_config.dart';
+import '../domain/live_session_state.dart';
+import '../domain/live_tool_registry.dart';
+import '../data/live_websocket_client.dart';
+import '../data/live_token_client.dart';
+import '../data/live_tool_bridge_client.dart';
+import '../data/live_audio_capture_service.dart';
+import '../data/live_audio_playback_service.dart';
+import '../data/live_camera_stream_service.dart';
+import '../data/live_mock_adapter.dart';
+import 'live_turn_detector.dart';
+import 'live_reconnect_policy.dart';
+import 'live_permission_guard.dart';
+import 'live_session_logger.dart';
+
+/// High-level orchestrator for Gemini Live sessions.
+///
+/// Coordinates: permissions → token → WebSocket → mic → playback → camera →
+/// tool bridge → UI state. This is the single point of control for the
+/// live interaction stack.
+///
+/// The controller is feature-agnostic — use [LiveSessionConfig] presets
+/// for onboarding vs quiz vs vision quest behavior.
+class LiveSessionController {
+  final LiveWebSocketClient _ws;
+  final LiveTokenClient _tokenClient;
+  final LiveToolBridgeClient _toolBridge;
+  final AudioCaptureService _audioCapture;
+  final AudioPlaybackService _audioPlayback;
+  final LiveCameraStreamService _camera;
+  final LivePermissionGuard _permissions;
+  final LiveTurnDetector _turnDetector;
+  final LiveReconnectPolicy _reconnectPolicy;
+  final LiveSessionLogger _logger;
+  final LiveMockAdapter? _mockAdapter;
+
+  /// Feature flag: use mock adapter instead of real services.
+  final bool useMock;
+
+  // ─── Subscriptions ──────────────────────────────
+  StreamSubscription? _wsEventSub;
+  StreamSubscription? _audioCaptureSub;
+  StreamSubscription? _cameraFrameSub;
+  StreamSubscription? _playbackStateSub;
+  StreamSubscription? _turnSub;
+  StreamSubscription? _mockSub;
+
+  // ─── State ──────────────────────────────────────
+  LiveSessionState _state = const LiveSessionState();
+  final _stateController = StreamController<LiveSessionState>.broadcast();
+  Stream<LiveSessionState> get stateStream => _stateController.stream;
+  LiveSessionState get state => _state;
+
+  LiveSessionConfig? _activeConfig;
+
+  LiveSessionController({
+    required LiveWebSocketClient ws,
+    required LiveTokenClient tokenClient,
+    required LiveToolBridgeClient toolBridge,
+    required AudioCaptureService audioCapture,
+    required AudioPlaybackService audioPlayback,
+    required LiveCameraStreamService camera,
+    LivePermissionGuard? permissions,
+    LiveTurnDetector? turnDetector,
+    LiveReconnectPolicy? reconnectPolicy,
+    LiveSessionLogger? logger,
+    LiveMockAdapter? mockAdapter,
+    this.useMock = false,
+  })  : _ws = ws,
+        _tokenClient = tokenClient,
+        _toolBridge = toolBridge,
+        _audioCapture = audioCapture,
+        _audioPlayback = audioPlayback,
+        _camera = camera,
+        _permissions = permissions ?? LivePermissionGuard(),
+        _turnDetector = turnDetector ?? LiveTurnDetector(),
+        _reconnectPolicy = reconnectPolicy ?? LiveReconnectPolicy(),
+        _logger = logger ?? LiveSessionLogger(),
+        _mockAdapter = mockAdapter;
+
+  // ═══════════════════════════════════════════════════
+  // PUBLIC API
+  // ═══════════════════════════════════════════════════
+
+  /// Start an onboarding session.
+  Future<void> startOnboardingSession() => _startSession(LiveSessionConfig.onboarding);
+
+  /// Start a quiz session.
+  Future<void> startQuizSession() => _startSession(LiveSessionConfig.quiz);
+
+  /// Start a vision quest session.
+  Future<void> startVisionQuestSession() => _startSession(LiveSessionConfig.visionQuest);
+
+  /// Interrupt the model with user speech (barge-in).
+  Future<void> interruptWithUserSpeech() async {
+    if (!_state.phase.isActive) return;
+    _logger.log('barge_in_requested');
+
+    // Stop playback immediately
+    await _audioPlayback.stopImmediately();
+
+    // Resume mic capture
+    if (!_audioCapture.isCapturing) {
+      await _audioCapture.startCapture();
+    }
+
+    _emitState(_state.copyWith(
+      phase: LiveConnectionPhase.userSpeaking,
+      isPlaybackActive: false,
+      isMicActive: true,
+    ));
+  }
+
+  /// Send a text fallback message (for typed input).
+  void sendTextFallback(String text) {
+    if (!_state.phase.isActive) return;
+    _ws.sendText(text);
+    _emitState(_state.copyWith(userTranscript: text));
+  }
+
+  /// Request the model to repeat its last response.
+  void requestRepeat() => sendTextFallback('Can you repeat that?');
+
+  /// Request a hint from the model.
+  void requestHint() => sendTextFallback('Can I get a hint?');
+
+  /// Request difficulty change.
+  void requestDifficultyChange({bool harder = false}) {
+    sendTextFallback(harder ? 'Make it harder.' : 'Can you make it easier?');
+  }
+
+  /// Submit a camera frame for vision quest.
+  Future<void> attachCameraFrame() async {
+    if (_state.mode != LiveSessionMode.visionQuest) return;
+    final frame = await _camera.captureOneShot();
+    if (frame != null) {
+      _ws.sendImage(frame);
+      _logger.log('camera_frame_sent', metadata: {'bytes': frame.length});
+    }
+  }
+
+  /// End the session gracefully.
+  Future<void> endSession() async {
+    _logger.log('session_ending');
+    await _teardown();
+    _emitState(_state.copyWith(phase: LiveConnectionPhase.ended));
+  }
+
+  /// Dispose all resources.
+  void disposeSession() {
+    _teardown();
+    _stateController.close();
+    _turnDetector.dispose();
+    _logger.clear();
+  }
+
+  // ═══════════════════════════════════════════════════
+  // SESSION STARTUP
+  // ═══════════════════════════════════════════════════
+
+  Future<void> _startSession(LiveSessionConfig config) async {
+    _activeConfig = config;
+    _reconnectPolicy.reset();
+
+    _emitState(LiveSessionState(
+      mode: config.mode,
+      phase: LiveConnectionPhase.idle,
+    ));
+
+    // Use mock adapter in dev mode
+    if (useMock && _mockAdapter != null) {
+      return _startMockSession(config);
+    }
+
+    // 1. Check permissions
+    _emitState(_state.copyWith(phase: LiveConnectionPhase.idle));
+    final permError = await _permissions.checkPermissions(
+      needsMicrophone: config.enableAudioCapture,
+      needsCamera: config.enableCamera,
+      needsLocation: false,
+    );
+    if (permError != null) {
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.failed,
+        error: permError,
+      ));
+      return;
+    }
+
+    // 2. Fetch token
+    _emitState(_state.copyWith(phase: LiveConnectionPhase.fetchingToken));
+    _logger.log('fetching_token');
+
+    try {
+      final token = await _tokenClient.fetchToken(
+        sessionType: config.mode.name,
+      );
+
+      // 3. Connect WebSocket
+      _emitState(_state.copyWith(phase: LiveConnectionPhase.connecting));
+      _logger.log('connecting_ws');
+
+      _setupEventListeners();
+
+      await _ws.connect(
+        token: token.token,
+        model: token.model,
+        systemInstruction: config.systemInstruction,
+        voiceName: config.voiceName,
+        responseModalities: config.responseModalities,
+        tools: token.tools,
+      );
+
+      _ws.setInactivityTimeout(config.inactivityTimeout);
+
+    } on LiveError catch (e) {
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.failed,
+        error: e,
+      ));
+    } catch (e) {
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.failed,
+        error: LiveError(
+          code: LiveErrorCode.unknown,
+          message: 'Session startup failed',
+          detail: e.toString(),
+          recovery: LiveErrorRecovery.retry,
+        ),
+      ));
+    }
+  }
+
+  void _startMockSession(LiveSessionConfig config) {
+    _mockSub = _mockAdapter!.events.listen(_handleEvent);
+    if (config.mode == LiveSessionMode.quiz) {
+      _mockAdapter!.replayQuizSession();
+    } else {
+      _mockAdapter!.replayOnboardingSession();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // EVENT HANDLING
+  // ═══════════════════════════════════════════════════
+
+  void _setupEventListeners() {
+    _wsEventSub = _ws.events.listen(_handleEvent);
+
+    // Audio capture → WebSocket
+    _audioCaptureSub = _audioCapture.audioStream.listen((chunk) {
+      _ws.sendAudio(chunk);
+    });
+
+    // Camera frames → WebSocket (vision quest only)
+    _cameraFrameSub = _camera.frameStream.listen((frame) {
+      _ws.sendImage(frame);
+    });
+
+    // Playback state → turn detector
+    _playbackStateSub = _audioPlayback.playbackStateStream.listen((playing) {
+      _turnDetector.onPlaybackState(playing);
+      _emitState(_state.copyWith(isPlaybackActive: playing));
+    });
+
+    // Turn detector → state
+    _turnSub = _turnDetector.turnStream.listen((turn) {
+      switch (turn) {
+        case TurnState.userSpeaking:
+          _emitState(_state.copyWith(phase: LiveConnectionPhase.userSpeaking));
+        case TurnState.modelSpeaking:
+          _emitState(_state.copyWith(phase: LiveConnectionPhase.modelSpeaking));
+        case TurnState.idle:
+          if (_state.phase == LiveConnectionPhase.userSpeaking ||
+              _state.phase == LiveConnectionPhase.modelSpeaking) {
+            _emitState(_state.copyWith(phase: LiveConnectionPhase.connected));
+          }
+      }
+    });
+  }
+
+  void _handleEvent(LiveEvent event) {
+    _logger.logEvent(event);
+    _turnDetector.processEvent(event);
+
+    switch (event) {
+      case SessionStarted(sessionId: final id):
+        _onSessionStarted(id);
+      case SessionClosed():
+        _onSessionClosed();
+      case ModelTurnStarted():
+        _emitState(_state.copyWith(
+          phase: LiveConnectionPhase.modelSpeaking,
+          modelTranscript: '',
+          isModelTranscriptFinal: false,
+        ));
+      case ModelTurnEnded():
+        _emitState(_state.copyWith(
+          phase: LiveConnectionPhase.connected,
+          isModelTranscriptFinal: true,
+        ));
+      case TranscriptDelta(text: final t, isModel: final m):
+        if (m) {
+          _emitState(_state.copyWith(
+            modelTranscript: _state.modelTranscript + t,
+          ));
+        } else {
+          _emitState(_state.copyWith(userTranscript: t));
+        }
+      case TranscriptFinal(text: final t, isModel: final m):
+        if (m) {
+          _emitState(_state.copyWith(
+            modelTranscript: t,
+            isModelTranscriptFinal: true,
+          ));
+        } else {
+          _emitState(_state.copyWith(
+            userTranscript: t,
+            isUserTranscriptFinal: true,
+          ));
+        }
+      case AudioChunkReceived(data: final d, mimeType: final m):
+        _audioPlayback.enqueue(Uint8List.fromList(d), m);
+        _emitState(_state.copyWith(isPlaybackActive: true));
+      case ToolCallRequested():
+        _handleToolCall(event);
+      case ToolCallCompleted():
+        _emitState(_state.copyWith(clearToolCall: true));
+      case InterruptionDetected():
+        interruptWithUserSpeech();
+      case SessionError(error: final e):
+        _handleError(e);
+      case SessionWarning(message: final m):
+        _logger.log('warning', metadata: {'message': m});
+      default:
+        break;
+    }
+  }
+
+  void _onSessionStarted(String sessionId) {
+    _emitState(_state.copyWith(
+      phase: LiveConnectionPhase.connected,
+      sessionId: sessionId,
+      clearError: true,
+    ));
+
+    // Start mic capture
+    if (_activeConfig?.enableAudioCapture == true) {
+      _audioCapture.startCapture();
+      _emitState(_state.copyWith(isMicActive: true));
+    }
+
+    // Start camera if vision quest
+    if (_activeConfig?.enableCamera == true) {
+      _camera.initialize().then((_) {
+        _camera.startPeriodicCapture();
+        _emitState(_state.copyWith(isCameraActive: true));
+      });
+    }
+
+    _logger.log('session_ready', metadata: {'sessionId': sessionId});
+  }
+
+  void _onSessionClosed() {
+    _emitState(_state.copyWith(phase: LiveConnectionPhase.ended));
+  }
+
+  // ═══════════════════════════════════════════════════
+  // TOOL CALL HANDLING
+  // ═══════════════════════════════════════════════════
+
+  Future<void> _handleToolCall(ToolCallRequested call) async {
+    _emitState(_state.copyWith(
+      phase: LiveConnectionPhase.waitingForToolResult,
+      activeToolCallId: call.callId,
+      activeToolName: call.toolName,
+    ));
+
+    try {
+      final result = await _toolBridge.execute(
+        call,
+        sessionId: _state.sessionId ?? '',
+        correlationId: _state.correlationId,
+      );
+
+      // Send result back to Gemini
+      _ws.sendToolResponse(call.callId, call.toolName, result.data);
+
+      // Update state with backend-confirmed result
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.connected,
+        lastRewardPayload: result.data,
+        clearToolCall: true,
+      ));
+
+      _logger.log('tool_result_sent', metadata: {
+        'tool': call.toolName,
+        'success': result.success,
+      });
+    } catch (e) {
+      // Send error back to Gemini so it can respond gracefully
+      _ws.sendToolResponse(call.callId, call.toolName, {
+        'error': 'Tool execution failed',
+        'toolName': call.toolName,
+      });
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.connected,
+        clearToolCall: true,
+      ));
+    }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // ERROR + RECONNECT
+  // ═══════════════════════════════════════════════════
+
+  void _handleError(LiveError error) {
+    _logger.log('error', metadata: {
+      'code': error.code.name,
+      'recovery': error.recovery.name,
+    });
+
+    switch (error.recovery) {
+      case LiveErrorRecovery.reconnect:
+        _attemptReconnect();
+      case LiveErrorRecovery.refreshToken:
+        _tokenClient.invalidate();
+        _attemptReconnect();
+      case LiveErrorRecovery.retry:
+        _emitState(_state.copyWith(error: error));
+      case LiveErrorRecovery.openSettings:
+      case LiveErrorRecovery.fatal:
+        _emitState(_state.copyWith(
+          phase: LiveConnectionPhase.failed,
+          error: error,
+        ));
+    }
+  }
+
+  Future<void> _attemptReconnect() async {
+    if (!_reconnectPolicy.canRetry) {
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.failed,
+        error: const LiveError(
+          code: LiveErrorCode.wsConnectFailed,
+          message: 'Could not reconnect after multiple attempts',
+          recovery: LiveErrorRecovery.fatal,
+        ),
+      ));
+      return;
+    }
+
+    _reconnectPolicy.recordAttempt();
+    _emitState(_state.copyWith(
+      phase: LiveConnectionPhase.reconnecting,
+      reconnectAttempts: _reconnectPolicy.attempts,
+    ));
+
+    _logger.log('reconnecting', metadata: {
+      'attempt': _reconnectPolicy.attempts,
+      'delay': _reconnectPolicy.nextDelay.inMilliseconds,
+    });
+
+    // Wait with backoff
+    await Future.delayed(_reconnectPolicy.nextDelay);
+
+    // Invalidate token if needed
+    if (_reconnectPolicy.shouldRefreshToken) {
+      _tokenClient.invalidate();
+    }
+
+    // Teardown current connection and retry
+    await _teardown(keepState: true);
+    if (_activeConfig != null) {
+      await _startSession(_activeConfig!);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // TEARDOWN
+  // ═══════════════════════════════════════════════════
+
+  Future<void> _teardown({bool keepState = false}) async {
+    await _wsEventSub?.cancel();
+    await _audioCaptureSub?.cancel();
+    await _cameraFrameSub?.cancel();
+    await _playbackStateSub?.cancel();
+    await _turnSub?.cancel();
+    await _mockSub?.cancel();
+
+    await _audioCapture.stopCapture();
+    await _audioPlayback.stopImmediately();
+    _camera.stopPeriodicCapture();
+    await _ws.disconnect();
+    _mockAdapter?.stop();
+
+    if (!keepState) {
+      _emitState(_state.copyWith(
+        isMicActive: false,
+        isPlaybackActive: false,
+        isCameraActive: false,
+      ));
+    }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // STATE EMISSION
+  // ═══════════════════════════════════════════════════
+
+  void _emitState(LiveSessionState newState) {
+    _state = newState;
+    _stateController.add(newState);
+  }
+}

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&amp;family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#5E7442", // Moss Core as requested
+                        "accent": "#ec5b13",
+                        "background-light": "#F7F4ED", // Cloud Base as requested
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"],
+                        "serif": ["Fraunces", "serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>body {
+    font-family: "Public Sans", sans-serif;
+    background-color: #F7F4ED
+    }
+.grainy-bg {
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuDwVDAPWhsp_AVd7xAGgAklWjSD_CYU0KqT-dSrV_sysJgs7GY3neseSAHOcuk8ZqqFnm2cy7nWJvUsvFVHsMChxaUfLNjkcLK2OHGxgbc9yAtNkDo3zYIZF0Z5-yRtonJ0h4S2j6-51t9xLpF2_KmEa7kXcr7CkgmYo5gWa9wwqiPy9BItjwRminVz47eO3u3XVnFgsOBJhFLi_TNW7o54FjK7bES16J1EYT3N1R_drOvL7mH-CU10W0H8lVi9CtgQMLZMo6g8brIQ);
+    background-blend-mode: multiply
+    }</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Header -->
+<div class="flex items-center bg-background-light dark:bg-background-dark p-4 pb-2 justify-between sticky top-0 z-10">
+<div class="flex size-12 shrink-0 items-center justify-start text-slate-900 dark:text-slate-100">
+<span class="material-symbols-outlined cursor-pointer">arrow_back</span>
+</div>
+<h2 class="text-slate-900 dark:text-slate-100 text-sm font-bold leading-tight tracking-widest uppercase flex-1 text-center font-display">Vision Quest</h2>
+<div class="flex w-12 items-center justify-end text-slate-900 dark:text-slate-100">
+<button class="flex items-center justify-center p-0">
+<span class="material-symbols-outlined">share</span>
+</button>
+</div>
+</div>
+<!-- Hero Success Section -->
+<div class="flex flex-col items-center px-6 pt-10 pb-6 text-center">
+<div class="mb-4 inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary">
+<span class="material-symbols-outlined !text-4xl">verified</span>
+</div>
+<h1 class="text-slate-900 dark:text-white text-4xl font-bold leading-tight px-4 pb-2 font-serif">Discovery Verified</h1>
+<p class="text-slate-500 dark:text-slate-400 text-base max-w-xs">Your contribution to the district has been validated. The blueprint is now yours.</p>
+</div>
+<!-- Reward Card -->
+<div class="p-6 @container">
+<div class="flex flex-col items-stretch justify-start rounded-xl overflow-hidden shadow-2xl shadow-primary/10 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+<!-- Architectural Illustration -->
+<div class="w-full relative aspect-[4/3] bg-primary/5 grainy-bg flex items-center justify-center overflow-hidden">
+<div class="absolute inset-0 opacity-20 bg-gradient-to-tr from-primary to-transparent"></div>
+<img alt="High-fidelity architectural illustration of a solarium" class="object-cover w-full h-full mix-blend-multiply opacity-90" data-alt="Modern glass solarium wing architectural drawing" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfpiv1rkD5S1jXe9YXmkbC4eNUPNvZqK3wBr3HsnpxAdjLiUxyWyUz2zxJazSg1PIhuSuu-QvjR9atD7ICCTEhKG1mIg868Pd26SClbWuscIwGax7OWOLtXsNPHM_QgUJxf3xuR0vh2ZGVw1RL0wsiePs2DY9WdozLgdJeK43fV6lzzdsWT3uFwOZ3L2hlT3CoKecrWb27E4ZpaLGTGt3iiF7dYdNQYmBGrGLnZWcTUUaEAxOBsVSUiEaDGom5KVYGgKk9zJaXgRUp"/>
+<div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+<p class="text-[10px] font-bold uppercase tracking-widest text-primary">Master Blueprint</p>
+</div>
+</div>
+<div class="flex w-full flex-col p-6 gap-4">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-slate-900 dark:text-white text-2xl font-bold leading-tight font-serif">Solarium Wing</p>
+<p class="text-slate-500 dark:text-slate-400 text-sm italic">Tactile architectural reward</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-primary font-bold text-lg">+250</span>
+<span class="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Materials</span>
+</div>
+</div>
+<div class="h-px bg-slate-100 dark:bg-slate-700 w-full"></div>
+<div class="space-y-3">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">corporate_fare</span>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white text-sm font-bold">District Impact</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs">Prestige Level Up • Tier 3 Influence</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+<span class="material-symbols-outlined text-sm">energy_savings_leaf</span>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white text-sm font-bold">Sustainability Bonus</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs">+15% Passive Resource Gen</p>
+</div>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full flex cursor-pointer items-center justify-center overflow-hidden rounded-xl h-14 px-6 bg-primary text-white text-base font-bold transition-transform active:scale-95 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined mr-2">token</span>
+<span class="truncate">Place Structure</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Spacer -->
+<div class="h-20"></div>
+<!-- Navigation -->
+<div class="fixed bottom-0 left-0 right-0 z-50">
+<div class="flex gap-2 border-t border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-background-dark/90 backdrop-blur-md px-4 pb-6 pt-2">
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400 dark:text-slate-500" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">map</span>
+</div>
+<p class="text-[10px] font-bold uppercase tracking-widest">Explore</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400 dark:text-slate-500" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">domain</span>
+</div>
+<p class="text-[10px] font-bold uppercase tracking-widest">Build</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-primary" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined !fill-1">auto_awesome</span>
+</div>
+<p class="text-[10px] font-bold uppercase tracking-widest">Vision</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 text-slate-400 dark:text-slate-500" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined">person</span>
+</div>
+<p class="text-[10px] font-bold uppercase tracking-widest">Profile</p>
+</a>
+</div>
+</div>
+</div>
+</body></html>

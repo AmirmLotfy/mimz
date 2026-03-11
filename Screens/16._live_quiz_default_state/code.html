@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mimz Live Quiz - Default State</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;family=Instrument+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#F26A3D",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#23262B",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"],
+                        "instrument": ["Instrument Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>.waveform-bar {
+    width: 4px;
+    background-color: #F26A3D;
+    border-radius: 2px;
+    transition: height 0.3s ease
+    }
+.map-bg {
+    background-image: linear-gradient(to bottom, rgba(35, 38, 43, 0.8), rgba(35, 38, 43, 0.95)), url(https://lh3.googleusercontent.com/aida-public/AB6AXuDsxyPnxoT3mitO1dh3cYJk-7ZSsJK0CTyjf-9YaK0GPlksSrGEgu3hM3dKXTn-1G8cxnO4O3CRYZJL9oUeBmeXrW1R75VAvM57SMgDvGHGzIuXIu25mTAGotCYT1s0R7eNlJcc9erXx6owzoUZNQplV09gjAfzvE5w5JOFGX_pN4MSZM9C60sXtwM_2LsdB1e-jEE_BxDMEqX4dvNyCDn31B5fBui5_sRiTrKaVihGzyuRs6cIpaybSZZuv1BdwrcEzpf7AEosAU3x);
+    background-size: cover;
+    background-position: center
+    }</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 overflow-hidden h-screen flex flex-col">
+<!-- Top Navigation / Status Bar -->
+<header class="flex items-center justify-between p-4 z-20">
+<button class="flex items-center justify-center size-10 rounded-xl bg-slate-800/40 backdrop-blur-md text-slate-100 hover:bg-slate-800/60 transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20 border border-primary/30 backdrop-blur-md">
+<span class="flex size-2 rounded-full bg-primary animate-pulse"></span>
+<span class="text-primary text-xs font-bold tracking-widest uppercase">Live Round</span>
+</div>
+<button class="flex items-center justify-center size-10 rounded-xl bg-slate-800/40 backdrop-blur-md text-slate-100">
+<span class="material-symbols-outlined">group</span>
+</button>
+</header>
+<!-- Main Game Area -->
+<main class="flex-1 relative flex flex-col items-center justify-center px-6 overflow-hidden map-bg" data-alt="Dark immersive satellite map background of a city" data-location="New York City">
+<!-- Score and Combo Overlay (Top Corners) -->
+<div class="absolute top-4 left-6 flex flex-col">
+<span class="text-slate-400 text-[10px] font-bold tracking-widest uppercase">Current Score</span>
+<span class="text-3xl font-bold font-instrument text-slate-100">12,450</span>
+</div>
+<div class="absolute top-4 right-6 flex flex-col items-end">
+<span class="text-slate-400 text-[10px] font-bold tracking-widest uppercase">Streak</span>
+<span class="text-3xl font-bold font-instrument text-primary italic">8x</span>
+</div>
+<!-- Central Waveform Interaction Area -->
+<div class="flex flex-col items-center gap-12 w-full max-w-2xl">
+<!-- Waveform Animation Placeholder -->
+<div class="flex items-center justify-center gap-1.5 h-24">
+<div class="waveform-bar h-8"></div>
+<div class="waveform-bar h-12"></div>
+<div class="waveform-bar h-20"></div>
+<div class="waveform-bar h-24 bg-primary shadow-[0_0_20px_rgba(242,106,61,0.5)]"></div>
+<div class="waveform-bar h-16"></div>
+<div class="waveform-bar h-22"></div>
+<div class="waveform-bar h-10"></div>
+<div class="waveform-bar h-14"></div>
+</div>
+<!-- Question Text -->
+<div class="text-center space-y-4">
+<h1 class="text-2xl md:text-4xl font-instrument font-bold text-slate-100 leading-tight">
+                    Which architect designed the "Fallingwater" house in Pennsylvania?
+                </h1>
+<p class="text-slate-400 text-sm font-medium tracking-wide">LISTENING FOR YOUR ANSWER...</p>
+</div>
+<!-- Hint Button -->
+<button class="flex items-center gap-2 px-6 py-3 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold text-sm border border-slate-700/50 hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+                USE A HINT
+            </button>
+</div>
+<!-- Corner Minimap -->
+<div class="absolute bottom-24 right-6 size-32 rounded-xl border-2 border-slate-700/50 overflow-hidden shadow-2xl">
+<div class="w-full h-full bg-slate-900 relative" data-alt="Small zoomed in map view for navigation" data-location="Pennsylvania" style="">
+<div class="absolute inset-0 opacity-40 bg-[url('https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&amp;fit=crop&amp;q=80&amp;w=400')] bg-cover"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-4 bg-primary rounded-full border-2 border-white shadow-lg"></div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar (Custom Styled for Game State) -->
+<nav class="bg-background-dark/80 backdrop-blur-xl border-t border-slate-800/50 px-6 py-4 pb-8 flex items-center justify-between z-30">
+<!-- Mic/Camera Controls -->
+<div class="flex items-center gap-3">
+<button class="flex items-center justify-center size-12 rounded-full bg-primary text-white shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">mic</span>
+</button>
+<button class="flex items-center justify-center size-12 rounded-full bg-slate-800 text-slate-300">
+<span class="material-symbols-outlined">videocam</span>
+</button>
+</div>
+<!-- Main Nav Icons -->
+<div class="flex items-center gap-8">
+<a class="text-slate-500 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[28px]">explore</span>
+</a>
+<a class="text-primary" href="#">
+<span class="material-symbols-outlined text-[28px] fill-current">map</span>
+</a>
+<a class="text-slate-500 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[28px]">trophy</span>
+</a>
+<a class="text-slate-500 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[28px]">settings</span>
+</a>
+</div>
+<!-- Settings/Additional -->
+<div class="flex items-center gap-3">
+<button class="flex items-center justify-center size-12 rounded-xl bg-slate-800/40 text-slate-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+</nav>
+<!-- Map Interaction Controls (Floating) -->
+<div class="absolute bottom-32 left-6 flex flex-col gap-2 z-20">
+<button class="flex size-10 items-center justify-center rounded-t-xl bg-slate-800/80 backdrop-blur-md text-white border-b border-slate-700/50">
+<span class="material-symbols-outlined">add</span>
+</button>
+<button class="flex size-10 items-center justify-center rounded-b-xl bg-slate-800/80 backdrop-blur-md text-white">
+<span class="material-symbols-outlined">remove</span>
+</button>
+<button class="mt-2 flex size-10 items-center justify-center rounded-xl bg-slate-800/80 backdrop-blur-md text-primary shadow-xl">
+<span class="material-symbols-outlined">near_me</span>
+</button>
+</div>
+</body></html>

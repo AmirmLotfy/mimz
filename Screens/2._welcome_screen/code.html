@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&amp;family=Instrument+Sans:wght@400;600&amp;family=Public+Sans:wght@400;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "primary": "#5E7442", // Moss Core
+                "background-light": "#F7F4ED", // Cloud Base
+                "background-dark": "#221610",
+              },
+              fontFamily: {
+                "display": ["Instrument Sans", "sans-serif"],
+                "serif": ["Fraunces", "serif"]
+              },
+              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            },
+          },
+        }
+      </script>
+<style>
+        .map-overlay {
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Background Stylized Map Hint -->
+<div class="absolute inset-0 z-0 opacity-20 pointer-events-none map-overlay">
+<div class="w-full h-full bg-center bg-cover" data-alt="Stylized map showing neighborhood district boundaries" data-location="Paris, France" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAe0nsbHYlzdTUlYP_MYRchkzL0xbEt6MJiVqdLtK8EM9B2ZGPRzC3VnvOTFfqh3Kf0gq_CXBlteVW7SzpEpDeRsqKl4vw3-r7uHWQV2BoXviUjw1DERUjT7G-VoE2kFMIvJ8EtiC5spBMhnAWdOKjZ91Kng1kAf5Wu1ilVtuGCsMe2-0CrnNIt0TMZXHSY58a_WBBILuLq5sthfemd2v1vPV4xnlaPR7XUgCJz-_M-P3f2_i7VwBvngLnUXQnavu7j9Ck3R36j9F6T");'>
+</div>
+<!-- Decorative District Boundary Line Overlay -->
+<div class="absolute inset-0 border-[6px] border-primary/30 rounded-[100px] scale-150 rotate-12 -translate-y-1/4"></div>
+</div>
+<!-- Content Wrapper -->
+<div class="relative z-10 flex flex-col h-full">
+<!-- Top Nav / Logo Space -->
+<div class="flex items-center p-6 justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl">location_away</span>
+</div>
+<span class="font-serif font-bold text-2xl text-slate-900 dark:text-slate-100 tracking-tight">Mimz</span>
+</div>
+<button class="text-slate-600 dark:text-slate-400 font-semibold text-sm">Help</button>
+</div>
+<!-- Hero Section -->
+<div class="flex-grow flex flex-col justify-center px-8 max-w-2xl mx-auto text-center">
+<h1 class="font-serif text-[42px] md:text-[56px] font-bold leading-[1.1] text-slate-900 dark:text-slate-100 mb-6">
+                Where your story finds its place
+            </h1>
+<p class="text-slate-600 dark:text-slate-300 text-lg md:text-xl font-normal leading-relaxed mb-12">
+                Connect with your local community and discover the heartbeat of your neighborhood.
+            </p>
+</div>
+<!-- Action Buttons -->
+<div class="flex justify-center pb-12">
+<div class="flex flex-col gap-4 w-full max-w-sm px-8">
+<button class="flex items-center justify-center rounded-xl h-14 px-8 bg-primary text-white text-lg font-bold shadow-lg shadow-primary/20 hover:brightness-110 transition-all">
+<span>Sign up</span>
+</button>
+<button class="flex items-center justify-center rounded-xl h-14 px-8 border-2 border-primary/40 text-primary dark:text-primary text-lg font-bold hover:bg-primary/5 transition-all">
+<span>Log in</span>
+</button>
+</div>
+</div>
+<!-- Footer Accent -->
+<div class="flex justify-center pb-6">
+<div class="w-12 h-1 bg-primary/20 rounded-full"></div>
+</div>
+</div>
+<!-- Decorative Elements -->
+<div class="absolute bottom-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mb-32 -mr-32"></div>
+<div class="absolute top-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -mt-24 -ml-24"></div>
+</div>
+</body></html>

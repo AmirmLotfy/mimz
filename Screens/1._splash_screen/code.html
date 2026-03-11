@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#F7F4ED",
+                        "background-dark": "#151417",
+                        "deep-ink": "#151417",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .map-pulse {
+            position: relative;
+        }
+        .map-pulse::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle at center, rgba(236, 91, 19, 0.05) 0%, transparent 70%);
+            top: 0;
+            left: 0;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display overflow-hidden">
+<!-- Splash Screen Container -->
+<main class="relative flex min-h-screen w-full flex-col items-center justify-between p-8 md:p-12 overflow-hidden bg-background-light">
+<!-- Subtle Map Background Overlay -->
+<div class="absolute inset-0 z-0 opacity-40 pointer-events-none map-pulse" data-location="Global Metropolis Grid" style="">
+<div class="absolute inset-0 bg-[radial-gradient(#d1cfc9_1px,transparent_1px)] [background-size:40px_40px]"></div>
+</div>
+<!-- Spacer for centering -->
+<div></div>
+<!-- Premium Logo Moment -->
+<div class="relative z-10 flex flex-col items-center gap-6">
+<div class="relative">
+<!-- Abstract Premium Logo Shape -->
+<div class="w-24 h-24 bg-deep-ink dark:bg-slate-100 rounded-xl flex items-center justify-center shadow-2xl rotate-3 transform transition-transform">
+<span class="text-background-light dark:text-background-dark text-5xl font-bold tracking-tighter">M</span>
+</div>
+<!-- Subtle Accent Pulse -->
+<div class="absolute -top-1 -right-1 flex h-4 w-4">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-4 w-4 bg-primary"></span>
+</div>
+</div>
+<h1 class="text-deep-ink dark:text-slate-100 text-5xl font-bold tracking-tight mt-4">Mimz</h1>
+</div>
+<!-- Footer / Tagline -->
+<div class="relative z-10 flex flex-col items-center w-full max-w-md">
+<!-- Component: HeaderImage simplified for Splash -->
+<div class="w-full text-center space-y-6">
+<h3 class="text-deep-ink dark:text-slate-200 tracking-tight text-xl font-medium leading-tight px-4 opacity-80">
+                    Learn live. Build your district.
+                </h3>
+<!-- Progress/Status Indicators from component inspiration -->
+<div class="flex w-full flex-row items-center justify-center gap-3 py-2">
+<div class="h-1.5 w-12 rounded-full bg-primary"></div>
+<div class="h-1.5 w-4 rounded-full bg-deep-ink/10 dark:bg-slate-700"></div>
+<div class="h-1.5 w-4 rounded-full bg-deep-ink/10 dark:bg-slate-700"></div>
+</div>
+</div>
+<!-- Subtle Versioning or Branding Mark -->
+<div class="mt-12 flex items-center gap-2 text-deep-ink/40 dark:text-slate-500 uppercase tracking-widest text-[10px] font-bold">
+<span class="material-symbols-outlined text-sm">verified</span>
+                Premium Editorial Experience
+            </div>
+</div>
+</main>
+<!-- Background texture simulation using a hidden image reference for context -->
+<div class="hidden">
+<img data-alt="Subtle geometric grid pattern background texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaTGeVdfDBAZAY8U8u_yCMfHJdGqHfKHHwuPjtBKJSj_ZVw5Fwn8GLz9KX_6hQVMVf10XRL51TY7tAm1f_7ZUeaThDeXGraPyp3WZo4_otGkwfno3XfkqG-xfOaneUaFDB6pvwd5VIhVubUgOXq4Y8cd3Tvi167glVPiXx2Cj5MX0aE15GonjmHqUEypqBnDRcBTeGiCvzobZb6YHppe8wE4oUTjAITnmy5A_MRiGuuk7Ts8VpB4DhALf5U9lQtvnk1FRJ8gdW8_ZA"/>
+</div>
+</body></html>

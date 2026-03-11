@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mimz App - Vision Quest Camera</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#C8F169", // Acid Lime Pop
+                        "secondary": "#5E7442", // Moss Core
+                        "background-dark": "#151417", // Deep Ink
+                        "background-light": "#f8f6f6",
+                    },
+                    fontFamily: {
+                        "display": ["Instrument Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .framing-guide {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-color: rgba(255, 255, 255, 0.7);
+            border-style: solid;
+        }
+        .top-left { top: 10%; left: 10%; border-width: 2px 0 0 2px; }
+        .top-right { top: 10%; right: 10%; border-width: 2px 2px 0 0; }
+        .bottom-left { bottom: 20%; left: 10%; border-width: 0 0 2px 2px; }
+        .bottom-right { bottom: 20%; right: 10%; border-width: 0 2px 2px 0; }
+        .crosshair-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+        }
+        .crosshair-center::before, .crosshair-center::after {
+            content: '';
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+        .crosshair-center::before { top: 50%; left: -10px; right: -10px; height: 1px; transform: translateY(-50%); }
+        .crosshair-center::after { left: 50%; top: -10px; bottom: -10px; width: 1px; transform: translateX(-50%); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display text-slate-100 overflow-hidden select-none">
+<div class="relative flex h-screen w-full flex-col group/design-root">
+<!-- Full-bleed camera viewfinder background -->
+<div class="absolute inset-0 z-0 bg-center bg-no-repeat bg-cover" data-alt="Modern architectural detail concrete stairs" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAcb8vicZ-cEuwhLRrmMDA7CvZUzcWj6pyQVUA5bb53JlNS3YdMfXErt7SK-3Myh7fU9XKGTvaSLUJFr8-wN88QnGdQYXLDP3CI0uqilACL03TUM_RVfML42i1V8tFMu7Pfat4SbC8r5opX02SWdKpn2VPOw2iWC9PtJA_yd6LBVLnOiGKNoRuMpIJ-LzEtPKD5t4MgpEIpGG0xUv7nMrkErVA8jAtbt1qKyr1TXkL9n0SDkgxySS2qiJTMfk898Nct9-nHIE0-_9Po");'></div>
+<!-- Framing Guides -->
+<div class="z-10 pointer-events-none">
+<div class="framing-guide top-left"></div>
+<div class="framing-guide top-right"></div>
+<div class="framing-guide bottom-left"></div>
+<div class="framing-guide bottom-right"></div>
+<div class="crosshair-center"></div>
+</div>
+<!-- Top Mission Banner -->
+<div class="z-20 flex items-center p-4 justify-between bg-gradient-to-b from-background-dark/90 to-transparent pt-8 pb-12">
+<button class="flex size-12 shrink-0 items-center justify-center text-slate-100 hover:text-primary transition-colors backdrop-blur-md bg-background-dark/40 rounded-full">
+<span class="material-symbols-outlined text-2xl">close</span>
+</button>
+<div class="flex-1 text-center px-4">
+<div class="inline-flex items-center gap-2 bg-secondary/80 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-lg border border-secondary/50">
+<span class="material-symbols-outlined text-sm text-primary">target</span>
+<h2 class="text-slate-100 text-sm font-semibold tracking-wide uppercase">Vision Quest</h2>
+</div>
+</div>
+<div class="flex w-12 items-center justify-end">
+<button class="flex items-center gap-1 text-primary text-sm font-bold tracking-widest uppercase hover:opacity-80 transition-opacity drop-shadow-md">
+<span class="material-symbols-outlined text-lg">lightbulb</span>
+</button>
+</div>
+</div>
+<!-- Spacer for viewfinder -->
+<div class="flex-1 z-10"></div>
+<!-- Bottom Controls -->
+<div class="z-20 flex flex-col items-center justify-end pb-10 pt-16 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent">
+<!-- Mission Objective Text -->
+<div class="mb-8 text-center px-6">
+<p class="text-sm font-medium text-slate-300 uppercase tracking-[0.2em] mb-2">Current Target</p>
+<p class="text-2xl font-bold text-white drop-shadow-lg">Capture the concrete brutalist angle.</p>
+</div>
+<div class="flex w-full max-w-sm items-center justify-between px-8">
+<!-- Gallery/Images Button -->
+<button class="flex shrink-0 items-center justify-center rounded-full size-12 bg-background-dark/60 backdrop-blur-md text-slate-100 border border-white/10 hover:bg-white/20 transition-all">
+<span class="material-symbols-outlined">photo_library</span>
+</button>
+<!-- Central Shutter Button -->
+<button class="relative flex shrink-0 items-center justify-center rounded-full size-20 bg-transparent group">
+<div class="absolute inset-0 rounded-full border-[3px] border-primary opacity-80 group-hover:scale-105 transition-transform duration-300"></div>
+<div class="size-16 rounded-full bg-white group-active:scale-95 transition-transform duration-150 shadow-[0_0_20px_rgba(200,241,105,0.4)]"></div>
+</button>
+<!-- Flash/Settings Button -->
+<button class="flex shrink-0 items-center justify-center rounded-full size-12 bg-background-dark/60 backdrop-blur-md text-slate-100 border border-white/10 hover:bg-white/20 transition-all">
+<span class="material-symbols-outlined">flash_auto</span>
+</button>
+</div>
+<!-- Safe Area Spacer -->
+<div class="h-6"></div>
+</div>
+</div>
+</body></html>

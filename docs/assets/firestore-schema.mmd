@@ -1,0 +1,62 @@
+erDiagram
+    users {
+        string id PK
+        string displayName
+        int xp
+        int streak
+        int sectors
+        string districtId FK
+    }
+
+    districts {
+        string id PK
+        string ownerId FK
+        int sectors
+        json structures
+        json resources
+    }
+
+    liveSessions {
+        string id PK
+        string userId FK
+        string topic
+        int totalScore
+        string status
+    }
+
+    rewards {
+        string id PK
+        string userId FK
+        string type
+        int amount
+        string source
+    }
+
+    squads {
+        string id PK
+        string joinCode
+        string leaderId FK
+        int memberCount
+    }
+
+    events {
+        string id PK
+        string title
+        string status
+        int participantCount
+    }
+
+    auditLogs {
+        string id PK
+        string userId FK
+        string action
+        string toolName
+        string correlationId
+    }
+
+    users ||--|| districts : owns
+    users ||--o{ liveSessions : plays
+    users ||--o{ rewards : earns
+    users }o--o{ squads : joins
+    users }o--o{ events : participates
+    liveSessions ||--o{ auditLogs : generates

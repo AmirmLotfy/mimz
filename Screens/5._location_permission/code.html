@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#5E7442",
+                        "mist-blue": "#7DB9D8",
+                        "cloud-base": "#F7F4ED",
+                        "background-light": "#F7F4ED",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .map-gradient {
+            background: linear-gradient(180deg, rgba(247, 244, 237, 0) 0%, rgba(247, 244, 237, 1) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top Navigation -->
+<div class="flex items-center p-4 pb-2 justify-between">
+<div class="text-slate-900 dark:text-slate-100 flex size-12 shrink-0 items-center cursor-pointer">
+<span class="material-symbols-outlined text-3xl">arrow_back</span>
+</div>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Location Access</h2>
+</div>
+<!-- Stylized Map Preview -->
+<div class="@container">
+<div class="@[480px]:px-6 @[480px]:py-4 relative">
+<div class="w-full bg-center bg-no-repeat bg-cover flex flex-col justify-end overflow-hidden @[480px]:rounded-3xl min-h-[360px] relative shadow-inner" data-alt="Soft stylized cartography map with pastel colors" data-location="San Francisco" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCoysl__h3Lb9qpdZX_6CfZTfKpBiZFxMT5aQ_uYWhZWU5EqWijwVXXVd0G78XYJtbNsifrrhxXozQ7KaKMxU8UiAPEF051UyJvhPHUF-r30mYcCCbEklvdL5wp_qfcsK66PGvVZ7zcNSBtxrZygqAHN0wSe7bzkI5jJqWcHSnNBHORsFrlYmhkuBnYOUdsQLcrYMm7zVr8rV8mT36IOOSS0aNZ4Sfs8R5wraR8e_vTwZ59IL1_cd2z6ru73F_v0GiGWgohK5eV-2ND");'>
+<!-- Soft Mist Overlay -->
+<div class="absolute inset-0 bg-mist-blue/20 pointer-events-none"></div>
+<!-- District Spawning Effect -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="relative">
+<div class="absolute -inset-8 bg-primary/20 rounded-full blur-2xl"></div>
+<div class="relative bg-white/80 dark:bg-background-dark/80 backdrop-blur-md p-6 rounded-2xl border border-primary/20 shadow-xl flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-5xl mb-2">location_on</span>
+<div class="h-1 w-24 bg-primary/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-2/3"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Fade -->
+<div class="absolute bottom-0 left-0 right-0 h-32 map-gradient"></div>
+</div>
+</div>
+</div>
+<!-- Content Section -->
+<div class="px-6 flex flex-col items-center max-w-2xl mx-auto">
+<h1 class="text-slate-900 dark:text-slate-100 tracking-tight text-[32px] font-extrabold leading-tight text-center pb-4 pt-8">
+                Discover Your District
+            </h1>
+<p class="text-slate-600 dark:text-slate-300 text-base font-medium leading-relaxed pb-8 text-center max-w-sm">
+                To begin your journey in <span class="text-primary font-bold">Mimz</span>, we need your coordinates. This allows us to spawn your unique local district and connect you with nearby spirits.
+            </p>
+<!-- Feature Icons -->
+<div class="grid grid-cols-2 gap-4 w-full mb-10">
+<div class="flex flex-col items-center p-4 bg-white dark:bg-slate-800/50 rounded-2xl shadow-sm border border-primary/5">
+<div class="w-12 h-12 rounded-full bg-mist-blue/20 flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-mist-blue">explore</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-slate-400">Spawn</span>
+<span class="text-sm font-semibold">Local Realm</span>
+</div>
+<div class="flex flex-col items-center p-4 bg-white dark:bg-slate-800/50 rounded-2xl shadow-sm border border-primary/5">
+<div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-primary">groups</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-slate-400">Connect</span>
+<span class="text-sm font-semibold">Nearby Spirits</span>
+</div>
+</div>
+<!-- CTA Section -->
+<div class="w-full space-y-4 pb-12">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 px-8 rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
+<span class="material-symbols-outlined">near_me</span>
+                    Allow Location Access
+                </button>
+<button class="w-full bg-transparent hover:bg-slate-200/50 text-slate-500 dark:text-slate-400 font-bold py-4 px-8 rounded-2xl transition-all">
+                    Maybe Later
+                </button>
+</div>
+<!-- Privacy Note -->
+<div class="flex items-center gap-2 pb-8">
+<span class="material-symbols-outlined text-slate-400 text-sm">shield</span>
+<p class="text-[11px] text-slate-400 uppercase tracking-widest font-bold">Your privacy is protected by Mimz protocols</p>
+</div>
+</div>
+</div>
+</body></html>

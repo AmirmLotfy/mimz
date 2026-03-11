@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mimz - Sign Up</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#F7F4ED",
+                        "background-dark": "#151417",
+                        "ink": "#151417",
+                        "cloud": "#F7F4ED",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-ink dark:text-cloud antialiased">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top Navigation -->
+<div class="flex items-center p-6 justify-between">
+<button class="flex size-10 shrink-0 items-center justify-center rounded-full bg-ink/5 dark:bg-cloud/10 hover:bg-ink/10 transition-colors">
+<span class="material-symbols-outlined text-ink dark:text-cloud">arrow_back</span>
+</button>
+<div class="text-sm font-medium tracking-tight text-ink/40 dark:text-cloud/40 uppercase">Step 1 of 3</div>
+</div>
+<!-- Hero Content -->
+<div class="flex flex-col px-6 pt-12 pb-8">
+<div class="mb-6 h-16 w-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white text-4xl font-bold">blur_on</span>
+</div>
+<h1 class="text-ink dark:text-cloud tracking-tight text-4xl font-bold leading-[1.1] mb-4 max-w-[280px]">
+            Create your Mimz account
+        </h1>
+<p class="text-ink/60 dark:text-cloud/60 text-lg font-normal leading-relaxed max-w-[320px]">
+            Join our community of creators and thinkers. Organize your mind in one place.
+        </p>
+</div>
+<!-- Auth Options -->
+<div class="flex flex-col flex-1 px-6 justify-end pb-12">
+<div class="flex flex-col gap-3 w-full max-w-md mx-auto">
+<!-- Apple Auth -->
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center gap-3 rounded-2xl h-14 px-5 bg-ink text-cloud dark:bg-cloud dark:text-ink text-base font-semibold transition-transform active:scale-[0.98]">
+<span class="material-symbols-outlined !text-[20px]">ios</span>
+<span>Continue with Apple</span>
+</button>
+<!-- Google Auth -->
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center gap-3 rounded-2xl h-14 px-5 bg-white border border-ink/10 text-ink text-base font-semibold shadow-sm transition-transform active:scale-[0.98]">
+<img alt="" class="w-5 h-5" data-alt="Google logo icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJNF6fFzt-6_HQfcF_FMfbVI2uv-GrwZFC5VOGp9cKsD8O2j5vSZpnfYAz-0c3mGssUq3WjWqXiMyZ-Bs_YxxPDSDuqmQNM6GpRmPxKM9thRVXl7HbvRLGQBABvVlLx_O-Yz4wTjvRwYhbr28nig2qUfPvNhFbtkuaKlr9WULRg4oSz0d0KfkpT6qZUlGwrjx_1tTYYO1ULDb4h8Yl1NPSnIZt_2oa01OuGsdBEN-Hw6XTLLXyoM-c0tah2itY3HfnHf9NG2aOlLyp"/>
+<span>Continue with Google</span>
+</button>
+<!-- Divider -->
+<div class="flex items-center gap-4 py-4">
+<div class="h-[1px] flex-1 bg-ink/10 dark:bg-cloud/10"></div>
+<span class="text-xs font-bold text-ink/30 dark:text-cloud/30 uppercase tracking-widest">or</span>
+<div class="h-[1px] flex-1 bg-ink/10 dark:bg-cloud/10"></div>
+</div>
+<!-- Email Auth -->
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center rounded-2xl h-14 px-5 bg-primary text-white text-base font-semibold shadow-lg shadow-primary/25 transition-transform active:scale-[0.98]">
+<span>Sign up with Email</span>
+</button>
+<!-- Login Link -->
+<div class="mt-6 text-center">
+<p class="text-ink/50 dark:text-cloud/50 text-sm font-medium">
+                    Already have an account? 
+                    <a class="text-primary font-bold ml-1 hover:underline" href="#">Log in</a>
+</p>
+</div>
+</div>
+</div>
+<!-- Terms and Privacy -->
+<div class="px-8 pb-8">
+<p class="text-[11px] text-center text-ink/30 dark:text-cloud/30 leading-relaxed uppercase tracking-wider font-medium">
+            By continuing, you agree to our 
+            <a class="underline" href="#">Terms of Service</a> &amp; 
+            <a class="underline" href="#">Privacy Policy</a>
+</p>
+</div>
+<!-- Decorative Element -->
+<div class="absolute -top-20 -right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+<div class="absolute bottom-20 -left-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+</div>
+</body></html>

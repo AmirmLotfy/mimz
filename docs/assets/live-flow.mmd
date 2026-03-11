@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant App as Flutter App
+    participant BE as Cloud Run Backend
+    participant GM as Gemini Live API
+
+    App->>BE: POST /live/ephemeral-token
+    BE-->>App: { token, model, tools }
+    App->>GM: WebSocket connect
+    App->>GM: setup { model, persona, tools }
+    GM-->>App: setupComplete
+
+    loop Voice Interaction
+        App->>GM: realtimeInput { audio }
+        GM-->>App: serverContent { audio }
+        GM-->>App: toolCall { name, args }
+        App->>BE: POST /live/tool-execute
+        BE->>BE: Validate + Execute + Persist
+        BE-->>App: { success, data }
+        App->>GM: toolResponse { result }
+    end
+
+    App->>GM: close

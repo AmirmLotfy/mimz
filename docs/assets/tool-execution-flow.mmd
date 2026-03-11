@@ -1,0 +1,8 @@
+flowchart LR
+    A["Tool call from<br>Gemini"] --> B["1. Known tool?<br>KNOWN_TOOLS check"]
+    B --> C["2. Valid args?<br>Zod schema parse"]
+    C --> D["3. User context<br>Auth middleware"]
+    D --> E["4. Business rules<br>Caps, requirements"]
+    E --> F["5. Firestore<br>Atomic mutations"]
+    F --> G["6. Reward log<br>Anti-abuse cap"]
+    G --> H["7. Audit entry<br>Correlation ID"]

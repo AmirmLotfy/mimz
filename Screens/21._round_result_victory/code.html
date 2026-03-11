@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;family=Playfair+Display:ital,wght@0,700;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13", // Moss Core (Adjusted to theme primary)
+                        "background-light": "#f8f6f6", // Cloud Base
+                        "background-dark": "#221610", // Deep Ink
+                        "accent-lime": "#d4f54c", // Acid Lime Pop
+                        "dusty-gold": "#c5a368", // Dusty Gold
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"],
+                        "serif": ["Playfair Display", "serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .map-grid {
+            background-image: radial-gradient(circle, #00000011 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full max-w-md mx-auto flex-col overflow-x-hidden border-x border-slate-200 dark:border-slate-800 shadow-2xl">
+<!-- Header -->
+<div class="flex items-center p-4 pb-2 justify-between">
+<div class="text-slate-900 dark:text-slate-100 flex size-12 shrink-0 items-center cursor-pointer">
+<span class="material-symbols-outlined">close</span>
+</div>
+<h2 class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-[0.2em] flex-1 text-center pr-12">Mimz OS // Session</h2>
+</div>
+<!-- Victory Headline -->
+<div class="px-6 py-8 text-center">
+<h1 class="font-serif italic text-6xl md:text-7xl text-primary leading-tight lowercase tracking-tighter">Victory</h1>
+<p class="text-slate-900 dark:text-slate-100 text-xl font-bold tracking-tight mt-[-10px]">District Expanded</p>
+</div>
+<!-- Score Display -->
+<div class="px-6 pb-6">
+<div class="flex flex-col items-center justify-center gap-1 rounded-xl py-10 border-2 border-slate-900 dark:border-slate-100 bg-white dark:bg-slate-900/50 shadow-[8px_8px_0px_0px_rgba(236,91,19,1)]">
+<p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest">Total Score</p>
+<p class="text-slate-900 dark:text-slate-100 tracking-tighter text-6xl font-black">2,450<span class="text-primary text-2xl ml-1">XP</span></p>
+<!-- Combo Multiplier Badge -->
+<div class="mt-4 flex h-8 items-center justify-center gap-x-2 rounded-full bg-accent-lime px-4 py-1 shadow-sm">
+<span class="material-symbols-outlined text-slate-900 text-sm">bolt</span>
+<p class="text-slate-900 text-xs font-black uppercase tracking-tight">5x Streak Multiplier</p>
+</div>
+</div>
+</div>
+<!-- Map Snippet Visual -->
+<div class="px-6 py-4">
+<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 map-grid">
+<div class="absolute inset-0 opacity-40 mix-blend-multiply dark:mix-blend-overlay" data-alt="Monochrome architectural site plan sketch" data-location="Metropolis Central" style="background-image: url('https://placeholder.pics/svg/300');"></div>
+<!-- Expanded Land Highlight -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-primary/20 border-2 border-primary rounded-lg rotate-12 flex items-center justify-center">
+<div class="w-full h-full bg-primary/10 animate-pulse"></div>
+<span class="absolute -top-3 -right-3 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded">NEW SECTOR</span>
+</div>
+<!-- Cartographic Motif Overlays -->
+<div class="absolute top-4 left-4 border-l border-t border-slate-900 dark:border-white w-8 h-8 opacity-50"></div>
+<div class="absolute bottom-4 right-4 border-r border-b border-slate-900 dark:border-white w-8 h-8 opacity-50"></div>
+<div class="absolute bottom-4 left-4 text-[8px] font-mono text-slate-400 uppercase tracking-tighter">Coord: 40.7128° N, 74.0060° W</div>
+</div>
+<p class="text-center text-[10px] text-slate-400 uppercase tracking-widest mt-2 font-bold">Territory Growth: Sector 09 Active</p>
+</div>
+<!-- Materials Earned -->
+<div class="px-6 py-4 flex flex-col gap-3">
+<h3 class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Resources Harvested</h3>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex items-center gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+<div class="w-2 h-8 bg-dusty-gold rounded-full"></div>
+<div>
+<p class="text-dusty-gold text-lg font-black tracking-tighter">+150</p>
+<p class="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase">Stone</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+<div class="w-2 h-8 bg-dusty-gold rounded-full"></div>
+<div>
+<p class="text-dusty-gold text-lg font-black tracking-tighter">+40</p>
+<p class="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase">Glass</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="mt-auto p-6 space-y-3">
+<button class="w-full bg-primary text-white font-black uppercase tracking-widest py-5 rounded-xl text-sm shadow-lg active:translate-y-0.5 transition-transform">
+                Claim Rewards
+            </button>
+<button class="w-full bg-transparent border-2 border-slate-900 dark:border-slate-100 text-slate-900 dark:text-slate-100 font-black uppercase tracking-widest py-4 rounded-xl text-xs hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-colors">
+                View Map
+            </button>
+</div>
+<div class="h-6"></div>
+</div>
+</body></html>

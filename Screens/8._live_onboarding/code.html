@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                        "persimmon": "#F26A3D",
+                        "map-shadow": "#23262B"
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .map-overlay {
+            background: radial-gradient(circle at center, transparent 0%, #221610 85%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display overflow-hidden">
+<div class="relative flex h-screen w-full flex-col overflow-hidden bg-map-shadow dark:bg-background-dark">
+<div class="absolute inset-0 z-0 opacity-40 grayscale" data-alt="Dark minimalist city map background" data-location="San Francisco" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCoysl__h3Lb9qpdZX_6CfZTfKpBiZFxMT5aQ_uYWhZWU5EqWijwVXXVd0G78XYJtbNsifrrhxXozQ7KaKMxU8UiAPEF051UyJvhPHUF-r30mYcCCbEklvdL5wp_qfcsK66PGvVZ7zcNSBtxrZygqAHN0wSe7bzkI5jJqWcHSnNBHORsFrlYmhkuBnYOUdsQLcrYMm7zVr8rV8mT36IOOSS0aNZ4Sfs8R5wraR8e_vTwZ59IL1_cd2z6ru73F_v0GiGWgohK5eV-2ND"); background-size: cover;'>
+</div>
+<div class="absolute inset-0 z-10 map-overlay"></div>
+<div class="relative z-20 flex flex-col h-full">
+<header class="flex items-center justify-between p-6">
+<button class="flex size-10 items-center justify-center rounded-full bg-background-dark/20 backdrop-blur-md text-slate-100 border border-slate-100/10">
+<span class="material-symbols-outlined">close</span>
+</button>
+<div class="flex flex-col items-center">
+<span class="text-xs font-bold tracking-[0.2em] text-primary uppercase">Mimz Live</span>
+<div class="flex items-center gap-2 mt-1">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="text-slate-100 text-sm font-medium">Listening...</span>
+</div>
+</div>
+<button class="flex size-10 items-center justify-center rounded-full bg-background-dark/20 backdrop-blur-md text-slate-100 border border-slate-100/10">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</header>
+<main class="flex flex-1 flex-col items-center justify-center px-8 text-center">
+<div class="mb-12">
+<h1 class="text-slate-100 text-4xl font-bold leading-tight tracking-tight mb-4">
+                        "What's the best coffee near me?"
+                    </h1>
+<p class="text-slate-400 text-lg">Speak naturally, Mimz is here to help.</p>
+</div>
+<div class="w-full max-w-md h-40 flex items-center justify-center">
+<svg fill="none" height="120" preserveaspectratio="none" viewbox="0 0 400 120" width="100%" xmlns="http://www.w3.org/2000/svg">
+<path class="opacity-90" d="M0 60C20 60 20 20 40 20C60 20 60 40 80 40C100 40 100 90 120 90C140 90 140 30 160 30C180 30 180 100 200 100C220 100 220 60 240 60C260 60 260 45 280 45C300 45 300 110 320 110C340 110 340 10 360 10C380 10 380 80 400 80" stroke="#F26A3D" stroke-linecap="round" stroke-width="4">
+</path>
+<path d="M0 60C20 60 20 30 40 30C60 30 60 50 80 50C100 50 100 80 120 80C140 80 140 40 160 40C180 40 180 90 200 90C220 90 220 70 240 70C260 70 260 55 280 55C300 55 300 100 320 100C340 100 340 20 360 20C380 20 380 70 400 70" stroke="#F26A3D" stroke-linecap="round" stroke-opacity="0.4" stroke-width="2">
+</path>
+<defs>
+<filter id="glow">
+<fegaussianblur result="coloredBlur" stddeviation="3"></fegaussianblur>
+<femerge>
+<femergenode in="coloredBlur"></femergenode>
+<femergenode in="SourceGraphic"></femergenode>
+</femerge>
+</filter>
+</defs>
+</svg>
+</div>
+</main>
+<footer class="p-8 pb-12">
+<div class="flex flex-col items-center gap-8">
+<div class="flex items-center gap-6">
+<button class="flex size-14 items-center justify-center rounded-full bg-slate-800/40 backdrop-blur-lg text-slate-100 border border-slate-100/10">
+<span class="material-symbols-outlined text-2xl">mic_off</span>
+</button>
+<button class="flex size-24 items-center justify-center rounded-full bg-primary shadow-2xl shadow-primary/40 ring-8 ring-primary/20">
+<span class="material-symbols-outlined text-4xl text-white">pause</span>
+</button>
+<button class="flex size-14 items-center justify-center rounded-full bg-slate-800/40 backdrop-blur-lg text-slate-100 border border-slate-100/10">
+<span class="material-symbols-outlined text-2xl">volume_up</span>
+</button>
+</div>
+<div class="w-full max-w-xs flex items-center justify-between px-4 py-3 rounded-2xl bg-slate-800/40 backdrop-blur-md border border-slate-100/10">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-lg bg-persimmon/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-persimmon text-lg">map</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-slate-400 font-medium">CURRENTLY SEARCHING</span>
+<span class="text-sm text-slate-100 font-bold">Downtown Coffee Shops</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+</div>
+</div>
+</footer>
+</div>
+<nav class="absolute bottom-0 left-0 right-0 z-30 flex border-t border-slate-100/5 bg-background-dark/80 backdrop-blur-xl px-4 pb-6 pt-3">
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">home</span>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">explore</span>
+</a>
+<div class="flex flex-1 flex-col items-center justify-center">
+<div class="flex size-12 items-center justify-center rounded-full bg-primary text-white shadow-lg">
+<span class="material-symbols-outlined">graphic_eq</span>
+</div>
+</div>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">chat_bubble</span>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">person</span>
+</a>
+</nav>
+</div>
+</body></html>

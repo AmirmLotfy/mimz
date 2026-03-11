@@ -1,0 +1,71 @@
+name: mimz_app
+description: "Mimz — Learn live. Build your district."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Routing
+  go_router: ^15.1.2
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Serialization
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # Networking
+  dio: ^5.7.0
+  web_socket_channel: ^3.0.2
+
+  # Firebase
+  firebase_core: ^3.12.1
+  firebase_auth: ^5.5.1
+  cloud_firestore: ^5.6.5
+
+  # Maps
+  google_maps_flutter: ^2.10.0
+
+  # Permissions & Device
+  permission_handler: ^11.3.1
+  camera: ^0.11.0+2
+  geolocator: ^13.0.2
+  flutter_secure_storage: ^9.2.4
+
+  # Audio
+  just_audio: ^0.9.42
+  record: ^5.2.1
+
+  # UI
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+  flutter_svg: ^2.0.17
+  cached_network_image: ^3.4.1
+
+  # Utils
+  uuid: ^4.5.1
+  intl: ^0.19.0
+  equatable: ^2.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.14
+  freezed: ^2.5.8
+  json_serializable: ^6.9.4
+  riverpod_generator: ^2.6.3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+

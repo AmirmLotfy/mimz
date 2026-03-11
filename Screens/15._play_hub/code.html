@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mimz Play Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;family=Fraunces:opsz,wght@9..144,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#F7F4ED",
+                        "background-dark": "#221610",
+                        "persimmon": "#F26A3D",
+                        "mist": "#7DB9D8",
+                        "moss": "#5E7442",
+                        "gold": "#D5A13B",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"],
+                        "serif": ["Fraunces", "serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .custom-spacing { gap: 32px; }
+        .card-shadow { shadow-sm hover:shadow-md transition-shadow; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Header -->
+<header class="flex items-center bg-background-light dark:bg-background-dark p-6 justify-between sticky top-0 z-50">
+<div class="flex size-12 shrink-0 items-center justify-start">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-100 text-3xl">menu</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400">The Editorial Atlas</span>
+<h2 class="text-slate-900 dark:text-slate-100 text-sm font-bold leading-tight tracking-widest uppercase">Mimz Play Hub</h2>
+</div>
+<div class="flex w-12 items-center justify-end">
+<button class="flex items-center justify-center rounded-full size-10 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 overflow-hidden">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto pb-24">
+<!-- Hero Title -->
+<div class="px-6 pt-10 pb-12">
+<h1 class="font-serif text-[48px] leading-[1.1] text-slate-900 dark:text-slate-100 max-w-[300px]">
+                Choose your Play
+            </h1>
+<div class="h-1 w-16 bg-primary mt-6"></div>
+</div>
+<!-- Editorial Content Cards -->
+<div class="px-6 flex flex-col gap-10">
+<!-- Live Quiz - Persimmon Hit -->
+<div class="group relative flex flex-col">
+<div class="relative w-full aspect-[4/5] overflow-hidden rounded-xl bg-persimmon/10">
+<img alt="Live studio quiz show audience cheering" class="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-500" data-alt="Vibrant studio quiz show with bright lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtDl2Sh6DB7-oYOTRFtKK_47q9bWMHeZzEFVd8VTy-jZIfTbOC1uNe1indxC1pYkgX5nGRklfsdUm_W6ePtxITdIi3VRyuOfrEG9KXrwGGFmQm4hKgUYLqLXKwNeLCy_vL3ldEVEnEb3Y4QjjH2lajzzWjFl5cacAYdoY8n9BEJmnbvQRAg1tfsfqM4X-gxbP7a8dQBKcRu3KheNDYvYuPnJV0g9ndugFpCQKQrN13ASDlZ-c08BRWAqPCgfK5n_kHWMX-Siiiuh8c"/>
+<div class="absolute top-4 left-4">
+<span class="bg-persimmon text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest">Live Now</span>
+</div>
+</div>
+<div class="pt-6 border-l-4 border-persimmon pl-6">
+<p class="text-persimmon text-xs font-bold uppercase tracking-[0.2em] mb-2">Persimmon Hit</p>
+<h3 class="font-serif text-3xl mb-3 dark:text-white">Live Quiz</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6 max-w-[280px]">
+                        The ultimate real-time trivia challenge. Join thousands of players worldwide and claim your spot on the leaderboard.
+                    </p>
+<button class="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm group-hover:gap-4 transition-all">
+                        JOIN CHALLENGE <span class="material-symbols-outlined text-persimmon">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Vision Quest - Mist Blue -->
+<div class="group relative flex flex-col">
+<div class="relative w-full aspect-[16/10] overflow-hidden rounded-xl bg-mist/10">
+<img alt="Misty mountain landscape atlas style" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all" data-alt="Minimalist misty mountain aerial topographic view" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqCbl496QNK4WkZIDg_-feXgx-2TrmQO0zXhWIBeaj4Ez2OsDfHwMdqfjSOxfswskdVHwcvCj0yDdc004Ud8FDDzxlNOBZk-cEi5i0S0en_2yE0UCBnkQKiLzMyo_rr52-v8SEZ8KrJp29X4KzGNy27rWUehF3hYFY2MmAzujWZQgdUdii6q86CN20SXdRiyGEGoyb1qo73jtbLB9WaKmb00u8Sum3nNzU0419qgjGQ01m_5UwOayh2ncsDyvu2FaTdKI2Ef_7q4Oy"/>
+</div>
+<div class="pt-6 border-l-4 border-mist pl-6">
+<p class="text-mist text-xs font-bold uppercase tracking-[0.2em] mb-2">Mist Blue</p>
+<h3 class="font-serif text-3xl mb-3 dark:text-white">Vision Quest</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">
+                        Explore the curated editorial atlas. A visual journey through hidden narratives and collectible artifacts.
+                    </p>
+<button class="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm group-hover:gap-4 transition-all">
+                        START QUEST <span class="material-symbols-outlined text-mist">explore</span>
+</button>
+</div>
+</div>
+<!-- Squad Mission - Moss Core -->
+<div class="group relative flex flex-col">
+<div class="flex gap-4">
+<div class="w-1/3 aspect-square overflow-hidden rounded-xl bg-moss/20">
+<img alt="Friends high-fiving outdoors" class="w-full h-full object-cover grayscale" data-alt="Diverse group of friends collaborating outdoors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9ZY70KT31JSSXDmFUsmo1UXdeXwgDf_-aC40uxIgLwg0t83pxxsHiw2NKX08FouhfPpdAs35XL2G8w6AZMYvBHeNeAhg4I9ylSVXWgAhJDVwPHdqEhtz2FOL5q3g_zd9fMKq43XwNExadQoF92O0ECoCrbV1T1PLhhZDwHB8h-RIp06QjYyUGM-PY5jlaa6rqLmnXzmbPnu4SRqXB3GZoTcD5EkMQnCKRqoRvN3xb6co1ACIGHFdmJqS-zOrQCUK4lgxtr05Ia2zl"/>
+</div>
+<div class="w-2/3 flex flex-col justify-center">
+<p class="text-moss text-xs font-bold uppercase tracking-[0.2em] mb-1">Moss Core</p>
+<h3 class="font-serif text-2xl dark:text-white">Squad Mission</h3>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-4">
+                        Coordinate with your crew to unlock rare seasonal rewards.
+                    </p>
+<button class="w-full py-4 rounded-xl bg-moss text-white font-bold text-sm tracking-widest flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">group</span> ASSEMBLE SQUAD
+                    </button>
+</div>
+</div>
+<!-- Daily Sprint - Dusty Gold -->
+<div class="group relative flex flex-col mb-10">
+<div class="p-6 rounded-xl border-2 border-dashed border-gold/40 bg-gold/5">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="text-gold text-xs font-bold uppercase tracking-[0.2em] mb-1">Dusty Gold</p>
+<h3 class="font-serif text-2xl dark:text-white">Daily Sprint</h3>
+</div>
+<span class="material-symbols-outlined text-gold text-4xl">timer</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-4">
+                        A quick-fire collection of tasks to boost your daily rank. Resets in 4h 12m.
+                    </p>
+<div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-gold h-full w-[65%] rounded-full"></div>
+</div>
+<div class="flex justify-between mt-2">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Progress 65%</span>
+<span class="text-[10px] font-bold text-gold uppercase tracking-tighter">Claim Rewards</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-6 pb-6 pt-3 z-50">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined fill-1">sports_esports</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Play</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Social</span>
+</a>
+<div class="relative -top-6">
+<div class="bg-primary size-14 rounded-full flex items-center justify-center text-white shadow-lg shadow-primary/40 border-4 border-background-light dark:border-background-dark">
+<span class="material-symbols-outlined text-3xl">add</span>
+</div>
+</div>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Vault</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Profile</span>
+</a>
+</div>
+</nav>
+</body></html>

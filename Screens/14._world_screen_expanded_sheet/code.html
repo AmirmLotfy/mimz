@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;family=Fraunces:opsz,wght@9..144,400;600;700&amp;family=Instrument+Sans:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "accent-hit": "#F26A3D",
+                        "cloud-base": "#F7F4ED",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Instrument Sans", "sans-serif"],
+                        "serif": ["Fraunces", "serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Instrument Sans', sans-serif; }
+        .serif-header { font-family: 'Fraunces', serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen overflow-hidden">
+<!-- Map Background (Dimmed) -->
+<div class="fixed inset-0 z-0 h-[40%] w-full overflow-hidden opacity-40 grayscale-[0.2]">
+<div class="w-full h-full bg-center bg-no-repeat bg-cover" data-alt="Detailed vintage style city street map" data-location="Metropolis District" style='background-image: url("https://placeholder.pics/svg/300");'>
+</div>
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-background-light dark:to-background-dark"></div>
+</div>
+<!-- Main View: Premium Bottom Sheet -->
+<div class="relative z-10 mt-[25vh] min-h-[75vh] w-full bg-cloud-base dark:bg-slate-900 rounded-t-2xl shadow-[0_-8px_40px_-10px_rgba(0,0,0,0.15)] border-t border-slate-200 dark:border-slate-800 flex flex-col">
+<!-- Drag Handle -->
+<div class="flex h-8 w-full items-center justify-center">
+<div class="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+</div>
+<!-- Sheet Content Scrollable Area -->
+<div class="flex-1 overflow-y-auto px-6 pb-12">
+<!-- Header Section -->
+<header class="pt-2 pb-6 flex justify-between items-end">
+<div>
+<h1 class="serif-header text-3xl font-bold text-slate-900 dark:text-white">Mimz District</h1>
+<p class="text-sm text-slate-500 dark:text-slate-400 font-medium uppercase tracking-widest mt-1">Sektor 07 • Archive Hub</p>
+</div>
+<div class="flex -space-x-3">
+<img class="h-10 w-10 rounded-full border-2 border-cloud-base dark:border-slate-900 object-cover" data-alt="User avatar 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkCpm8NFh_Bz0O5Yu2UTyOzEuUl6lHsDltb3IkzGMZY_f6Ta5XT1Vb4pSrM7d-S1yfqj-19kRzCDdNziQoidrBcONDBfhLjvfYEWZKpM-BZPI4LGgO5h7ocyx-kObZ-grmPZZ-dqh32ySG15Jn6SrUL006H-3trbeulx46sL3xnKb9OSVsqvYVt6fodUyWRWsYpJ6OQ8gObCm7JF3713x4L94NEX67PuBBOL4rjG-EXI7qe03XGr2G_cvPzSLOZXvUoUnYGE7ad9l-"/>
+<img class="h-10 w-10 rounded-full border-2 border-cloud-base dark:border-slate-900 object-cover" data-alt="User avatar 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8cF4l1QC3NzkAenE69vIjP82QEOxX_G1W64FhsH3U7BDIXG7LBs8dNog-GSxJS8vLJkejoI-6gDN0OfHWCc-dpvhcxmck3z6Xz5k7K8nxBwzb87xmLty7WYlpsy-IaQyaKKCd7h9IVJEIBsWSU3jZCbR8owl3sseJayxepp-5Uxwq7UFYbMzuu8MyfviPJWedYuHwVeTcj47SHUNeGuIY4oCIY3CzxhO5DczGLzPgrcNTTwVEMArpVS5_ApikmGRQ6rBbqDcUy24v"/>
+<div class="h-10 w-10 rounded-full border-2 border-cloud-base dark:border-slate-900 bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">+12</div>
+</div>
+</header>
+<!-- Section 1: Current Mission -->
+<section class="mb-8">
+<h2 class="serif-header text-xl font-semibold text-slate-800 dark:text-slate-100 mb-3">Current Mission</h2>
+<div class="bg-white dark:bg-slate-800 rounded-xl p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
+<div class="flex gap-4 items-start">
+<div class="flex-1">
+<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary uppercase tracking-tighter mb-2">Priority Objective</span>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white leading-tight mb-1">Speak to the Archive</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm mb-4 italic">Decipher the terminal at the old clocktower.</p>
+<!-- Timer Component -->
+<div class="flex gap-2">
+<div class="flex flex-col items-center min-w-[48px]">
+<div class="w-full h-10 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600">
+<p class="text-slate-900 dark:text-white font-bold text-lg">02</p>
+</div>
+<p class="text-[10px] uppercase font-bold text-slate-400 mt-1">Hrs</p>
+</div>
+<div class="flex flex-col items-center min-w-[48px]">
+<div class="w-full h-10 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600">
+<p class="text-slate-900 dark:text-white font-bold text-lg">45</p>
+</div>
+<p class="text-[10px] uppercase font-bold text-slate-400 mt-1">Min</p>
+</div>
+<div class="flex flex-col items-center min-w-[48px]">
+<div class="w-full h-10 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 text-primary">
+<p class="font-bold text-lg">12</p>
+</div>
+<p class="text-[10px] uppercase font-bold text-slate-400 mt-1">Sec</p>
+</div>
+</div>
+</div>
+<div class="w-24 h-24 rounded-xl overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700">
+<img class="w-full h-full object-cover" data-alt="Old library archive with glowing terminal" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDTwlDfDcPJ5e-pL3_KfOil_h4ZvDMgxnFb0GETixMfdaUYblAp1rN2CXj0sfmuZ3VIdu8OZ6dXlmeySZAeQjWf2IAiPIckth-D3jS9DhXnBDfGHoYKrv4x7MwFHM_gjtM6vGJrVOOqrWpclfLeKGPs3PFUJIv8bcx938jPmvQ8u0F04GmQ_DfN75XUrEuFZJvJ-ibzw8masyR2fs2oQUm0prfjfB6vBaSSXjrZqVNYKQLTVwT2Ndln9yAabg_mNIa9cXZWjo3mQ77"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: District Stats -->
+<section class="mb-8">
+<div class="flex flex-wrap gap-2">
+<div class="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700">
+<span class="material-symbols-outlined text-slate-500 text-lg">groups</span>
+<span class="text-xs font-bold text-slate-600 dark:text-slate-300">14.2k <span class="text-[10px] font-medium opacity-60">POP</span></span>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-full border border-emerald-100 dark:border-emerald-900/50">
+<span class="material-symbols-outlined text-emerald-600 text-lg">trending_up</span>
+<span class="text-xs font-bold text-emerald-700 dark:text-emerald-400">+4.2% <span class="text-[10px] font-medium opacity-60">GROWTH</span></span>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 rounded-full border border-amber-100 dark:border-amber-900/50">
+<span class="material-symbols-outlined text-amber-600 text-lg">verified</span>
+<span class="text-xs font-bold text-amber-700 dark:text-amber-400">LVL 08 <span class="text-[10px] font-medium opacity-60">PRESTIGE</span></span>
+</div>
+</div>
+</section>
+<!-- Section 3: Building Preview -->
+<section class="mb-8">
+<h2 class="serif-header text-xl font-semibold text-slate-800 dark:text-slate-100 mb-3">District Evolution</h2>
+<div class="relative group cursor-pointer overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1">
+<div class="relative aspect-[16/7] w-full rounded-lg overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
+<img class="w-full h-full object-cover" data-alt="Grand old library architecture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_wBGTFZH8f1gBzWOVWWxunt330qGcVkDqUFcLahg_cf9id-3QV9vV3HcV2JlyW1PtOSLK077rS3B4yWbMbemV3bs7KSgM3G2kpXAUKrqlmVJadfbf8OuEGtDYTBTyIIdWKcBWsh_MXdS91ryVGBzcPTkgWtjib4I0h0lzGgBtSR9v1hbEnEw3_jxvoGO0UjQ2XHEZUaQhE1jb813WoBccLWUrwEpTbWXt0Tl6Cp_H3TP8C6J_oIawBjCgrPYegPgcxyyxvjXv5F3L"/>
+<div class="absolute inset-0 bg-slate-900/40 flex items-center justify-center backdrop-blur-[2px]">
+<span class="material-symbols-outlined text-white text-4xl">lock</span>
+</div>
+</div>
+<div class="p-3">
+<div class="flex justify-between items-center">
+<h3 class="font-bold text-slate-900 dark:text-white">The Great Library</h3>
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Expansion Stage II</span>
+</div>
+<div class="mt-3 h-1 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary/40 w-1/3"></div>
+</div>
+<p class="mt-2 text-[10px] text-slate-500 font-medium">LOCKED: Reach Prestige Level 10 to begin restoration.</p>
+</div>
+</div>
+</section>
+<!-- Section 4: Squad Progress -->
+<section class="mb-8">
+<div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-dashed border-slate-300 dark:border-slate-600">
+<div class="flex justify-between items-center mb-4">
+<h2 class="serif-header text-lg font-semibold text-slate-800 dark:text-slate-100">Squad Progress</h2>
+<span class="text-xs font-bold text-primary">68% Total</span>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-3">
+<div class="flex -space-x-2">
+<img class="h-8 w-8 rounded-full border-2 border-white dark:border-slate-800 object-cover" data-alt="Squad member 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxqEWh4_IaZsXyD7KMaM5kdqHRcPCJZN4lxQlglLTSlc6WfU3jvLck141sSCk3p0VYTABFK2uU00mjfwFdLdjvS2TMFfyJEBZp1KziqEBPgyUFXoxgy1g3nk1hQ0g7DSda90FGcm5aEPiRktlKgtFzVgNUDuucqP6wzFI_RJp5Ln5yhEWnd_wTdSJMS6LjwWBPCONwJajeYWfhCy968bgn4R9BVIyUPKWOth0_YIOlN9cFSziPP9jQuUigP2nhkjrWNidxtJprvjIz"/>
+<img class="h-8 w-8 rounded-full border-2 border-white dark:border-slate-800 object-cover" data-alt="Squad member 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAddzxjTF2UYu_dqVc14iqhLkVt4B9-IQpU6Tpd2BhqeLQCNQwmZj5lQ6z_dP-tqi5PNoiV6n2gMDMA2ZJ74sddCFF02_tR6kCTkt9P_iL9LAr8QT17Kyi39rTYqodh-d1FiREp-qpjmJH1M04t9T1GC3y3BeM8GOXDsSoScuunbjp1_rAwukEciR38bt_y-XhZjRmOP2ZuAHj3YE1xnWdWnBUx0_QfQYUaOfnxOdeNEYPBkVZ0dtHLaET6wCpYx9s21uDcla75M2vZ"/>
+<img class="h-8 w-8 rounded-full border-2 border-white dark:border-slate-800 object-cover" data-alt="Squad member 3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0Y2X7ZOB77USL1BvxRR4zJe-n89lV5XuseRuy-IOWzKbu7d8oBqcgnF2A01yvDNP9Z7SJhqNZQWY0ItvVareAfoO34KGwvyO_KBTfpArnRezCr-C1rlcmuNYITI63A9gHWmhBqqw-knlraz_5kDQRmUGgjRoRedR8LVhlKo6WDozyZDq0EfizamMuy1fNqfARzn-GhXNhkvja931901nUdtQQD_tb8WNYTm7N2EzmuvAr5tbPq9trkUSHcJLN8RdncUs9234RubDm"/>
+</div>
+<div class="flex-1 h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[68%]"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 5: Daily Reward -->
+<section class="sticky bottom-0 bg-cloud-base/80 dark:bg-slate-900/80 backdrop-blur-md pt-2">
+<button class="w-full bg-accent-hit hover:bg-accent-hit/90 text-white py-4 rounded-xl flex items-center justify-center gap-3 shadow-lg shadow-accent-hit/20 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-bold text-lg tracking-tight uppercase">Claim Persimmon Hit</span>
+<span class="text-xs opacity-70 font-medium">+150 XP</span>
+</button>
+<p class="text-center text-[10px] text-slate-400 mt-3 font-medium uppercase tracking-[0.2em]">Next reward available in 14:22:01</p>
+</section>
+</div>
+</div>
+</body></html>

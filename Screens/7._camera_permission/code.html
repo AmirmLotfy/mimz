@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mimz - Vision Quest</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#F7F4ED",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full max-w-md mx-auto flex-col overflow-x-hidden shadow-2xl bg-background-light dark:bg-background-dark">
+<!-- TopAppBar -->
+<div class="flex items-center p-4 pb-2 justify-between">
+<button class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Vision Quest</h2>
+</div>
+<div class="px-6 py-8 flex flex-col items-center text-center">
+<div class="size-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-4xl">photo_camera</span>
+</div>
+<h1 class="text-slate-900 dark:text-slate-100 tracking-tight text-3xl font-extrabold leading-tight pb-3">Unlock Your Vision</h1>
+<p class="text-slate-600 dark:text-slate-400 text-base font-normal leading-relaxed">
+                To begin your Vision Quest and discover hidden architectural rewards, we need access to your camera. Point, scan, and reveal.
+            </p>
+</div>
+<!-- Mission Preview Card -->
+<div class="px-4 @container">
+<div class="flex flex-col items-stretch justify-start rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+<div class="relative w-full aspect-video bg-slate-200 dark:bg-slate-800">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Modern architectural structure with clean lines and glass" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDlPmAwwvMQ6SVIL6vze1_eSMzsN7xLXO9Gq-OI5N3YkxR8ghGSdubNXYlXPJV-Lm1FrBhxlTBEiOf_qnvDux9DlJWVjv7l3etQoAnJaVznrV0t4qjUPTLOL1ec8_F8wM0me88Ufey1XB436cTAwI1NoKILYKmnL6X38-2Lkrzf-xwtU8ndb_NtK0VkyRMj8WfAsIjKLP9eeiMtxIu20eNROiGfnHV_UdnOn8SlFX4MRM2bMEmV0s2BXYIW3JILxJjfaIOzleuXDYZp");'></div>
+<!-- Viewfinder Overlay UI Hint -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-48 h-48 border-2 border-white/50 rounded-xl relative">
+<div class="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
+<div class="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
+<div class="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
+<div class="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
+</div>
+</div>
+</div>
+<div class="flex w-full min-w-72 grow flex-col items-stretch justify-center gap-1 p-4">
+<p class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight">Camera Viewfinder</p>
+<div class="flex items-center justify-between gap-3">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-normal">Align structures within the frame</p>
+<button class="flex shrink-0 cursor-pointer items-center justify-center rounded-lg h-9 px-4 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20">
+                            Enable
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Architectural Reward Grid -->
+<div class="p-4 mt-4">
+<h3 class="text-slate-900 dark:text-slate-100 text-sm font-bold uppercase tracking-widest mb-4">Sample Discovery</h3>
+<div class="grid grid-cols-1 gap-4">
+<div class="flex gap-4 p-3 bg-primary/5 rounded-xl border border-primary/10">
+<div class="w-24 h-24 bg-center bg-no-repeat bg-cover rounded-lg shrink-0 overflow-hidden" data-alt="Ancient Greek marble column fragment detail" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAbBXm3Yn-YGA8EE_N-urxk28-zXA_BpzeKAel6THv_eBPa5eKBGVOeJF856v9lshH5R3_P2jdNu02uMaYHG8PGhUh7sT3C1OhJGHmGlr90UsCeOwrjJwqG7k53oTPKPbko6Zj6iW-2lcK2HmTOLhwmSLgSc3fUkxC5MwGb9yo_2vc3PcTrtRKGGZVrCWx9OsdTLf5H5ucyTxOMN-eIqefvwy_9WZgaDJzCO5_RkINdzOqD50Bt78rKnrlaqlynnR95fwJFz1XiSjap");'>
+</div>
+<div class="flex flex-col justify-center">
+<p class="text-primary text-xs font-bold uppercase tracking-wider mb-1">Architectural Reward</p>
+<p class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight">Doric Column Fragment</p>
+<p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Found in historical landmarks</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Action -->
+<div class="mt-auto p-6 flex flex-col gap-3">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/30">
+                Start Exploration
+            </button>
+<button class="w-full text-slate-500 dark:text-slate-400 font-medium py-2 text-sm">
+                Maybe later
+            </button>
+</div>
+<div class="h-6"></div>
+</div>
+</body></html>
