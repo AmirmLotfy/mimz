@@ -1,0 +1,41 @@
+graph TB
+    subgraph "Flutter Mobile App"
+        UI["Screen Layer<br>20+ screens"]
+        DS["Design System<br>Tokens + Components"]
+        RP["Riverpod<br>State Management"]
+        LIVE["Live Stack<br>WebSocket + Audio + Camera"]
+        SVC["Services<br>API / Auth / Location"]
+    end
+
+    subgraph "Gemini Live API"
+        WS["WebSocket<br>Bidirectional Audio + Text"]
+        TOOLS["15 Tool Declarations<br>grade_answer, award_territory, etc."]
+        PERSONA["Mimz Persona<br>Game Host Instructions"]
+    end
+
+    subgraph "Cloud Run Backend"
+        API["Fastify API<br>10 Route Modules, 25+ Endpoints"]
+        AUTH["Auth Middleware<br>Firebase Token Verification"]
+        EXEC["Tool Executor<br>15 Handlers + Zod Validation"]
+        GSVC["Game Services<br>Scoring, Rewards, Territory, Audit"]
+    end
+
+    subgraph "Google Cloud"
+        FS[("Firestore<br>10 Collections")]
+        FA["Firebase Auth"]
+        GCS["Cloud Storage"]
+    end
+
+    UI --> DS
+    UI --> RP
+    RP --> SVC
+    SVC -->|"REST + Firebase ID Token"| API
+    LIVE -->|"WebSocket"| WS
+    LIVE -->|"Tool results"| API
+    API --> AUTH
+    AUTH -->|"Verify"| FA
+    API --> EXEC
+    EXEC --> GSVC
+    GSVC --> FS
+    WS --> TOOLS
+    WS --> PERSONA
