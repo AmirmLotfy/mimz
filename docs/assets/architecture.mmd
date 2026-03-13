@@ -1,58 +1,89 @@
 %%{init: {
   'theme': 'base',
   'themeVariables': {
-    'primaryColor': '#1D2433',
-    'primaryTextColor': '#FFFFFF',
-    'primaryBorderColor': '#3B82F6',
-    'lineColor': '#64748B',
-    'secondaryColor': '#2A3441',
+    'primaryColor': '#1E293B',
+    'primaryTextColor': '#F8FAFC',
+    'primaryBorderColor': '#38BDF8',
+    'lineColor': '#94A3B8',
+    'secondaryColor': '#334155',
     'tertiaryColor': '#0F172A',
     'clusterBkg': '#0F172A',
-    'clusterBorder': '#334155',
-    'nodeBorder': '#3B82F6',
-    'mainBkg': '#1D2433',
+    'clusterBorder': '#475569',
+    'nodeBorder': '#38BDF8',
+    'mainBkg': '#0B1120',
     'fontSize': '16px',
     'fontFamily': 'system-ui, -apple-system, sans-serif'
   }
 }}%%
 graph TB
-    subgraph "Flutter Mobile App"
-        UI["Screen Layer<br>20+ screens"]
-        DS["Design System<br>Tokens + Components"]
-        RP["Riverpod<br>State Management"]
-        LIVE["Live Stack<br>WebSocket + Audio + Camera"]
-        SVC["Services<br>API / Auth / Location"]
+    subgraph Client ["📱 Flutter Mobile App"]
+        direction TB
+        UI["🖥 Screen Layer"]
+        RP["⚡ Riverpod State"]
+        LIVE["🎙 Live Stack<br>(WebSocket / Audio / Camera)"]
+        SVC["🔗 API Services"]
     end
 
-    subgraph "Gemini Live API"
-        WS["WebSocket<br>Bidirectional Audio + Text"]
-        TOOLS["15 Tool Declarations<br>grade_answer, award_territory, etc."]
-        PERSONA["Mimz Persona<br>Game Host Instructions"]
+    subgraph AI ["🧠 Gemini 2.0 Flash Live API"]
+        direction TB
+        WS["🌐 Bidi WebSocket"]
+        TOOLS["🛠 Tool Declarations"]
+        PERSONA["🎭 Mimz Persona"]
     end
 
-    subgraph "Cloud Run Backend"
-        API["Fastify API<br>10 Route Modules, 25+ Endpoints"]
-        AUTH["Auth Middleware<br>Firebase Token Verification"]
-        EXEC["Tool Executor<br>15 Handlers + Zod Validation"]
-        GSVC["Game Services<br>Scoring, Rewards, Territory, Audit"]
+    subgraph Server ["⚙️ Cloud Run Backend (Fastify)"]
+        direction TB
+        API["📡 REST Endpoints"]
+        AUTH["🛡 Token Verification"]
+        EXEC["⚡ Tool Executor (Zod)"]
+        GSVC["🎮 Game Services<br>(Scoring, Districts, Audit)"]
     end
 
-    subgraph "Google Cloud"
-        FS[("Firestore<br>10 Collections")]
-        FA["Firebase Auth"]
-        GCS["Cloud Storage"]
+    subgraph Cloud ["☁️ Google Cloud & Firebase"]
+        direction TB
+        FS[("🗄️ Cloud Firestore")]
+        FA["🔐 Firebase Auth"]
+        GCS[("📦 Cloud Storage")]
+        SM["🔑 Secret Manager"]
     end
 
-    UI --> DS
+    %% Internal Client Flow
     UI --> RP
     RP --> SVC
-    SVC -->|"REST + Firebase ID Token"| API
-    LIVE -->|"WebSocket"| WS
-    LIVE -->|"Tool results"| API
+    RP --> LIVE
+
+    %% Client communicating outside
+    SVC -- "REST + Firebase ID Token" --> API
+    LIVE -- "Ephemeral Token + PCM Audio" --> WS
+    LIVE -- "Forward Tool Responses" --> API
+
+    %% AI internals
+    WS --- TOOLS
+    WS --- PERSONA
+
+    %% AI talking directly to Client
+    WS -- "Emit Tool Call" --> LIVE
+
+    %% Backend Flow
     API --> AUTH
-    AUTH -->|"Verify"| FA
+    AUTH -- "Verify Signature" --> FA
     API --> EXEC
     EXEC --> GSVC
-    GSVC --> FS
-    WS --> TOOLS
-    WS --> PERSONA
+    GSVC -- "Atomic Writes" --> FS
+    API -- "Fetch GEMINI_API_KEY" --> SM
+
+    %% Styling
+    classDef clientNode fill:#1e40af,stroke:#60a5fa,stroke-width:2px,color:#fff,rx:8,ry:8;
+    classDef aiNode fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#fff,rx:8,ry:8;
+    classDef serverNode fill:#065f46,stroke:#34d399,stroke-width:2px,color:#fff,rx:8,ry:8;
+    classDef cloudNode fill:#b45309,stroke:#fbbf24,stroke-width:2px,color:#fff,rx:8,ry:8;
+
+    class UI,RP,LIVE,SVC clientNode;
+    class WS,TOOLS,PERSONA aiNode;
+    class API,AUTH,EXEC,GSVC serverNode;
+    class FS,FA,GCS,SM cloudNode;
+
+    style Client fill:#0f172a,stroke:#3b82f6,stroke-width:2px,rx:12,ry:12
+    style AI fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,rx:12,ry:12
+    style Server fill:#0f172a,stroke:#10b981,stroke-width:2px,rx:12,ry:12
+    style Cloud fill:#0f172a,stroke:#f59e0b,stroke-width:2px,rx:12,ry:12
