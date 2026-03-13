@@ -112,3 +112,9 @@ final visionQuestActiveProvider = StateProvider<bool>((ref) => false);
 final visionQuestTargetProvider = StateProvider<String>(
   (ref) => 'Show something related to architecture or design.',
 );
+
+/// Label of the object Gemini identified in the vision quest image.
+/// Set on the camera screen before navigating to success.
+final visionQuestResultLabelProvider = StateProvider<String>(
+  (ref) => '',
+);

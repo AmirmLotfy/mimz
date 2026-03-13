@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../design_system/components/mimz_chip.dart';
+import '../../../features/auth/providers/auth_provider.dart';
 
 /// Screen 9 — Onboarding summary / profile summary
-class OnboardingSummaryScreen extends StatelessWidget {
+class OnboardingSummaryScreen extends ConsumerWidget {
   const OnboardingSummaryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -59,9 +62,9 @@ class OnboardingSummaryScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: MimzSpacing.base),
-            Text('Explorer', style: MimzTypography.headlineLarge),
+            Text(user?.displayName ?? 'Explorer', style: MimzTypography.headlineLarge),
             Text(
-              '@mimz_explorer',
+              user?.email ?? 'mimz_explorer',
               style: MimzTypography.bodyMedium.copyWith(
                 color: MimzColors.textSecondary,
               ),
@@ -92,10 +95,10 @@ class OnboardingSummaryScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: MimzSpacing.md),
-            Wrap(
+            const Wrap(
               spacing: MimzSpacing.sm,
               runSpacing: MimzSpacing.sm,
-              children: const [
+              children: [
                 MimzChip(
                   label: 'Technology',
                   icon: Icons.computer,
@@ -137,10 +140,10 @@ class OnboardingSummaryScreen extends StatelessWidget {
             _DetailRow(
               icon: Icons.mail_outline,
               label: 'EMAIL',
-              value: 'user@mimz.app',
+              value: user?.email ?? 'user@mimz.app',
             ),
             const SizedBox(height: MimzSpacing.md),
-            _DetailRow(
+            const _DetailRow(
               icon: Icons.lock_outline,
               label: 'SECURITY',
               value: 'Set up later',

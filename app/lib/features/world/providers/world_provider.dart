@@ -2,8 +2,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../data/models/district.dart';
-import '../../../features/events/providers/events_provider.dart';
-
 /// Current district data — fetched from API with demo fallback
 final districtProvider = StateNotifierProvider<DistrictNotifier, AsyncValue<District>>((ref) {
   return DistrictNotifier(ref);
@@ -16,17 +14,32 @@ class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
     _fetchDistrict();
   }
 
+  DateTime? _lastFetch;
+
   Future<void> _fetchDistrict() async {
+    // PERF-02: Skip re-fetch if we fetched successfully in the last 30s
+    if (_lastFetch != null &&
+        DateTime.now().difference(_lastFetch!) < const Duration(seconds: 30)) {
+      return;
+    }
     try {
       final apiClient = _ref.read(apiClientProvider);
       final response = await apiClient.getDistrict();
       state = AsyncValue.data(District.fromJson(response));
+      _lastFetch = DateTime.now();
     } catch (e) {
       // Keep demo data on failure — ensures demo never breaks
     }
   }
 
-  Future<void> refresh() async => _fetchDistrict();
+  Future<void> refresh() async {
+    _lastFetch = null; // Force refresh when explicitly requested
+    await _fetchDistrict();
+  }
+
+  void updateLocal(District newDistrict) {
+    state = AsyncValue.data(newDistrict);
+  }
 
   /// Claim rewards after a quiz/vision round.
   /// Calls backend to expand territory and grant resources, then refreshes state.

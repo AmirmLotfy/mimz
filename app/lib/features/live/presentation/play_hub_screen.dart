@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
-import '../../../design_system/components/mimz_button.dart';
+
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/world/providers/world_provider.dart';
 

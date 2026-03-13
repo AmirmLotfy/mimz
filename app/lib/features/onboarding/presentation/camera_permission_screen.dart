@@ -73,22 +73,22 @@ class CameraPermissionScreen extends ConsumerWidget {
                     ),
                   ),
                   // Corner brackets
-                  Positioned(
+                  const Positioned(
                     top: 16,
                     left: 16,
                     child: _CornerBracket(isTopLeft: true),
                   ),
-                  Positioned(
+                  const Positioned(
                     top: 16,
                     right: 16,
                     child: _CornerBracket(isTopRight: true),
                   ),
-                  Positioned(
+                  const Positioned(
                     bottom: 16,
                     left: 16,
                     child: _CornerBracket(isBottomLeft: true),
                   ),
-                  Positioned(
+                  const Positioned(
                     bottom: 16,
                     right: 16,
                     child: _CornerBracket(isBottomRight: true),
@@ -213,10 +213,10 @@ class _BracketPainter extends CustomPainter {
       canvas.drawLine(Offset(0, size.height), Offset.zero, paint);
       canvas.drawLine(Offset.zero, Offset(size.width, 0), paint);
     } else if (isTopRight) {
-      canvas.drawLine(Offset(0, 0), Offset(size.width, 0), paint);
+      canvas.drawLine(Offset.zero, Offset(size.width, 0), paint);
       canvas.drawLine(Offset(size.width, 0), Offset(size.width, size.height), paint);
     } else if (isBottomLeft) {
-      canvas.drawLine(Offset(0, 0), Offset(0, size.height), paint);
+      canvas.drawLine(Offset.zero, Offset(0, size.height), paint);
       canvas.drawLine(Offset(0, size.height), Offset(size.width, size.height), paint);
     } else if (isBottomRight) {
       canvas.drawLine(Offset(size.width, 0), Offset(size.width, size.height), paint);

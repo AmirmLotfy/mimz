@@ -1,23 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
+import '../providers/auth_provider.dart';
 
-/// Screen 1 — Splash screen with Mimz logo and tagline
-class SplashScreen extends StatefulWidget {
+/// Screen 1 — Splash screen with smart bootstrap.
+///
+/// Decision tree:
+///   authenticated + onboarded  → /world
+///   authenticated + not onboarded → /permissions
+///   unauthenticated             → /welcome
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) context.go('/welcome');
-    });
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    // Allow splash animation to play (min 1.8s)
+    await Future.delayed(const Duration(milliseconds: 1800));
+    if (!mounted) return;
+
+    final authStatus = ref.read(authStatusProvider);
+
+    // If auth stream hasn't settled yet, wait for it briefly
+    if (authStatus.isLoading) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+    }
+
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (!isAuthenticated) {
+      context.go('/welcome');
+      return;
+    }
+
+    // Authenticated — check if onboarding complete
+    final isOnboarded = ref.read(isOnboardedProvider);
+    if (isOnboarded) {
+      context.go('/world');
+    } else {
+      context.go('/permissions');
+    }
   }
 
   @override
@@ -88,41 +121,25 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
               ).animate(delay: 600.ms).fadeIn(duration: 400.ms),
               const SizedBox(height: MimzSpacing.lg),
-              // Page indicator dots
+              // Animated loading dots
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: MimzColors.persimmonHit,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                children: List.generate(3, (i) => Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: const BoxDecoration(
+                    color: MimzColors.mossCore,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 8,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: MimzColors.borderLight,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 8,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: MimzColors.borderLight,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ],
+                ).animate(delay: Duration(milliseconds: 600 + i * 150))
+                    .fadeIn(duration: 300.ms)
+                    .shimmer(duration: 1000.ms)
+                    .fadeOut(duration: 500.ms, delay: 1000.ms)),
               ),
               const SizedBox(height: MimzSpacing.xxl),
               Text(
-                'PREMIUM EDITORIAL EXPERIENCE',
+                'LEARN LIVE. BUILD YOUR DISTRICT.',
                 style: MimzTypography.caption,
               ).animate(delay: 800.ms).fadeIn(duration: 400.ms),
               const SizedBox(height: MimzSpacing.xxl),

@@ -33,7 +33,7 @@ class LiveTokenClient {
       );
 
       if (token.isExpired) {
-        throw LiveError(
+        throw const LiveError(
           code: LiveErrorCode.tokenExpired,
           message: 'Server returned an already-expired token',
           recovery: LiveErrorRecovery.retry,

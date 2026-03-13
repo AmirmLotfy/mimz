@@ -109,6 +109,27 @@ Mimz-Final/
 └── Screens/                     # Design reference assets
 ```
 
+## Testing Infrastructure
+
+The Mimz project features a rigorous dual-stack testing environment ensuring safe iteration and verified routing flows.
+
+### Running Tests
+
+We've provided centralized bash runbooks at the project root:
+
+```bash
+# Run entire test suite
+./run_all_tests.sh
+
+# Run only Flutter tests
+./run_flutter_tests.sh
+
+# Run only Backend tests 
+./run_backend_tests.sh
+```
+
+For more detailed information on test overrides, CI readiness, and test suite structures, please refer to the `docs/TEST_RUNBOOK.md`.
+
 ---
 
 ## Quickstart

@@ -18,26 +18,30 @@ import { notificationsRoutes } from './routes/notifications.js';
 // ─── Initialize Firebase ──────────────────────────
 initFirebase();
 
-// ─── Create Server ────────────────────────────────
-const server = Fastify({
-  logger: {
-    level: config.logLevel,
-    transport:
-      config.nodeEnv === 'development'
-        ? { target: 'pino-pretty', options: { colorize: true } }
-        : undefined,
-    // Cloud Logging-friendly JSON in production
-    ...(config.nodeEnv === 'production' && {
-      formatters: {
-        level: (label: string) => ({ severity: label.toUpperCase() }),
-      },
-    }),
-  },
-  requestTimeout: 30000,
-  bodyLimit: 1048576, // 1MB
-});
+// ─── Log active AI model configuration ────────────
+import { logActiveModels } from './config/models.js';
+logActiveModels();
 
-async function start() {
+// ─── Create Server Builder ────────────────────────
+export async function buildApp() {
+  const server = Fastify({
+    logger: {
+      level: config.logLevel,
+      transport:
+        config.nodeEnv === 'development'
+          ? { target: 'pino-pretty', options: { colorize: true } }
+          : undefined,
+      // Cloud Logging-friendly JSON in production
+      ...(config.nodeEnv === 'production' && {
+        formatters: {
+          level: (label: string) => ({ severity: label.toUpperCase() }),
+        },
+      }),
+    },
+    requestTimeout: 30000,
+    bodyLimit: 1048576, // 1MB
+  });
+
   // ─── Plugins ──────────────────────────────────────
   await server.register(cors, {
     origin: true,
@@ -74,15 +78,16 @@ async function start() {
     }, 'Request error');
 
     // Never leak internal error details in production
-    const statusCode = error.statusCode ?? 500;
+    const err = error as any;
+    const statusCode = err.statusCode ?? 500;
     reply.status(statusCode).send({
-      error: statusCode >= 500 ? 'Internal server error' : error.message,
+      error: statusCode >= 500 ? 'Internal server error' : err.message,
       statusCode,
     });
   });
 
   // ─── Routes ──────────────────────────────────────
-  await server.register(healthRoutes, { prefix: '/' });
+  await server.register(healthRoutes, { prefix: '' });
   await server.register(authRoutes, { prefix: '/auth' });
   await server.register(liveRoutes, { prefix: '/live' });
   await server.register(profileRoutes, { prefix: '/profile' });
@@ -93,7 +98,12 @@ async function start() {
   await server.register(rewardsRoutes, { prefix: '/rewards' });
   await server.register(notificationsRoutes, { prefix: '/notifications' });
 
-  // ─── Start ───────────────────────────────────────
+  return server;
+}
+
+// ─── Start ─────────────────────────────────────────
+async function start() {
+  const server = await buildApp();
   try {
     await server.listen({ port: config.port, host: '0.0.0.0' });
     server.log.info(`🚀 Mimz backend v1.0.0 listening on port ${config.port} [${config.nodeEnv}]`);
@@ -103,4 +113,6 @@ async function start() {
   }
 }
 
-start();
+if (process.env.NODE_ENV !== 'test') {
+  start();
+}

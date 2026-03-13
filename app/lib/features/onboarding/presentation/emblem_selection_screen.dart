@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../../../core/providers.dart';
 
 /// Emblem selection screen — choose your district identity
-class EmblemSelectionScreen extends StatefulWidget {
+class EmblemSelectionScreen extends ConsumerStatefulWidget {
   const EmblemSelectionScreen({super.key});
 
   @override
-  State<EmblemSelectionScreen> createState() => _EmblemSelectionScreenState();
+  ConsumerState<EmblemSelectionScreen> createState() => _EmblemSelectionScreenState();
 }
 
-class _EmblemSelectionScreenState extends State<EmblemSelectionScreen> {
+class _EmblemSelectionScreenState extends ConsumerState<EmblemSelectionScreen> {
   int _selectedIndex = 2; // Default selection
 
   static const _emblems = [
@@ -61,10 +63,10 @@ class _EmblemSelectionScreenState extends State<EmblemSelectionScreen> {
             const SizedBox(height: MimzSpacing.sm),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
+              child: const LinearProgressIndicator(
                 value: 0.8,
                 backgroundColor: MimzColors.borderLight,
-                valueColor: const AlwaysStoppedAnimation(MimzColors.mossCore),
+                valueColor: AlwaysStoppedAnimation(MimzColors.mossCore),
                 minHeight: 6,
               ),
             ),
@@ -179,9 +181,17 @@ class _EmblemSelectionScreenState extends State<EmblemSelectionScreen> {
             const Spacer(),
             MimzButton(
               label: 'Set Emblem  →',
-              onPressed: () {
+              onPressed: () async {
                 HapticFeedback.mediumImpact();
-                context.go('/district/name');
+                final emblemId = _emblems[_selectedIndex].name.toLowerCase();
+                try {
+                  await ref.read(apiClientProvider).patch('/profile', {
+                    'emblemId': emblemId,
+                  });
+                } catch (_) {
+                  // Non-fatal — emblem preference saved locally by session
+                }
+                if (context.mounted) context.go('/district/name');
               },
             ),
             const SizedBox(height: MimzSpacing.base),

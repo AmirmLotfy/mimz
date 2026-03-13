@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../../../core/providers.dart';
 import '../../../design_system/components/mimz_chip.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -81,10 +82,10 @@ class _DistrictNamingScreenState extends ConsumerState<DistrictNamingScreen> {
             const SizedBox(height: MimzSpacing.sm),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
+              child: const LinearProgressIndicator(
                 value: 0.6,
                 backgroundColor: MimzColors.borderLight,
-                valueColor: const AlwaysStoppedAnimation(MimzColors.mossCore),
+                valueColor: AlwaysStoppedAnimation(MimzColors.mossCore),
                 minHeight: 6,
               ),
             ),
@@ -230,18 +231,31 @@ class _DistrictNamingScreenState extends ConsumerState<DistrictNamingScreen> {
             const SizedBox(height: MimzSpacing.xxl),
             MimzButton(
               label: 'Establish District  →',
-              onPressed: () {
+              onPressed: () async {
                 HapticFeedback.mediumImpact();
                 final name = _nameController.text.trim();
                 if (name.isNotEmpty) {
+                  // Update local state immediately for snappy UI
                   final user = ref.read(currentUserProvider).valueOrNull;
                   if (user != null) {
                     ref.read(currentUserProvider.notifier).updateUser(
                       user.copyWith(districtName: name),
                     );
                   }
+                  // Persist to backend
+                  try {
+                    await ref.read(apiClientProvider).patch('/profile', {
+                      'districtName': name,
+                    });
+                  } catch (_) {
+                    // Non-fatal — local state already updated
+                  }
                 }
-                context.go('/world');
+                
+                // Mark onboarding as complete persistently
+                await ref.read(isOnboardedProvider.notifier).markOnboarded();
+                
+                if (context.mounted) context.go('/world');
               },
             ),
             const SizedBox(height: MimzSpacing.xxl),

@@ -6,7 +6,6 @@ import '../domain/live_connection_phase.dart';
 import '../domain/live_event.dart';
 import '../domain/live_session_config.dart';
 import '../domain/live_session_state.dart';
-import '../domain/live_tool_registry.dart';
 import '../data/live_websocket_client.dart';
 import '../data/live_token_client.dart';
 import '../data/live_tool_bridge_client.dart';
@@ -58,6 +57,15 @@ class LiveSessionController {
   LiveSessionState get state => _state;
 
   LiveSessionConfig? _activeConfig;
+
+  // ─── Debounce & Cost Guards ─────────────────────
+  DateTime _lastCommandTime = DateTime(2000);
+  static const _commandCooldown = Duration(seconds: 2);
+  int _hintCount = 0;
+  int _repeatCount = 0;
+  static const maxHintsPerRound = 3;
+  static const maxRepeatsPerRound = 5;
+  Timer? _sessionDurationTimer;
 
   LiveSessionController({
     required LiveWebSocketClient ws,
@@ -124,14 +132,39 @@ class LiveSessionController {
     _emitState(_state.copyWith(userTranscript: text));
   }
 
+  /// Whether a command is allowed (debounce check).
+  bool _isCommandAllowed() {
+    final now = DateTime.now();
+    if (now.difference(_lastCommandTime) < _commandCooldown) return false;
+    _lastCommandTime = now;
+    return true;
+  }
+
   /// Request the model to repeat its last response.
-  void requestRepeat() => sendTextFallback('Can you repeat that?');
+  void requestRepeat() {
+    if (!_isCommandAllowed()) return;
+    if (_repeatCount >= maxRepeatsPerRound) {
+      _logger.log('repeat_capped', metadata: {'count': _repeatCount});
+      return;
+    }
+    _repeatCount++;
+    sendTextFallback('Can you repeat that?');
+  }
 
   /// Request a hint from the model.
-  void requestHint() => sendTextFallback('Can I get a hint?');
+  void requestHint() {
+    if (!_isCommandAllowed()) return;
+    if (_hintCount >= maxHintsPerRound) {
+      _logger.log('hint_capped', metadata: {'count': _hintCount});
+      return;
+    }
+    _hintCount++;
+    sendTextFallback('Can I get a hint?');
+  }
 
   /// Request difficulty change.
   void requestDifficultyChange({bool harder = false}) {
+    if (!_isCommandAllowed()) return;
     sendTextFallback(harder ? 'Make it harder.' : 'Can you make it easier?');
   }
 
@@ -167,6 +200,16 @@ class LiveSessionController {
   Future<void> _startSession(LiveSessionConfig config) async {
     _activeConfig = config;
     _reconnectPolicy.reset();
+    _hintCount = 0;
+    _repeatCount = 0;
+    _lastCommandTime = DateTime(2000);
+
+    // Enforce max session duration
+    _sessionDurationTimer?.cancel();
+    _sessionDurationTimer = Timer(config.maxSessionDuration, () {
+      _logger.log('session_duration_cap_reached');
+      endSession();
+    });
 
     _emitState(LiveSessionState(
       mode: config.mode,
@@ -238,11 +281,14 @@ class LiveSessionController {
   }
 
   void _startMockSession(LiveSessionConfig config) {
-    _mockSub = _mockAdapter!.events.listen(_handleEvent);
+    final mock = _mockAdapter;
+    if (mock == null) return;
+    
+    _mockSub = mock.events.listen(_handleEvent);
     if (config.mode == LiveSessionMode.quiz) {
-      _mockAdapter!.replayQuizSession();
+      mock.replayQuizSession();
     } else {
-      _mockAdapter!.replayOnboardingSession();
+      mock.replayOnboardingSession();
     }
   }
 
@@ -487,6 +533,7 @@ class LiveSessionController {
   // ═══════════════════════════════════════════════════
 
   Future<void> _teardown({bool keepState = false}) async {
+    _sessionDurationTimer?.cancel();
     await _wsEventSub?.cancel();
     await _audioCaptureSub?.cancel();
     await _cameraFrameSub?.cancel();

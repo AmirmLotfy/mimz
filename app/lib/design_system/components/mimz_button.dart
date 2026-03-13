@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../tokens.dart';
 
 enum MimzButtonVariant { primary, secondary, accent, ghost }
@@ -34,7 +35,10 @@ class MimzButton extends StatelessWidget {
     switch (variant) {
       case MimzButtonVariant.primary:
         return ElevatedButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: (isLoading || onPressed == null) ? null : () {
+            HapticFeedback.mediumImpact();
+            onPressed?.call();
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: MimzColors.mossCore,
             foregroundColor: MimzColors.white,
@@ -47,7 +51,10 @@ class MimzButton extends StatelessWidget {
         );
       case MimzButtonVariant.secondary:
         return OutlinedButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: isLoading ? null : () {
+            HapticFeedback.selectionClick();
+            onPressed?.call();
+          },
           style: OutlinedButton.styleFrom(
             foregroundColor: MimzColors.mossCore,
             side: const BorderSide(color: MimzColors.mossCore),

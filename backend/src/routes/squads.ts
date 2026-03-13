@@ -1,16 +1,33 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import * as db from '../lib/db.js';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
+
+const CreateSquadSchema = z.object({
+  name: z.string().min(1, 'Squad name is required').max(30, 'Squad name too long'),
+  displayName: z.string().optional(),
+});
+
+const JoinSquadSchema = z.object({
+  joinCode: z.string().min(1, 'joinCode is required'),
+  displayName: z.string().optional(),
+});
+
+const ContributeSquadSchema = z.object({
+  amount: z.number().int().min(1).default(10),
+  missionId: z.string().min(1, 'missionId is required'),
+});
 
 export async function squadsRoutes(server: FastifyInstance) {
   // POST /squad — Create a new squad
   server.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = request.userId!;
-    const body = request.body as any;
-
-    if (!body?.name) {
-      return reply.status(400).send({ error: 'Squad name is required' });
+    
+    const parsed = CreateSquadSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.issues[0].message });
     }
+    const body = parsed.data;
 
     const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const squad = await db.createSquad({
@@ -37,11 +54,12 @@ export async function squadsRoutes(server: FastifyInstance) {
   // POST /squad/join — Join by code
   server.post('/join', async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = request.userId!;
-    const body = request.body as any;
-
-    if (!body?.joinCode) {
-      return reply.status(400).send({ error: 'joinCode is required' });
+    
+    const parsed = JoinSquadSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.issues[0].message });
     }
+    const body = parsed.data;
 
     const squad = await db.getSquadByCode(body.joinCode.toUpperCase());
     if (!squad) {
@@ -71,13 +89,12 @@ export async function squadsRoutes(server: FastifyInstance) {
   // POST /squad/:squadId/contribute — Contribute to squad mission
   server.post<{ Params: { squadId: string } }>('/:squadId/contribute', async (request, reply) => {
     const userId = request.userId!;
-    const body = request.body as any;
-    const amount = body?.amount ?? 10;
-    const missionId = body?.missionId;
-
-    if (!missionId) {
-      return reply.status(400).send({ error: 'missionId is required' });
+    
+    const parsed = ContributeSquadSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.issues[0].message });
     }
+    const { amount, missionId } = parsed.data;
 
     await db.updateSquadMissionProgress(request.params.squadId, missionId, amount);
     return { success: true, contributed: amount, missionId };

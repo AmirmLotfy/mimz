@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../providers/events_provider.dart';
@@ -24,7 +23,7 @@ class EventsScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.event_busy, color: MimzColors.textTertiary, size: 48),
+                  const Icon(Icons.event_busy, color: MimzColors.textTertiary, size: 48),
                   const SizedBox(height: MimzSpacing.md),
                   Text('No events scheduled', style: MimzTypography.headlineSmall),
                   const SizedBox(height: MimzSpacing.sm),
@@ -123,7 +122,7 @@ class EventsScreen extends ConsumerWidget {
             const SizedBox(height: MimzSpacing.base),
             Row(
               children: [
-                Icon(Icons.people, color: MimzColors.mossCore, size: 18),
+                const Icon(Icons.people, color: MimzColors.mossCore, size: 18),
                 const SizedBox(width: MimzSpacing.sm),
                 Text('${event.participants} players', style: MimzTypography.bodySmall),
               ],
@@ -240,7 +239,7 @@ class _EventCard extends StatelessWidget {
                 Text('${event.participants}', style: MimzTypography.headlineSmall),
                 Text('players', style: MimzTypography.bodySmall),
                 const SizedBox(height: 4),
-                Icon(Icons.chevron_right, color: MimzColors.textTertiary, size: 18),
+                const Icon(Icons.chevron_right, color: MimzColors.textTertiary, size: 18),
               ],
             ),
           ],

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
 import '../domain/live_session_state.dart';
+import '../domain/live_event.dart';
 import '../data/live_websocket_client.dart';
 import '../data/live_message_codec.dart';
 import '../data/live_token_client.dart';
@@ -19,7 +20,7 @@ final _dioProvider = Provider<Dio>((ref) {
   return Dio(BaseOptions(
     baseUrl: const String.fromEnvironment(
       'BACKEND_URL',
-      defaultValue: 'http://localhost:8080',
+      defaultValue: 'https://mimz-backend-1012962167727.us-central1.run.app',
     ),
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 30),
@@ -77,7 +78,7 @@ final liveSessionLoggerProvider = Provider<LiveSessionLogger>((ref) {
 // ─── Session Controller ───────────────────────────
 
 final liveSessionControllerProvider = Provider<LiveSessionController>((ref) {
-  final useMock = const bool.fromEnvironment('USE_MOCK_LIVE', defaultValue: false);
+  const useMock = bool.fromEnvironment('USE_MOCK_LIVE', defaultValue: false);
 
   final controller = LiveSessionController(
     ws: ref.watch(liveWsClientProvider),

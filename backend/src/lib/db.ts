@@ -155,6 +155,15 @@ export async function addSquadMember(squadId: string, member: any): Promise<void
   });
 }
 
+export async function getSquadIdForUser(userId: string): Promise<string | null> {
+  const snap = await getDb().collectionGroup('members')
+    .where('userId', '==', userId)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  return snap.docs[0].ref.parent.parent?.id || null;
+}
+
 export async function updateSquadMissionProgress(squadId: string, missionId: string, amount: number): Promise<void> {
   await getDb().collection('squads').doc(squadId).collection('missions').doc(missionId).update({
     currentProgress: FieldValue.increment(amount),

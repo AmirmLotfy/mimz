@@ -139,6 +139,7 @@ enum LiveErrorCode {
   backendTimeout,
   sessionExpired,
   rateLimited,
+  modelUnavailable,
   unknown,
 }
 

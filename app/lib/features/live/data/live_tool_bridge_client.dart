@@ -40,6 +40,10 @@ class LiveToolBridgeClient {
       final response = await _dio.post(
         '/live/tool-execute',
         data: request.toJson(),
+        options: Options(
+          sendTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
       );
 
       return ToolExecutionResponse.fromJson(

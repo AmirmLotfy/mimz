@@ -1,10 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:camera/camera.dart';
 import '../../../design_system/tokens.dart';
 
+import '../../../core/providers.dart';
+import '../data/live_camera_stream_service.dart';
+import '../providers/live_session_provider.dart';
+
 /// Vision Quest Camera — full-screen camera with target overlay
-class VisionQuestCameraScreen extends StatelessWidget {
+class VisionQuestCameraScreen extends ConsumerStatefulWidget {
   const VisionQuestCameraScreen({super.key});
+
+  @override
+  ConsumerState<VisionQuestCameraScreen> createState() => _VisionQuestCameraScreenState();
+}
+
+class _VisionQuestCameraScreenState extends ConsumerState<VisionQuestCameraScreen> {
+  final _cameraService = LiveCameraStreamService();
+  bool _isCameraInitialized = false;
+  bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initCamera();
+  }
+
+  Future<void> _initCamera() async {
+    try {
+      await _cameraService.initialize();
+      if (mounted) setState(() => _isCameraInitialized = true);
+    } catch (e) {
+      debugPrint('Camera init failed: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _cameraService.dispose();
+    super.dispose();
+  }
+
+  Future<void> _captureAndSend() async {
+    if (_isProcessing || !_isCameraInitialized) return;
+    setState(() => _isProcessing = true);
+
+    final frame = await _cameraService.captureOneShot();
+    if (frame != null) {
+      ref.read(geminiLiveClientProvider).sendImage(frame);
+      // Set the label to the active target so success screen can display it
+      final target = ref.read(visionQuestTargetProvider);
+      ref.read(visionQuestResultLabelProvider.notifier).state = target;
+      if (mounted) context.go('/play/vision/success');
+    } else {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,19 +64,33 @@ class VisionQuestCameraScreen extends StatelessWidget {
       backgroundColor: MimzColors.nightSurface,
       body: Stack(
         children: [
-          // Camera preview placeholder
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: MimzColors.mapShadow,
-            child: Center(
-              child: Icon(
-                Icons.videocam,
-                color: MimzColors.white.withValues(alpha: 0.1),
-                size: 120,
+          // Camera preview or placeholder
+          if (_isCameraInitialized && _cameraService.controller != null)
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _cameraService.controller!.value.previewSize?.height ?? 1,
+                  height: _cameraService.controller!.value.previewSize?.width ?? 1,
+                  child: CameraPreview(_cameraService.controller!),
+                ),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              height: double.infinity,
+              color: MimzColors.mapShadow,
+              child: Center(
+                child: _isProcessing 
+                  ? const CircularProgressIndicator(color: MimzColors.acidLime)
+                  : Icon(
+                      Icons.videocam,
+                      color: MimzColors.white.withValues(alpha: 0.1),
+                      size: 120,
+                    ),
               ),
             ),
-          ),
           // Viewfinder corners
           Positioned(
             top: 120,
@@ -158,7 +224,7 @@ class VisionQuestCameraScreen extends StatelessWidget {
                       ),
                       // Capture button
                       GestureDetector(
-                        onTap: () => context.go('/play/vision/success'),
+                        onTap: _captureAndSend,
                         child: Container(
                           width: 76,
                           height: 76,
@@ -175,6 +241,9 @@ class VisionQuestCameraScreen extends StatelessWidget {
                               color: MimzColors.white,
                               shape: BoxShape.circle,
                             ),
+                            child: _isProcessing
+                                ? const CircularProgressIndicator(color: MimzColors.acidLime)
+                                : null,
                           ),
                         ),
                       ),
@@ -211,8 +280,8 @@ class _ViewfinderPainter extends CustomPainter {
     const cornerLen = 28.0;
 
     // Top-left
-    canvas.drawLine(Offset(0, cornerLen), Offset.zero, paint);
-    canvas.drawLine(Offset.zero, Offset(cornerLen, 0), paint);
+    canvas.drawLine(const Offset(0, cornerLen), Offset.zero, paint);
+    canvas.drawLine(Offset.zero, const Offset(cornerLen, 0), paint);
 
     // Top-right
     canvas.drawLine(Offset(size.width - cornerLen, 0),

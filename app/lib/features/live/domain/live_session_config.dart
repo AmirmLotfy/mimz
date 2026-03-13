@@ -15,6 +15,8 @@ class LiveSessionConfig {
   final Duration initialReconnectDelay;
   final bool enableCamera;
   final bool enableAudioCapture;
+  final Duration maxSessionDuration;
+  final int maxFramesPerSession;
 
   const LiveSessionConfig({
     required this.mode,
@@ -27,6 +29,8 @@ class LiveSessionConfig {
     this.initialReconnectDelay = const Duration(seconds: 1),
     this.enableCamera = false,
     this.enableAudioCapture = true,
+    this.maxSessionDuration = const Duration(minutes: 10),
+    this.maxFramesPerSession = 30,
   });
 
   // ─── Presets ─────────────────────────────────────
@@ -45,6 +49,7 @@ BEHAVIOR:
 VOICE: Friendly, editorial, slightly playful. Never robotic.''',
     inactivityTimeout: Duration(minutes: 5),
     enableCamera: false,
+    maxSessionDuration: Duration(minutes: 5),
   );
 
   static const quiz = LiveSessionConfig(
@@ -65,6 +70,7 @@ BEHAVIOR:
 VOICE: High-energy but not exhausting. Think editorial podcast host.''',
     inactivityTimeout: Duration(minutes: 2),
     enableCamera: false,
+    maxSessionDuration: Duration(minutes: 10),
   );
 
   static const visionQuest = LiveSessionConfig(
@@ -84,5 +90,7 @@ VOICE: Curious, observant, appreciative.''',
     inactivityTimeout: Duration(minutes: 3),
     enableCamera: true,
     enableAudioCapture: true,
+    maxSessionDuration: Duration(minutes: 5),
+    maxFramesPerSession: 20,
   );
 }

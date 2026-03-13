@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers.dart';
 import '../../../data/models/event.dart';
 
 /// Events list — tries API, falls back to demo data

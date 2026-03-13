@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 import '../domain/live_event.dart';
-import '../domain/live_connection_phase.dart';
 
 /// Mock adapter that replays canned event sequences for local development
 /// without requiring a real Gemini API key or backend.
@@ -61,8 +60,8 @@ class LiveMockAdapter {
   List<LiveEvent> _quizSessionFixture() => [
     const SessionStarted('mock_session_001'),
     const ModelTurnStarted(),
-    const TranscriptDelta(text: "Welcome to Mimz Quiz! ", isModel: true),
-    const TranscriptDelta(text: "Let's test your knowledge. ", isModel: true),
+    const TranscriptDelta(text: 'Welcome to Mimz Quiz! ', isModel: true),
+    const TranscriptDelta(text: 'Let\'s test your knowledge. ', isModel: true),
     AudioChunkReceived(data: Uint8List(640).toList(), mimeType: 'audio/pcm;rate=24000'),
     const ModelTurnEnded(),
     const ToolCallRequested(
@@ -78,13 +77,13 @@ class LiveMockAdapter {
     ),
     const ModelTurnStarted(),
     const TranscriptDelta(
-      text: "Question 1: What is the largest continent by area?",
+      text: 'Question 1: What is the largest continent by area?',
       isModel: true,
     ),
     const ModelTurnEnded(),
     // Simulate user answering
     const UserTurnStarted(),
-    const TranscriptDelta(text: "Asia", isModel: false),
+    const TranscriptDelta(text: 'Asia', isModel: false),
     const UserTurnEnded(),
     const ToolCallRequested(
       callId: 'tc_002',
@@ -98,7 +97,7 @@ class LiveMockAdapter {
       success: true,
     ),
     const ModelTurnStarted(),
-    const TranscriptDelta(text: "That's correct! 🎉 Asia it is!", isModel: true),
+    const TranscriptDelta(text: 'That\'s correct! 🎉 Asia it is!', isModel: true),
     const ModelTurnEnded(),
   ];
 
@@ -106,16 +105,16 @@ class LiveMockAdapter {
     const SessionStarted('mock_onboard_001'),
     const ModelTurnStarted(),
     const TranscriptDelta(
-      text: "Hey there! Welcome to Mimz. I'm going to help you set up your world. What topics interest you most?",
+      text: 'Hey there! Welcome to Mimz. I\'m going to help you set up your world. What topics interest you most?',
       isModel: true,
     ),
     const ModelTurnEnded(),
     const UserTurnStarted(),
-    const TranscriptDelta(text: "I love science and technology", isModel: false),
+    const TranscriptDelta(text: 'I love science and technology', isModel: false),
     const UserTurnEnded(),
     const ModelTurnStarted(),
     const TranscriptDelta(
-      text: "Great taste! Science and tech it is. Now, what would you like to name your district?",
+      text: 'Great taste! Science and tech it is. Now, what would you like to name your district?',
       isModel: true,
     ),
     const ModelTurnEnded(),

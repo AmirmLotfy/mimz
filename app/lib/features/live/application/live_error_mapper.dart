@@ -34,6 +34,8 @@ class LiveErrorMapper {
         'Session timed out. Let\'s start a new round!',
       LiveErrorCode.rateLimited =>
         'Too many requests. Wait a moment and try again.',
+      LiveErrorCode.modelUnavailable =>
+        'AI model is temporarily unavailable. Retrying with backup...',
       LiveErrorCode.unknown =>
         'Something unexpected happened. Try again.',
     };

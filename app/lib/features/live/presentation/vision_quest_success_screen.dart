@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../providers/live_session_provider.dart';
 
 /// Vision Quest Success screen
-class VisionQuestSuccessScreen extends StatelessWidget {
+class VisionQuestSuccessScreen extends ConsumerWidget {
   const VisionQuestSuccessScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final label = ref.watch(visionQuestResultLabelProvider);
+    final displayLabel = label.isNotEmpty ? label : 'Unknown Object';
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -51,12 +55,33 @@ class VisionQuestSuccessScreen extends StatelessWidget {
                 size: 36,
               ),
             ).animate().scale(begin: const Offset(0, 0), duration: 500.ms),
-            const SizedBox(height: MimzSpacing.lg),
-            Text(
-              'Discovery Verified',
-              style: MimzTypography.displayMedium,
-              textAlign: TextAlign.center,
-            ).animate(delay: 200.ms).fadeIn(),
+            const SizedBox(height: MimzSpacing.xl),
+            // Discovery tag chip
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: MimzSpacing.md,
+                vertical: MimzSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: MimzColors.mossCore.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(MimzRadius.pill),
+                border: Border.all(color: MimzColors.mossCore.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.visibility, color: MimzColors.mossCore, size: 14),
+                  const SizedBox(width: MimzSpacing.sm),
+                  Text(
+                    'IDENTIFIED: ${displayLabel.toUpperCase()}',
+                    style: MimzTypography.caption.copyWith(
+                      color: MimzColors.mossCore,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ).animate(delay: 300.ms).fadeIn().slideY(begin: 0.1),
             const SizedBox(height: MimzSpacing.md),
             Text(
               'Your contribution to the district has been validated. The blueprint is now yours.',
@@ -158,14 +183,14 @@ class VisionQuestSuccessScreen extends StatelessWidget {
                         const SizedBox(height: MimzSpacing.base),
                         const Divider(color: MimzColors.borderLight),
                         const SizedBox(height: MimzSpacing.md),
-                        _ImpactRow(
+                        const _ImpactRow(
                           icon: Icons.grid_view,
                           iconColor: MimzColors.mossCore,
                           title: 'District Impact',
                           subtitle: 'Prestige Level Up • Tier 3 Influence',
                         ),
                         const SizedBox(height: MimzSpacing.md),
-                        _ImpactRow(
+                        const _ImpactRow(
                           icon: Icons.bolt,
                           iconColor: MimzColors.persimmonHit,
                           title: 'Sustainability Bonus',
@@ -181,6 +206,12 @@ class VisionQuestSuccessScreen extends StatelessWidget {
             MimzButton(
               label: '🏛  Place Structure',
               onPressed: () => context.go('/world'),
+            ),
+            const SizedBox(height: MimzSpacing.md),
+            MimzButton(
+              label: 'View History',
+              onPressed: () => context.push('/play/vision/history'),
+              variant: MimzButtonVariant.ghost,
             ),
             const SizedBox(height: MimzSpacing.xxl),
           ],

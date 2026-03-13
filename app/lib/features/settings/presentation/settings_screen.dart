@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/providers.dart';
@@ -145,6 +144,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () async {
                 HapticFeedback.mediumImpact();
                 final authService = ref.read(authServiceProvider);
+                await ref.read(isOnboardedProvider.notifier).resetOnboarding();
                 await authService.signOut();
                 if (context.mounted) context.go('/welcome');
               },
@@ -283,7 +283,7 @@ class _SettingsToggle extends StatelessWidget {
               HapticFeedback.selectionClick();
               onChanged(v);
             },
-            activeColor: MimzColors.mossCore,
+            activeTrackColor: MimzColors.mossCore,
           ),
         ],
       ),

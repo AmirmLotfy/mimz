@@ -6,7 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../providers/live_session_provider.dart';
-import '../../../data/models/quiz_state.dart';
+
 import '../../../features/world/providers/world_provider.dart';
 
 /// Round result / victory screen — wired with real reward calculation
@@ -119,7 +119,9 @@ class _RoundResultScreenState extends ConsumerState<RoundResultScreen> {
                     const Icon(Icons.north_east, color: MimzColors.mossCore, size: 20),
                   ],
                 ),
-              ).animate(delay: 500.ms).fadeIn(duration: 400.ms),
+              ).animate(delay: 500.ms).fadeIn(duration: 400.ms)
+                  .then(delay: 200.ms)
+                  .shimmer(duration: 800.ms, color: MimzColors.acidLime.withValues(alpha: 0.3)),
               const SizedBox(height: MimzSpacing.md),
               // Resources — real calculated values
               Container(
@@ -212,7 +214,7 @@ class _RoundResultScreenState extends ConsumerState<RoundResultScreen> {
 
     ref.read(quizStateProvider.notifier).reset();
 
-    if (mounted) {
+    if (context.mounted) {
       context.go('/world');
     }
   }

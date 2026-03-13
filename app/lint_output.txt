@@ -1,0 +1,89 @@
+Analyzing app...                                                
+
+warning • Unused import: 'dart:math' • lib/data/models/district.dart:1:8 • unused_import
+   info • Use 'const' for final variables initialized to a constant value • lib/data/models/district.dart:38:5 • prefer_const_declarations
+   info • Use 'const' with the constructor to improve performance • lib/data/models/district.dart:122:31 • prefer_const_constructors
+   info • Unnecessary use of '??' with 'null' • lib/features/auth/presentation/auth_screen.dart:55:71 • unnecessary_null_in_if_null_operators
+   info • Use 'const' with the constructor to improve performance • lib/features/auth/presentation/auth_screen.dart:76:20 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/auth/presentation/auth_screen.dart:77:24 • prefer_const_constructors
+warning • Unused import: 'package:flutter_riverpod/flutter_riverpod.dart' • lib/features/auth/presentation/welcome_screen.dart:2:8 • unused_import
+warning • The stack trace variable 'st' isn't used and can be removed • lib/features/auth/providers/auth_provider.dart:85:17 • unused_catch_stack
+   info • Use 'const' with the constructor to improve performance • lib/features/district/presentation/district_detail_screen.dart:94:11 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/district/presentation/district_detail_screen.dart:102:11 • prefer_const_constructors
+warning • Unused import: 'package:go_router/go_router.dart' • lib/features/events/presentation/events_screen.dart:4:8 • unused_import
+   info • Use 'const' with the constructor to improve performance • lib/features/events/presentation/events_screen.dart:27:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/events/presentation/events_screen.dart:126:17 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/events/presentation/events_screen.dart:243:17 • prefer_const_constructors
+warning • Unused import: '../../../core/providers.dart' • lib/features/events/providers/events_provider.dart:2:8 • unused_import
+warning • Unused import: '../domain/live_tool_registry.dart' • lib/features/live/application/live_session_controller.dart:9:8 • unused_import
+warning • The '!' will have no effect because the receiver can't be null • lib/features/live/application/live_session_controller.dart:287:19 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/features/live/application/live_session_controller.dart:289:19 • unnecessary_non_null_assertion
+warning • Unused import: 'dart:collection' • lib/features/live/application/live_session_logger.dart:1:8 • unused_import
+warning • Unused import: '../domain/live_event.dart' • lib/features/live/data/live_audio_playback_service.dart:4:8 • unused_import
+   info • Dangling library doc comment • lib/features/live/data/live_backend_dtos.dart:1:1 • dangling_library_doc_comments
+   info • Use 'const' with the constructor to improve performance • lib/features/live/data/live_backend_dtos.dart:36:18 • prefer_const_constructors
+warning • Unused import: '../domain/live_connection_phase.dart' • lib/features/live/data/live_mock_adapter.dart:4:8 • unused_import
+   info • Unnecessary use of double quotes • lib/features/live/data/live_mock_adapter.dart:64:33 • prefer_single_quotes
+   info • Unnecessary use of double quotes • lib/features/live/data/live_mock_adapter.dart:81:13 • prefer_single_quotes
+   info • Unnecessary use of double quotes • lib/features/live/data/live_mock_adapter.dart:87:33 • prefer_single_quotes
+   info • Unnecessary use of double quotes • lib/features/live/data/live_mock_adapter.dart:114:33 • prefer_single_quotes
+   info • Unnecessary use of double quotes • lib/features/live/data/live_mock_adapter.dart:118:13 • prefer_single_quotes
+   info • Use 'const' with the constructor to improve performance • lib/features/live/data/live_token_client.dart:36:15 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/live/data/live_websocket_client.dart:76:28 • prefer_const_constructors
+warning • The value of the local variable 'isListening' isn't used • lib/features/live/presentation/live_quiz_screen.dart:51:11 • unused_local_variable
+warning • This default clause is covered by the previous cases • lib/features/live/presentation/live_quiz_screen.dart:300:7 • unreachable_switch_default
+warning • Unused import: '../../../design_system/components/mimz_button.dart' • lib/features/live/presentation/play_hub_screen.dart:6:8 • unused_import
+warning • Unused import: '../../../data/models/quiz_state.dart' • lib/features/live/presentation/round_result_screen.dart:9:8 • unused_import
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/features/live/presentation/round_result_screen.dart:218:7 • use_build_context_synchronously
+warning • Unused import: '../../../services/gemini_live_client.dart' • lib/features/live/presentation/vision_quest_camera_screen.dart:6:8 • unused_import
+   info • Use 'const' with the constructor to improve performance • lib/features/live/presentation/vision_quest_camera_screen.dart:283:21 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/live/presentation/vision_quest_camera_screen.dart:284:34 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/live/presentation/vision_quest_success_screen.dart:186:25 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/live/presentation/vision_quest_success_screen.dart:193:25 • prefer_const_constructors
+   info • Use 'const' for final variables initialized to a constant value • lib/features/live/providers/live_providers.dart:81:3 • prefer_const_declarations
+   info • Use 'const' with the constructor to improve performance • lib/features/live/widgets/live_debug_panel.dart:42:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/live/widgets/live_debug_panel.dart:56:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:76:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:79:28 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:81:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:84:28 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:86:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:89:28 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:91:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:94:28 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:216:23 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/camera_permission_screen.dart:219:23 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/district_naming_screen.dart:85:22 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/emblem_selection_screen.dart:66:22 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/location_permission_screen.dart:84:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/location_permission_screen.dart:86:23 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/location_permission_screen.dart:87:32 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/location_permission_screen.dart:94:23 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/location_permission_screen.dart:95:32 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/onboarding_summary_screen.dart:98:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/onboarding/presentation/onboarding_summary_screen.dart:146:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/profile/presentation/profile_screen.dart:31:17 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/profile/presentation/profile_screen.dart:40:17 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/profile/presentation/profile_screen.dart:42:17 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/profile/presentation/profile_screen.dart:54:30 • prefer_const_constructors
+warning • Unused import: 'package:flutter_animate/flutter_animate.dart' • lib/features/settings/presentation/settings_screen.dart:5:8 • unused_import
+   info • 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre • lib/features/settings/presentation/settings_screen.dart:287:13 • deprecated_member_use
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:74:15 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:94:15 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:158:20 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:158:42 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:175:20 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:175:42 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:236:20 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:236:42 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:253:20 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/squads/presentation/squad_hub_screen.dart:253:40 • prefer_const_constructors
+warning • The value of the local variable 'response' isn't used • lib/features/squads/providers/squad_provider.dart:9:11 • unused_local_variable
+   info • The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/features/world/presentation/leaderboard_screen.dart:2:8 • unnecessary_import
+   info • Use 'const' with the constructor to improve performance • lib/features/world/presentation/world_home_screen.dart:340:12 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/features/world/presentation/world_home_screen.dart:345:20 • prefer_const_constructors
+   info • Local variables should be final • lib/features/world/utils/hex_geometry.dart:40:5 • prefer_final_locals
+   info • Statements in an if should be enclosed in a block • lib/services/gemini_live_client.dart:109:47 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/services/gemini_live_client.dart:129:47 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/services/gemini_live_client.dart:149:47 • curly_braces_in_flow_control_structures
+
