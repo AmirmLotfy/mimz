@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
-import '../domain/live_event.dart';
 
 /// Abstract interface for audio playback.
 abstract class AudioPlaybackService {

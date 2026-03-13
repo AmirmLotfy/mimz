@@ -17,6 +17,7 @@ class ProfileScreen extends ConsumerWidget {
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.valueOrNull ?? MimzUser.demo;
     final stats = ref.watch(userStatsProvider);
+    final isLoading = userAsync.isLoading;
 
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
@@ -26,31 +27,50 @@ class ProfileScreen extends ConsumerWidget {
           child: Column(
             children: [
               // Avatar + name
-              CircleAvatar(
-                radius: 48,
-                backgroundColor: MimzColors.mossCore.withValues(alpha: 0.15),
-                child: const Icon(Icons.person, size: 48, color: MimzColors.mossCore),
-              ).animate().scale(begin: const Offset(0.8, 0.8), duration: 400.ms),
+              if (isLoading)
+                const _SkeletonBox(width: 96, height: 96, radius: 48)
+              else
+                CircleAvatar(
+                  radius: 48,
+                  backgroundColor: MimzColors.mossCore.withValues(alpha: 0.15),
+                  child: const Icon(Icons.person, size: 48, color: MimzColors.mossCore),
+                ).animate().scale(begin: const Offset(0.8, 0.8), duration: 400.ms),
               const SizedBox(height: MimzSpacing.md),
-              Text(user.displayName, style: MimzTypography.headlineLarge),
-              Text(user.handle, style: MimzTypography.bodySmall),
+              if (isLoading) ...[
+                const _SkeletonBox(width: 160, height: 20, radius: 4),
+                const SizedBox(height: MimzSpacing.sm),
+                const _SkeletonBox(width: 100, height: 14, radius: 4),
+              ] else ...[
+                Text(user.displayName, style: MimzTypography.headlineLarge),
+                Text(user.handle, style: MimzTypography.bodySmall),
+              ],
               const SizedBox(height: MimzSpacing.xxl),
-              // Stats row — from provider
-              Row(
-                children: [
-                  ...stats.entries.toList().asMap().entries.expand((entry) {
-                    final widgets = <Widget>[
-                      Expanded(
-                        child: _StatCard(value: entry.value.value, label: entry.value.key),
-                      ),
-                    ];
-                    if (entry.key < stats.length - 1) {
-                      widgets.add(const SizedBox(width: MimzSpacing.md));
-                    }
-                    return widgets;
-                  }),
-                ],
-              ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
+              // Stats row — skeleton or real data
+              if (isLoading)
+                Row(
+                  children: List.generate(3, (i) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: i < 2 ? MimzSpacing.md : 0),
+                      child: const _SkeletonBox(width: double.infinity, height: 72, radius: MimzRadius.md),
+                    ),
+                  )),
+                )
+              else
+                Row(
+                  children: [
+                    ...stats.entries.toList().asMap().entries.expand((entry) {
+                      final widgets = <Widget>[
+                        Expanded(
+                          child: _StatCard(value: entry.value.value, label: entry.value.key),
+                        ),
+                      ];
+                      if (entry.key < stats.length - 1) {
+                        widgets.add(const SizedBox(width: MimzSpacing.md));
+                      }
+                      return widgets;
+                    }),
+                  ],
+                ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
               const SizedBox(height: MimzSpacing.xxl),
               // Menu items — all wired to routes
               _MenuItem(
@@ -179,5 +199,33 @@ class _MenuItem extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Animated skeleton placeholder used while async data loads.
+class _SkeletonBox extends StatelessWidget {
+  final double width;
+  final double height;
+  final double radius;
+
+  const _SkeletonBox({
+    required this.width,
+    required this.height,
+    required this.radius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: MimzColors.borderLight,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    ).animate(onPlay: (ctrl) => ctrl.repeat(reverse: true))
+      .fadeIn(duration: 600.ms)
+      .then()
+      .fadeOut(duration: 600.ms);
   }
 }

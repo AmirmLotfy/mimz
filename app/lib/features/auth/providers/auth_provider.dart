@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/providers.dart';
 import '../../../data/models/user.dart';
 import '../../../services/auth_service.dart';
@@ -14,6 +15,44 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
   final status = ref.watch(authStatusProvider);
   return status.valueOrNull == AuthStatus.authenticated;
 });
+
+// ─── Onboarding Gate ──────────────────────────────────────────────────────────
+
+const _kOnboardingKey = 'mimz_onboarding_complete';
+
+/// Persistent onboarding-complete flag backed by flutter_secure_storage.
+/// Set to true after the user names their district for the first time.
+final isOnboardedProvider =
+    StateNotifierProvider<OnboardingNotifier, bool>((ref) {
+  return OnboardingNotifier();
+});
+
+class OnboardingNotifier extends StateNotifier<bool> {
+  OnboardingNotifier() : super(false) {
+    _load();
+  }
+
+  static const _storage = FlutterSecureStorage();
+
+  Future<void> _load() async {
+    final val = await _storage.read(key: _kOnboardingKey);
+    if (mounted) state = val == 'true';
+  }
+
+  /// Call this when the user successfully completes district naming.
+  Future<void> markOnboarded() async {
+    await _storage.write(key: _kOnboardingKey, value: 'true');
+    if (mounted) state = true;
+  }
+
+  /// Reset — called on sign out to remove the flag.
+  Future<void> resetOnboarding() async {
+    await _storage.delete(key: _kOnboardingKey);
+    if (mounted) state = false;
+  }
+}
+
+// ─── Current User ─────────────────────────────────────────────────────────────
 
 /// Current user profile (fetched from backend after auth)
 final currentUserProvider = StateNotifierProvider<CurrentUserNotifier, AsyncValue<MimzUser>>((ref) {
@@ -43,7 +82,7 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<MimzUser>> {
       final response = await apiClient.bootstrap();
       final user = MimzUser.fromJson(response['user'] as Map<String, dynamic>);
       state = AsyncValue.data(user);
-    } catch (e, st) {
+    } catch (e) {
       // Fallback to demo user
       state = AsyncValue.data(MimzUser.demo);
     }

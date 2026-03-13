@@ -67,3 +67,19 @@ export const ASYNC_MODEL = MODEL_REGISTRY.ASYNC_CHALLENGE.id;
 
 /** Get the low-cost utility model ID. */
 export const UTILITY_MODEL = MODEL_REGISTRY.LOW_COST_UTILITY.id;
+
+/** Get model ID with its fallback for resilient selection. */
+export function getModelWithFallback(role: keyof typeof MODEL_REGISTRY): { primary: string; fallback: string } {
+  const entry = MODEL_REGISTRY[role];
+  if (!entry) throw new Error(`Unknown model role: ${role}`);
+  return { primary: entry.id, fallback: entry.fallback ?? entry.id };
+}
+
+/** Log active model configuration at startup. */
+export function logActiveModels(): void {
+  console.log('═══ Active AI Models ═══');
+  for (const [role, cfg] of Object.entries(MODEL_REGISTRY)) {
+    console.log(`  ${role}: ${cfg.id} (${cfg.costTier}) → fallback: ${cfg.fallback ?? 'none'}`);
+  }
+  console.log('════════════════════════');
+}

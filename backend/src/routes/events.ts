@@ -1,6 +1,12 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import * as db from '../lib/db.js';
 
+import { z } from 'zod';
+
+const ScoreEventSchema = z.object({
+  score: z.number().int().default(0),
+});
+
 export async function eventsRoutes(server: FastifyInstance) {
   // GET /events — List active/upcoming events
   server.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -36,8 +42,12 @@ export async function eventsRoutes(server: FastifyInstance) {
   // POST /events/:eventId/score — Submit contribution score
   server.post<{ Params: { eventId: string } }>('/:eventId/score', async (request, reply) => {
     const userId = request.userId!;
-    const body = request.body as any;
-    const score = body?.score ?? 0;
+    
+    const parsed = ScoreEventSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.issues[0].message });
+    }
+    const { score } = parsed.data;
 
     await db.addEventScore(request.params.eventId, userId, score);
     return { success: true, scored: score };

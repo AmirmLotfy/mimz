@@ -230,6 +230,7 @@ export const LiveToolExecutionResponseSchema = z.object({
   error: z.string().optional(),
   correlationId: z.string().optional(),
   executedAt: TimestampSchema,
+  executionTimeMs: z.number().int().optional(),
 });
 export type LiveToolExecutionResponse = z.infer<typeof LiveToolExecutionResponseSchema>;
 

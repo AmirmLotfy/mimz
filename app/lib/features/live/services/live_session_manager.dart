@@ -3,6 +3,10 @@ import '../../../services/gemini_live_client.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/api_client.dart';
 
+/// @deprecated — Use `features/live/application/live_session_controller.dart` instead.
+/// This legacy manager is superseded by `LiveSessionController` which provides
+/// layered architecture with proper reconnect, error handling, and turn detection.
+
 /// Manages the full lifecycle of a Gemini Live session:
 /// token → connect → audio → tool calls → disconnect
 class LiveSessionManager {

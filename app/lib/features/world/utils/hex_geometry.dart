@@ -37,7 +37,7 @@ class HexGeometry {
     
     Path base = Path();
     Path full = Path();
-    Path gridPath = Path();
+    final gridPath = Path();
 
     double minX = double.infinity;
     double maxX = double.negativeInfinity;

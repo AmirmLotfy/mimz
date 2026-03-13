@@ -1,7 +1,9 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/splash_screen.dart';
 import '../features/auth/presentation/welcome_screen.dart';
 import '../features/auth/presentation/auth_screen.dart';
+import '../features/auth/providers/auth_provider.dart';
 import '../features/onboarding/presentation/permission_overview_screen.dart';
 import '../features/onboarding/presentation/location_permission_screen.dart';
 import '../features/onboarding/presentation/microphone_permission_screen.dart';
@@ -17,15 +19,87 @@ import '../features/live/presentation/live_quiz_screen.dart';
 import '../features/live/presentation/round_result_screen.dart';
 import '../features/live/presentation/vision_quest_camera_screen.dart';
 import '../features/live/presentation/vision_quest_success_screen.dart';
+import '../features/live/presentation/vision_quest_history_screen.dart';
 import '../features/squads/presentation/squad_hub_screen.dart';
+import '../features/squads/presentation/squad_leaderboard_screen.dart';
 import '../features/events/presentation/events_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/rewards/presentation/reward_vault_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/district/presentation/district_detail_screen.dart';
 import 'app_shell.dart';
+
+// Protected routes that require authentication
+const _protectedRoutePrefixes = [
+  '/world',
+  '/play',
+  '/squad',
+  '/events',
+  '/profile',
+  '/rewards',
+  '/settings',
+  '/leaderboard',
+  '/district/detail',
+  '/district/share',
+];
+
+// Public routes that don't require authentication
+const _publicRoutePrefixes = [
+  '/splash',
+  '/welcome',
+  '/auth',
+  '/permissions',
+  '/onboarding',
+  '/district/emblem',
+  '/district/name',
+];
+
+/// Holds a reference to the app's ProviderContainer so the router's
+/// redirect guard can read isAuthenticatedProvider without BuildContext.
+/// Set this before the first navigation in app.dart.
+ProviderContainer? _routerRef;
+void setRouterRef(ProviderContainer container) => _routerRef = container;
+
+
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
+  redirect: (context, state) {
+    final container = _routerRef;
+    if (container == null) return null;
+
+    final isAuthenticated = container.read(isAuthenticatedProvider);
+    final isOnboarded = container.read(isOnboardedProvider);
+    final location = state.matchedLocation;
+
+    final isProtected = _protectedRoutePrefixes.any((p) => location.startsWith(p));
+    final isPublic = _publicRoutePrefixes.any((p) => location.startsWith(p));
+    final isSplash = location == '/splash';
+
+    // Splash handles its own async bootstrap decision tree.
+    if (isSplash) return null;
+
+    // 1. Unauthenticated users
+    if (!isAuthenticated) {
+      if (isProtected) return '/welcome';
+      return null;
+    }
+
+    // 2. Authenticated but NOT onboarded
+    if (!isOnboarded) {
+      // If trying to access the main app before onboarding, force them to permissions
+      if (isProtected) return '/permissions';
+      return null;
+    }
+
+    // 3. Authenticated AND onboarded
+    if (isOnboarded) {
+      // If fully onboarded, do not allow re-entry into auth or onboarding screens
+      if (isPublic) return '/world';
+    }
+
+    return null;
+  },
   routes: [
     // Pre-auth flow
     GoRoute(
@@ -132,6 +206,20 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/leaderboard',
       builder: (context, state) => const LeaderboardScreen(),
+    ),
+    GoRoute(
+      path: '/district/detail',
+      builder: (context, state) => const DistrictDetailScreen(),
+    ),
+    // P5: Squad leaderboard
+    GoRoute(
+      path: '/squad/leaderboard',
+      builder: (context, state) => const SquadLeaderboardScreen(),
+    ),
+    // P5: Vision quest history gallery
+    GoRoute(
+      path: '/play/vision/history',
+      builder: (context, state) => const VisionQuestHistoryScreen(),
     ),
   ],
 );

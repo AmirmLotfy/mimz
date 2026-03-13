@@ -7,7 +7,7 @@ class ApiClient {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // TODO: Update with your deployed Cloud Run URL
-  static const String _defaultBaseUrl = 'http://localhost:8080';
+  static const String _defaultBaseUrl = 'https://mimz-backend-1012962167727.us-central1.run.app';
 
   ApiClient({String? baseUrl}) {
     _dio = Dio(BaseOptions(
@@ -61,6 +61,12 @@ class ApiClient {
 
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> updates) async {
     final res = await _dio.patch('/profile', data: updates);
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Generic PATCH method for arbitrary routes (e.g. /profile with emblemId or districtName)
+  Future<Map<String, dynamic>> patch(String path, Map<String, dynamic> data) async {
+    final res = await _dio.patch(path, data: data);
     return res.data as Map<String, dynamic>;
   }
 

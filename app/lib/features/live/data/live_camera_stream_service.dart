@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import '../domain/live_event.dart';
-// import 'package:camera/camera.dart';
-// import 'package:image/image.dart' as img;
+import 'package:camera/camera.dart';
 
 /// Camera streaming service for Vision Quests.
 ///
@@ -13,7 +12,7 @@ import '../domain/live_event.dart';
 /// Frame throttling and encoding are isolated here — consumers just
 /// receive ready-to-send JPEG bytes.
 class LiveCameraStreamService {
-  // CameraController? _controller;
+  CameraController? _controller;
   Timer? _periodicTimer;
   bool _isActive = false;
   bool _isDisposed = false;
@@ -27,30 +26,39 @@ class LiveCameraStreamService {
   /// Max dimension for downscaling (preserves aspect ratio).
   final int maxDimension;
 
+  /// Maximum frames per session to control costs.
+  final int maxFramesPerSession;
+
+  int _framesSent = 0;
+
   final _frameController = StreamController<Uint8List>.broadcast();
 
   LiveCameraStreamService({
-    this.frameInterval = const Duration(seconds: 2),
+    Duration frameInterval = const Duration(seconds: 2),
     this.jpegQuality = 70,
     this.maxDimension = 640,
-  });
+    this.maxFramesPerSession = 30,
+  }) : frameInterval = frameInterval < const Duration(seconds: 2)
+           ? const Duration(seconds: 2)
+           : frameInterval;
 
   bool get isActive => _isActive;
+  int get framesSent => _framesSent;
   Stream<Uint8List> get frameStream => _frameController.stream;
 
   /// Initialize the camera.
   Future<void> initialize() async {
     try {
-      // final cameras = await availableCameras();
-      // if (cameras.isEmpty) throw Exception('No cameras available');
-      //
-      // _controller = CameraController(
-      //   cameras.first,
-      //   ResolutionPreset.medium,
-      //   enableAudio: false,
-      //   imageFormatGroup: ImageFormatGroup.jpeg,
-      // );
-      // await _controller!.initialize();
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) throw Exception('No cameras available');
+
+      _controller = CameraController(
+        cameras.first,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.jpeg,
+      );
+      await _controller!.initialize();
     } catch (e) {
       throw LiveError(
         code: LiveErrorCode.cameraInitFailed,
@@ -66,10 +74,9 @@ class LiveCameraStreamService {
     if (_isDisposed) return null;
 
     try {
-      // final file = await _controller!.takePicture();
-      // final bytes = await file.readAsBytes();
-      // return _processFrame(bytes);
-      return null;
+      final file = await _controller!.takePicture();
+      final bytes = await file.readAsBytes();
+      return _processFrame(bytes);
     } catch (e) {
       return null;
     }
@@ -81,8 +88,13 @@ class LiveCameraStreamService {
     _isActive = true;
 
     _periodicTimer = Timer.periodic(frameInterval, (_) async {
+      if (_framesSent >= maxFramesPerSession) {
+        stopPeriodicCapture();
+        return;
+      }
       final frame = await captureOneShot();
       if (frame != null && !_isDisposed) {
+        _framesSent++;
         _frameController.add(frame);
       }
     });
@@ -95,22 +107,12 @@ class LiveCameraStreamService {
     _isActive = false;
   }
 
+  CameraController? get controller => _controller;
+
   /// Process a raw camera frame: downscale + compress to JPEG.
   Uint8List _processFrame(Uint8List rawBytes) {
-    // Real implementation with image package:
-    // final decoded = img.decodeImage(rawBytes);
-    // if (decoded == null) return rawBytes;
-    //
-    // // Downscale if needed
-    // img.Image resized = decoded;
-    // if (decoded.width > maxDimension || decoded.height > maxDimension) {
-    //   resized = img.copyResize(decoded,
-    //     width: decoded.width > decoded.height ? maxDimension : null,
-    //     height: decoded.height >= decoded.width ? maxDimension : null,
-    //   );
-    // }
-    //
-    // return Uint8List.fromList(img.encodeJpg(resized, quality: jpegQuality));
+    // Relying on ResolutionPreset.medium to keep size reasonable for Gemini
+    // without using the heavy Image package on the main isolate.
     return rawBytes;
   }
 
@@ -119,6 +121,6 @@ class LiveCameraStreamService {
     _isDisposed = true;
     stopPeriodicCapture();
     _frameController.close();
-    // _controller?.dispose();
+    _controller?.dispose();
   }
 }

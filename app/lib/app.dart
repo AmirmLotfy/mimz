@@ -8,6 +8,11 @@ class MimzApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Wire the auth guard — must be called once after ProviderScope is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setRouterRef(ProviderScope.containerOf(context));
+    });
+
     return MaterialApp.router(
       title: 'Mimz',
       debugShowCheckedModeBanner: false,

@@ -30,9 +30,9 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
     final sectorCount = district?.sectors ?? user?.sectors ?? 7;
     final population = district?.populationFormatted ?? '850';
     final growthRate = district?.growthRate.toStringAsFixed(1) ?? '1.0';
-    final prestigeLevel = district?.totalPrestige ?? user?.xp != null
+    final prestigeLevel = district?.totalPrestige ?? (user?.xp != null
         ? _prestigeFromXp(user?.xp ?? 0)
-        : 1;
+        : 1);
     final stoneCount = district?.resources.stone ?? 0;
     final glassCount = district?.resources.glass ?? 0;
     final woodCount = district?.resources.wood ?? 0;
@@ -84,14 +84,12 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
                 child: MimzButton(
-                  text: 'PLAY',
+                  label: 'PLAY',
                   onPressed: () {
                     HapticFeedback.heavyImpact();
                     context.push('/play');
                   },
-                  type: MimzButtonType.primary,
-                  isFullWidth: true,
-                  size: MimzButtonSize.large,
+                  variant: MimzButtonVariant.primary,
                 ),
               ),
               const SizedBox(height: MimzSpacing.xl),

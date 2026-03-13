@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import * as db from '../lib/db.js';
+import { getDb } from '../lib/firebase.js';
 
 export async function healthRoutes(server: FastifyInstance) {
   // GET /healthz — Liveness probe
@@ -7,11 +7,10 @@ export async function healthRoutes(server: FastifyInstance) {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
 
-  // GET /readyz — Readiness probe (checks Firestore connectivity)
+  // GET /readyz — Readiness probe (checks Firestore connectivity without composite index)
   server.get('/readyz', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      // Lightweight read to verify Firestore is accessible
-      await db.getLeaderboard('__health_check__');
+      await getDb().collection('_health').limit(1).get();
       return { status: 'ready', timestamp: new Date().toISOString() };
     } catch (err) {
       return reply.status(503).send({ status: 'not ready', error: 'Firestore unavailable' });

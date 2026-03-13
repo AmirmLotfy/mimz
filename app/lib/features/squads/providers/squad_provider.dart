@@ -6,7 +6,7 @@ final squadProvider = FutureProvider<Squad?>((ref) async {
   try {
     final apiClient = ref.read(apiClientProvider);
     // Attempt to fetch squad from API
-    final response = await apiClient.getProfile();
+    await apiClient.getProfile();
     // If user has a squad, the profile includes squadId
     // For now, return null (no squad by default)
     return null;

@@ -73,7 +73,7 @@ class LiveWebSocketClient {
         cancelOnError: false,
       );
     } on TimeoutException {
-      _eventController.add(SessionError(const LiveError(
+      _eventController.add(const SessionError(LiveError(
         code: LiveErrorCode.wsConnectFailed,
         message: 'Connection timed out',
         recovery: LiveErrorRecovery.retry,
@@ -119,14 +119,21 @@ class LiveWebSocketClient {
 
   /// Set inactivity timeout. Fires [SessionWarning] when exceeded.
   void setInactivityTimeout(Duration timeout) {
+    _inactivityTimeout = timeout;
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer(timeout, () {
       _eventController.add(const SessionWarning('Session inactive — will close soon'));
     });
   }
 
+  Duration? _inactivityTimeout;
+
   void _resetInactivityTimer() {
-    // Timer is reset on every send; re-arm if configured
+    if (_inactivityTimeout == null) return;
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(_inactivityTimeout!, () {
+      _eventController.add(const SessionWarning('Session inactive — will close soon'));
+    });
   }
 
   /// Close the WebSocket connection.

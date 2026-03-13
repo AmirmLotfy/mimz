@@ -81,7 +81,7 @@ class LocationPermissionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: MimzSpacing.xxl),
                   // Feature chips
-                  Row(
+                  const Row(
                     children: [
                       Expanded(
                         child: _FeatureChip(
@@ -90,7 +90,7 @@ class LocationPermissionScreen extends ConsumerWidget {
                           sublabel: 'Local Realm',
                         ),
                       ),
-                      const SizedBox(width: MimzSpacing.base),
+                      SizedBox(width: MimzSpacing.base),
                       Expanded(
                         child: _FeatureChip(
                           icon: Icons.people_outline,

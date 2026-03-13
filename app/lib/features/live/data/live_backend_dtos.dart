@@ -1,6 +1,6 @@
-/// Request/response DTOs for the live backend endpoints.
-///
-/// Strongly typed models prevent ad-hoc map access throughout the codebase.
+// Request/response DTOs for the live backend endpoints.
+//
+// Strongly typed models prevent ad-hoc map access throughout the codebase.
 
 // ─── Ephemeral Token ─────────────────────────────────────
 
@@ -32,7 +32,8 @@ class EphemeralTokenResponse {
     final session = json['session'] as Map<String, dynamic>? ?? json;
     return EphemeralTokenResponse(
       token: session['token'] as String,
-      model: session['model'] as String? ?? 'gemini-2.0-flash-live-001',
+      model: session['model'] as String? ??
+          (throw const FormatException('Backend must provide model in ephemeral token response')),
       expiresAt: DateTime.parse(session['expiresAt'] as String),
       tools: (session['tools'] as List?)?.cast<Map<String, dynamic>>() ?? [],
     );

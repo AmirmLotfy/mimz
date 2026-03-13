@@ -335,11 +335,18 @@ const handlers: Record<string, ToolHandler> = {
     const missionId = args.missionId as string;
     const amount = args.amount as number;
 
+    const squadId = await db.getSquadIdForUser(ctx.userId);
+    if (!squadId) {
+      throw new Error('User is not in a squad');
+    }
+
     // Find user's squad and update mission progress
-    // For now, award XP equivalent as direct reward
+    await db.updateSquadMissionProgress(squadId, missionId, amount);
+
+    // Also award XP equivalent as direct reward
     await db.incrementUserXp(ctx.userId, Math.floor(amount * 10));
     await game.grantReward(ctx.userId, 'xp', Math.floor(amount * 10), 'contribute_squad_progress', ctx.sessionId);
-    await game.audit(ctx.userId, 'contribute_squad_progress', { missionId, amount }, {
+    await game.audit(ctx.userId, 'contribute_squad_progress', { missionId, amount, squadId }, {
       toolName: 'contribute_squad_progress', sessionId: ctx.sessionId,
     });
 
@@ -348,6 +355,7 @@ const handlers: Record<string, ToolHandler> = {
       data: {
         missionId,
         contributed: amount,
+        squadId,
         xpEarned: Math.floor(amount * 10),
         message: `Contributed ${amount} progress to squad mission! +${Math.floor(amount * 10)} XP`,
       },
@@ -413,8 +421,10 @@ export async function executeTool(
 
   // 3. Execute
   try {
+    const start = Date.now();
     const handler = handlers[toolName];
     const result = await handler(parsed.data as Record<string, unknown>, { ...ctx, correlationId: cid });
+    const executionTimeMs = Date.now() - start;
 
     return {
       success: result.success,
@@ -422,6 +432,7 @@ export async function executeTool(
       error: result.error,
       correlationId: cid,
       executedAt: new Date().toISOString(),
+      executionTimeMs,
     };
   } catch (err: any) {
     return {
@@ -430,6 +441,18 @@ export async function executeTool(
       error: err.message || 'Tool execution failed',
       correlationId: cid,
       executedAt: new Date().toISOString(),
+      executionTimeMs: 0,
     };
   }
+}
+
+/**
+ * Strip human-readable `message` field from tool result for model consumption.
+ * Saves tokens in the context window — messages are only for client-side display.
+ */
+export function toModelPayload(result: LiveToolExecutionResponse): Record<string, unknown> {
+  const { data, ...rest } = result;
+  const trimmed = { ...data };
+  delete trimmed['message'];
+  return { ...rest, data: trimmed };
 }

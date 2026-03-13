@@ -1,9 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_client.dart';
 
 enum LiveSessionState { disconnected, connecting, connected, listening, speaking, error }
+
+/// @deprecated — Use `features/live/data/live_websocket_client.dart` +
+/// `features/live/application/live_session_controller.dart` instead.
+/// This legacy client is superseded by the layered live architecture.
+/// Retained temporarily for backward-compatible Riverpod providers.
 
 /// Manages a Gemini Live API session via WebSocket
 class GeminiLiveClient {
@@ -100,7 +106,9 @@ class GeminiLiveClient {
   /// Send audio data (PCM bytes)
   void sendAudio(List<int> audioBytes) {
     if (_state != LiveSessionState.connected &&
-        _state != LiveSessionState.listening) return;
+        _state != LiveSessionState.listening) {
+      return;
+    }
 
     final message = {
       'realtimeInput': {
@@ -117,10 +125,34 @@ class GeminiLiveClient {
     _setState(LiveSessionState.listening);
   }
 
+  /// Send image data (JPEG bytes)
+  void sendImage(Uint8List imageBytes) {
+    if (_state != LiveSessionState.connected &&
+        _state != LiveSessionState.listening) {
+      return;
+    }
+
+    final message = {
+      'realtimeInput': {
+        'mediaChunks': [
+          {
+            'mimeType': 'image/jpeg',
+            'data': base64Encode(imageBytes),
+          },
+        ],
+      },
+    };
+
+    _channel?.sink.add(jsonEncode(message));
+    _setState(LiveSessionState.listening);
+  }
+
   /// Send text message
   void sendText(String text) {
     if (_state != LiveSessionState.connected &&
-        _state != LiveSessionState.listening) return;
+        _state != LiveSessionState.listening) {
+      return;
+    }
 
     final message = {
       'clientContent': {

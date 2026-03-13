@@ -62,6 +62,9 @@ dev_dependencies:
   freezed: ^2.5.8
   json_serializable: ^6.9.4
   riverpod_generator: ^2.6.3
+  mocktail: ^1.0.4
+  network_image_mock: ^2.1.1
+  shared_preferences: ^2.5.4
 
 flutter:
   uses-material-design: true

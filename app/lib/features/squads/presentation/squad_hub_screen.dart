@@ -44,13 +44,34 @@ class SquadHubScreen extends ConsumerWidget {
               ],
             ).animate().fadeIn(duration: 400.ms),
             const SizedBox(height: MimzSpacing.xxl),
-            // Active missions
-            Text('ACTIVE MISSIONS', style: MimzTypography.caption.copyWith(
-              fontWeight: FontWeight.w700,
-            )),
+            // Active missions header row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('ACTIVE MISSIONS', style: MimzTypography.caption.copyWith(
+                  fontWeight: FontWeight.w700,
+                )),
+                GestureDetector(
+                  onTap: () => context.push('/squad/leaderboard'),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Leaderboard',
+                        style: MimzTypography.caption.copyWith(
+                          color: MimzColors.mossCore,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right, size: 16, color: MimzColors.mossCore),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: MimzSpacing.md),
             if (missions.isEmpty)
-              _EmptyState(
+              const _EmptyState(
                 icon: Icons.flag_outlined,
                 title: 'No active missions',
                 subtitle: 'Join or create a squad to start missions together.',
@@ -70,7 +91,7 @@ class SquadHubScreen extends ConsumerWidget {
             )),
             const SizedBox(height: MimzSpacing.md),
             if (members.isEmpty)
-              _EmptyState(
+              const _EmptyState(
                 icon: Icons.people_outline,
                 title: 'No members yet',
                 subtitle: 'Invite others to join your squad.',
@@ -134,7 +155,7 @@ class SquadHubScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: MimzColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: MimzColors.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -151,7 +172,7 @@ class SquadHubScreen extends ConsumerWidget {
                 ),
               );
             },
-            child: Text('Create', style: TextStyle(
+            child: const Text('Create', style: TextStyle(
               color: MimzColors.mossCore,
               fontWeight: FontWeight.w700,
             )),
@@ -212,7 +233,7 @@ class SquadHubScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: MimzColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: MimzColors.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -229,7 +250,7 @@ class SquadHubScreen extends ConsumerWidget {
                 ),
               );
             },
-            child: Text('Join', style: TextStyle(
+            child: const Text('Join', style: TextStyle(
               color: MimzColors.mossCore,
               fontWeight: FontWeight.w700,
             )),

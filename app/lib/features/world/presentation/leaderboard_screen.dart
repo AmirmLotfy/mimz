@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../providers/leaderboard_provider.dart';
 
 /// Leaderboard screen with podium, tabs, and ranked player list
 class LeaderboardScreen extends ConsumerStatefulWidget {
@@ -30,22 +30,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
     super.dispose();
   }
 
-  // Demo leaderboard data
-  static const _players = [
-    _LeaderboardEntry(rank: 1, name: 'Atlas Runner', xp: 28400, district: 'Verdant Reach'),
-    _LeaderboardEntry(rank: 2, name: 'Stone Mason', xp: 24100, district: 'Cedar Ridge'),
-    _LeaderboardEntry(rank: 3, name: 'Neon Walker', xp: 21800, district: 'Greyrock Bay'),
-    _LeaderboardEntry(rank: 4, name: 'Moss Scout', xp: 18600, district: 'Sylvan Grove'),
-    _LeaderboardEntry(rank: 5, name: 'Dusk Ranger', xp: 16200, district: 'Elder Peak'),
-    _LeaderboardEntry(rank: 6, name: 'Ember Crafter', xp: 14800, district: 'Mossy Hollow'),
-    _LeaderboardEntry(rank: 7, name: 'Wave Finder', xp: 13100, district: 'Coral Reach'),
-    _LeaderboardEntry(rank: 8, name: 'Explorer', xp: 12450, district: 'Verdant Reach', isCurrentUser: true),
-    _LeaderboardEntry(rank: 9, name: 'Root Walker', xp: 11200, district: 'Cedar Ridge'),
-    _LeaderboardEntry(rank: 10, name: 'Star Gazer', xp: 9800, district: 'Elder Peak'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final leaderboardAsync = ref.watch(globalLeaderboardProvider);
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -55,7 +43,19 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
         ),
         title: const Text('Leaderboard'),
       ),
-      body: Column(
+      body: leaderboardAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: MimzColors.mossCore)),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+        data: (entries) {
+          final players = entries.map((e) => _LeaderboardEntry(
+            rank: e.rank,
+            name: e.displayName,
+            xp: e.score,
+            district: e.districtName ?? 'Unknown District',
+            isCurrentUser: currentUser?.id == e.userId,
+          )).toList();
+
+          return Column(
         children: [
           // Tab bar
           Container(
@@ -102,32 +102,32 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
               children: [
                 // 2nd place
                 Expanded(
-                  child: _PodiumItem(
-                    entry: _players[1],
+                  child: players.length > 1 ? _PodiumItem(
+                    entry: players[1],
                     height: 80,
                     color: MimzColors.textSecondary,
                     medal: '🥈',
-                  ),
+                  ) : const SizedBox(),
                 ),
                 const SizedBox(width: MimzSpacing.md),
                 // 1st place
                 Expanded(
-                  child: _PodiumItem(
-                    entry: _players[0],
+                  child: players.isNotEmpty ? _PodiumItem(
+                    entry: players[0],
                     height: 100,
                     color: MimzColors.dustyGold,
                     medal: '🥇',
-                  ),
+                  ) : const SizedBox(),
                 ),
                 const SizedBox(width: MimzSpacing.md),
                 // 3rd place
                 Expanded(
-                  child: _PodiumItem(
-                    entry: _players[2],
+                  child: players.length > 2 ? _PodiumItem(
+                    entry: players[2],
                     height: 64,
                     color: MimzColors.persimmonHit,
                     medal: '🥉',
-                  ),
+                  ) : const SizedBox(),
                 ),
               ],
             ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
@@ -137,9 +137,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.base),
-              itemCount: _players.length - 3,
+              itemCount: players.length > 3 ? players.length - 3 : 0,
               itemBuilder: (context, index) {
-                final entry = _players[index + 3];
+                final entry = players[index + 3];
                 return _RankingTile(entry: entry)
                     .animate(delay: Duration(milliseconds: 100 * index))
                     .fadeIn(duration: 300.ms);
@@ -147,9 +147,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
+      );
+    },
+   ),
+  );
+ }
 }
 
 class _LeaderboardEntry {

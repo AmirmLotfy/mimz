@@ -1,4 +1,3 @@
-import 'dart:math';
 
 /// District model — represents a user's owned territory
 class District {
@@ -35,7 +34,7 @@ class District {
 
   /// Growth rate based on structures
   double get growthRate {
-    final base = 1.0;
+    const base = 1.0;
     final structureBonus = structures.length * 0.8;
     return base + structureBonus;
   }
@@ -119,17 +118,17 @@ class District {
         newSectors: newSectors ?? this.newSectors,
       );
 
-  static District get demo => District(
+  static District get demo => const District(
         id: 'district_001',
         name: 'Verdant Reach',
         sectors: 7,
         area: '7.7 sq km',
         structures: [
-          const Structure(id: 's1', name: 'Solarium Wing', tier: 'master'),
-          const Structure(id: 's2', name: 'Cedar Pavilion', tier: 'master'),
-          const Structure(id: 's3', name: 'Stone Arch', tier: 'rare'),
+          Structure(id: 's1', name: 'Solarium Wing', tier: 'master'),
+          Structure(id: 's2', name: 'Cedar Pavilion', tier: 'master'),
+          Structure(id: 's3', name: 'Stone Arch', tier: 'rare'),
         ],
-        resources: const Resources(stone: 1250, glass: 480, wood: 920),
+        resources: Resources(stone: 1250, glass: 480, wood: 920),
         prestigeLevel: 4,
         newSectors: 0,
       );

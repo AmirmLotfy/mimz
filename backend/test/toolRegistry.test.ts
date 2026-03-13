@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TOOL_SCHEMAS, KNOWN_TOOLS } from '../src/modules/live/toolSchemas.js';
+import { toModelPayload } from '../src/modules/live/executeLiveTool.js';
+import type { LiveToolExecutionResponse } from '../src/models/types.js';
 
 describe('Tool Registry', () => {
   it('contains exactly 15 tools', () => {
@@ -62,5 +64,30 @@ describe('Tool Registry', () => {
       );
       expect(result.success, `Schema ${name} failed`).toBe(true);
     }
+  });
+});
+
+describe('Tool Execution Utilities', () => {
+  it('toModelPayload should strip message field', () => {
+    const mockResponse: LiveToolExecutionResponse = {
+      success: true,
+      executedAt: new Date().toISOString(),
+      correlationId: 'test_123',
+      executionTimeMs: 150,
+      data: {
+        isCorrect: true,
+        pointsAwarded: 500,
+        message: 'Correct! You earned 500 XP.' // This should be stripped
+      }
+    };
+
+    const payload = toModelPayload(mockResponse);
+    
+    expect(payload.success).toBe(true);
+    expect(payload.correlationId).toBe('test_123');
+    expect(payload.executionTimeMs).toBe(150);
+    expect((payload.data as Record<string, unknown>).isCorrect).toBe(true);
+    expect((payload.data as Record<string, unknown>).pointsAwarded).toBe(500);
+    expect((payload.data as Record<string, unknown>).message).toBeUndefined(); // Stripped
   });
 });

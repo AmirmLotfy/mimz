@@ -39,7 +39,7 @@ class LiveDebugPanel extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('── MIMZ LIVE DEBUG ──'),
+            const Text('── MIMZ LIVE DEBUG ──'),
             Text('phase: ${state.phase.name}'),
             Text('mode: ${state.mode.name}'),
             Text('session: ${state.sessionId ?? 'none'}'),
@@ -53,7 +53,7 @@ class LiveDebugPanel extends ConsumerWidget {
               Text('error: ${state.error!.code.name}',
                   style: const TextStyle(color: MimzColors.persimmonHit, fontFamily: 'monospace', fontSize: 10)),
             const SizedBox(height: 4),
-            Text('── MILESTONES ──'),
+            const Text('── MILESTONES ──'),
             ...milestones.entries.map((e) =>
                 Text('${e.key}: ${e.value ?? '-'}'),
             ),

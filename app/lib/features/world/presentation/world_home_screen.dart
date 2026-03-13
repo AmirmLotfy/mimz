@@ -10,6 +10,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/events/providers/events_provider.dart';
 import '../../../data/models/district.dart';
 import '../utils/hex_geometry.dart';
+import 'world_expanded_sheet.dart';
 
 /// Screen 13 — World home screen with unified path InteractiveViewer map
 class WorldHomeScreen extends ConsumerStatefulWidget {
@@ -28,6 +29,7 @@ class _WorldHomeScreenState extends ConsumerState<WorldHomeScreen>
   int _lastSectorCount = -1;
   int _lastNewSectors = -1;
   bool _isAnimatingGrowth = false;
+  bool _showTutorial = true; // Shows once per app session
 
   final double _mapSize = 4000.0;
   late final Offset _mapCenter;
@@ -80,8 +82,7 @@ class _WorldHomeScreenState extends ConsumerState<WorldHomeScreen>
     final dy = (size.height * 0.4) - targetOffset.dy; // 40% down from top
     
     final endMatrix = Matrix4.identity()
-      ..translate(dx, dy)
-      ..scale(1.0); // Default zoom
+      ..setTranslationRaw(dx, dy, 0.0); // Default zoom
 
     if (animated) {
       final startMatrix = _mapController.value;
@@ -121,7 +122,7 @@ class _WorldHomeScreenState extends ConsumerState<WorldHomeScreen>
             if (mounted) setState(() => _isAnimatingGrowth = false);
             ref.read(districtGrowthEventProvider.notifier).state = null;
             // Clear new sectors from state so they become part of the base next time
-            ref.read(districtProvider.notifier).state = AsyncValue.data(district.copyWith(newSectors: 0));
+            ref.read(districtProvider.notifier).updateLocal(district.copyWith(newSectors: 0));
           });
         });
       });
@@ -215,25 +216,38 @@ class _WorldHomeScreenState extends ConsumerState<WorldHomeScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          districtName,
-                          style: MimzTypography.displayMedium.copyWith(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: MimzColors.deepInk,
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        context.go('/district/detail');
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                districtName,
+                                style: MimzTypography.displayMedium.copyWith(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  color: MimzColors.deepInk,
+                                ),
+                              ).animate().fadeIn(duration: 500.ms).slideX(begin: -0.1),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.arrow_forward_ios,
+                                  size: 12, color: MimzColors.textTertiary),
+                            ],
                           ),
-                        ).animate().fadeIn(duration: 500.ms).slideX(begin: -0.1),
-                        Text(
-                          'SECTOR ${district.sectors.toString().padLeft(2, '0')} • ${district.area}',
-                          style: MimzTypography.caption.copyWith(
-                            color: MimzColors.mossCore,
-                            fontWeight: FontWeight.w700,
+                          Text(
+                            'SECTOR ${district.sectors.toString().padLeft(2, '0')} • ${district.area}',
+                            style: MimzTypography.caption.copyWith(
+                              color: MimzColors.mossCore,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   GestureDetector(
@@ -316,23 +330,119 @@ class _WorldHomeScreenState extends ConsumerState<WorldHomeScreen>
                     HapticFeedback.selectionClick();
                     _centerMap(animated: true);
                   }),
-                  const SizedBox(height: MimzSpacing.sm),
-                  _MapControlButton(icon: Icons.layers, onTap: () {
-                    HapticFeedback.selectionClick();
-                  }),
+
                 ],
               ).animate(delay: 500.ms).fadeIn(duration: 400.ms).slideX(begin: 0.5),
             ),
           ),
           
           // Bottom sheet
-          const Positioned(
+           const Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             top: 0, // Needs full height for DraggableScrollableSheet
             child: _WorldBottomSheetPlaceholder(),
           ),
+
+          // ── First-time tutorial overlay (UX-06) ─────────────
+          if (_showTutorial)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _showTutorial = false),
+                child: Container(
+                  color: MimzColors.nightSurface.withValues(alpha: 0.75),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Pulsing hex ring
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: MimzColors.acidLime,
+                            width: 2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.hexagon_outlined,
+                          color: MimzColors.acidLime,
+                          size: 52,
+                        ),
+                      )
+                          .animate(onPlay: (ctrl) => ctrl.repeat(reverse: true))
+                          .scaleXY(begin: 0.9, end: 1.05, duration: 1000.ms, curve: Curves.easeInOut)
+                          .then()
+                          .fadeIn(duration: 200.ms),
+                      const SizedBox(height: MimzSpacing.xl),
+                      Text(
+                        'Your District Awaits',
+                        style: MimzTypography.displayMedium.copyWith(
+                          color: MimzColors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
+                      const SizedBox(height: MimzSpacing.md),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xxl),
+                        child: Text(
+                          'Play live voice rounds to earn sectors.\nYour district grows with every win.',
+                          style: MimzTypography.bodyMedium.copyWith(
+                            color: MimzColors.white.withValues(alpha: 0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ).animate(delay: 300.ms).fadeIn(duration: 400.ms),
+                      const SizedBox(height: MimzSpacing.xxl),
+                      // Start Playing CTA
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          setState(() => _showTutorial = false);
+                          context.go('/play');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: MimzSpacing.xxl,
+                            vertical: MimzSpacing.base,
+                          ),
+                          decoration: BoxDecoration(
+                            color: MimzColors.acidLime,
+                            borderRadius: BorderRadius.circular(MimzRadius.pill),
+                            boxShadow: [
+                              BoxShadow(
+                                color: MimzColors.acidLime.withValues(alpha: 0.4),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '▶  Start Playing',
+                            style: MimzTypography.headlineMedium.copyWith(
+                              color: MimzColors.deepInk,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      )
+                          .animate(delay: 500.ms)
+                          .fadeIn(duration: 400.ms)
+                          .slideY(begin: 0.2),
+                      const SizedBox(height: MimzSpacing.xl),
+                      Text(
+                        'Tap anywhere to dismiss',
+                        style: MimzTypography.caption.copyWith(
+                          color: MimzColors.white.withValues(alpha: 0.4),
+                        ),
+                      ).animate(delay: 800.ms).fadeIn(duration: 400.ms),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -473,7 +583,6 @@ class _GrowthAnimationPainter extends CustomPainter {
     
     final popProgress = (progress / 0.4).clamp(0.0, 1.0);
     final rippleProgress = ((progress - 0.2) / 0.6).clamp(0.0, 1.0);
-    final textProgress = ((progress - 0.4) / 0.6).clamp(0.0, 1.0);
 
     // 1. Draw new hexes popping in
     if (popProgress > 0) {
@@ -523,8 +632,11 @@ class _GrowthAnimationPainter extends CustomPainter {
       final angle = (60 * i - 30) * pi / 180;
       final x = cx + radius * cos(angle);
       final y = cy + radius * sin(angle);
-      if (i == 0) path.moveTo(x, y);
-      else path.lineTo(x, y);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
     }
     path.close();
     return path;
@@ -536,7 +648,7 @@ class _GrowthAnimationPainter extends CustomPainter {
 }
 
 // Placeholder for the bottom sheet reference to compile. We'll include the actual sheet file.
-import 'world_expanded_sheet.dart';
+// Placeholder for the bottom sheet reference to compile. We'll include the actual sheet file.
 class _WorldBottomSheetPlaceholder extends StatelessWidget {
   const _WorldBottomSheetPlaceholder();
   @override
