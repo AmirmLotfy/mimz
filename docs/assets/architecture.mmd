@@ -3,87 +3,64 @@
   'themeVariables': {
     'primaryColor': '#1E293B',
     'primaryTextColor': '#F8FAFC',
-    'primaryBorderColor': '#38BDF8',
-    'lineColor': '#94A3B8',
-    'secondaryColor': '#334155',
-    'tertiaryColor': '#0F172A',
-    'clusterBkg': '#0F172A',
-    'clusterBorder': '#475569',
-    'nodeBorder': '#38BDF8',
-    'mainBkg': '#0B1120',
+    'primaryBorderColor': '#334155',
+    'lineColor': '#64748B',
+    'secondaryColor': '#0F172A',
+    'tertiaryColor': '#020617',
+    'clusterBkg': '#0B1120',
+    'clusterBorder': '#1E293B',
+    'nodeBorder': '#334155',
+    'mainBkg': '#020617',
     'fontSize': '16px',
-    'fontFamily': 'system-ui, -apple-system, sans-serif'
+    'fontFamily': 'Inter, system-ui, sans-serif'
   }
 }}%%
-graph TB
-    subgraph Client ["📱 Flutter Mobile App"]
+flowchart LR
+    subgraph Client ["Client Layer (Flutter)"]
         direction TB
-        UI["🖥 Screen Layer"]
-        RP["⚡ Riverpod State"]
-        LIVE["🎙 Live Stack<br>(WebSocket / Audio / Camera)"]
-        SVC["🔗 API Services"]
+        App["📱 iOS & Android App<br/>(Riverpod + Audio)"]
     end
 
-    subgraph AI ["🧠 Gemini 2.0 Flash Live API"]
+    subgraph Intelligence ["AI Layer (Google)"]
         direction TB
-        WS["🌐 Bidi WebSocket"]
-        TOOLS["🛠 Tool Declarations"]
-        PERSONA["🎭 Mimz Persona"]
+        Gemini{"🧠 Gemini 2.0<br/>Flash Live API"}
     end
 
-    subgraph Server ["⚙️ Cloud Run Backend (Fastify)"]
+    subgraph Backend ["Logic Layer (Cloud Run)"]
         direction TB
-        API["📡 REST Endpoints"]
-        AUTH["🛡 Token Verification"]
-        EXEC["⚡ Tool Executor (Zod)"]
-        GSVC["🎮 Game Services<br>(Scoring, Districts, Audit)"]
+        API["📡 Fastify REST API<br/>(Node.js + TypeScript)"]
+        Tools["⚙️ Tool Validator<br/>(Zod Parsing)"]
     end
 
-    subgraph Cloud ["☁️ Google Cloud & Firebase"]
+    subgraph Data ["Data Layer (Firebase)"]
         direction TB
-        FS[("🗄️ Cloud Firestore")]
-        FA["🔐 Firebase Auth"]
-        GCS[("📦 Cloud Storage")]
-        SM["🔑 Secret Manager"]
+        Auth["🔐 Firebase Auth"]
+        DB[("🗄️ Cloud Firestore")]
     end
 
-    %% Internal Client Flow
-    UI --> RP
-    RP --> SVC
-    RP --> LIVE
+    %% Communication Flows
+    App <-->|"1. Bidirectional WebSocket<br/>(Realtime Voice)"| Gemini
+    Gemini -.->|"2. Emit Tool Intent<br/>(e.g., grade_answer)"| App
+    
+    App -->|"3. HTTPS POST<br/>(Tool Execution)"| API
+    
+    API -->|"4. Verify Token"| Auth
+    API -->|"5. Process Tool"| Tools
+    Tools -->|"6. Authoritative Write"| DB
+    Tools -.->|"7. Return New Game State"| App
 
-    %% Client communicating outside
-    SVC -- "REST + Firebase ID Token" --> API
-    LIVE -- "Ephemeral Token + PCM Audio" --> WS
-    LIVE -- "Forward Tool Responses" --> API
+    %% Enterprise Styling
+    classDef clientNode fill:#0F172A,stroke:#3B82F6,stroke-width:2px,color:#F8FAFC,rx:8,ry:8;
+    classDef aiNode fill:#0F172A,stroke:#8B5CF6,stroke-width:2px,color:#F8FAFC,rx:8,ry:8;
+    classDef backendNode fill:#0F172A,stroke:#10B981,stroke-width:2px,color:#F8FAFC,rx:8,ry:8;
+    classDef dataNode fill:#0F172A,stroke:#F59E0B,stroke-width:2px,color:#F8FAFC,rx:8,ry:8;
 
-    %% AI internals
-    WS --- TOOLS
-    WS --- PERSONA
+    class App clientNode;
+    class Gemini aiNode;
+    class API,Tools backendNode;
+    class Auth,DB dataNode;
 
-    %% AI talking directly to Client
-    WS -- "Emit Tool Call" --> LIVE
-
-    %% Backend Flow
-    API --> AUTH
-    AUTH -- "Verify Signature" --> FA
-    API --> EXEC
-    EXEC --> GSVC
-    GSVC -- "Atomic Writes" --> FS
-    API -- "Fetch GEMINI_API_KEY" --> SM
-
-    %% Styling
-    classDef clientNode fill:#1e40af,stroke:#60a5fa,stroke-width:2px,color:#fff,rx:8,ry:8;
-    classDef aiNode fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#fff,rx:8,ry:8;
-    classDef serverNode fill:#065f46,stroke:#34d399,stroke-width:2px,color:#fff,rx:8,ry:8;
-    classDef cloudNode fill:#b45309,stroke:#fbbf24,stroke-width:2px,color:#fff,rx:8,ry:8;
-
-    class UI,RP,LIVE,SVC clientNode;
-    class WS,TOOLS,PERSONA aiNode;
-    class API,AUTH,EXEC,GSVC serverNode;
-    class FS,FA,GCS,SM cloudNode;
-
-    style Client fill:#0f172a,stroke:#3b82f6,stroke-width:2px,rx:12,ry:12
-    style AI fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,rx:12,ry:12
-    style Server fill:#0f172a,stroke:#10b981,stroke-width:2px,rx:12,ry:12
-    style Cloud fill:#0f172a,stroke:#f59e0b,stroke-width:2px,rx:12,ry:12
+    style Client fill:#0B1120,stroke:#1E293B,stroke-width:2px,color:#94A3B8,rx:12,ry:12
+    style Intelligence fill:#0B1120,stroke:#1E293B,stroke-width:2px,color:#94A3B8,rx:12,ry:12
+    style Backend fill:#0B1120,stroke:#1E293B,stroke-width:2px,color:#94A3B8,rx:12,ry:12
+    style Data fill:#0B1120,stroke:#1E293B,stroke-width:2px,color:#94A3B8,rx:12,ry:12
