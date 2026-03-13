@@ -1,110 +1,95 @@
-# Hackathon Submission — Mimz
-
-> Copy/paste source for Devpost submission forms.
-
----
-
-## Project Name
-
-**Mimz — Learn live. Build your district.**
-
-## One-Line Pitch
-
-A live voice-and-vision mobile game where Gemini hosts real-time quizzes, identifies real-world objects through your camera, and grows your personal district on a map — all through natural spoken conversation.
-
-## Category
-
-**Live Agents**
-
-## Why Live Agents
-
-Mimz is not a chatbot. It is a real-time bidirectional AI game host that:
-- Speaks and listens simultaneously over a persistent WebSocket connection
-- Processes camera frames during Vision Quests
-- Executes 15 typed tool calls that mutate authoritative backend state
-- Handles mid-sentence interruptions and adapts its flow
-- Maintains a consistent game host persona across multi-turn voice sessions
-
-This is a Live Agent, not request/response.
-
-## What Makes Mimz Beyond Text
-
-| Modality | How It's Used |
-|----------|--------------|
-| **Voice (output)** | Gemini reads quiz questions, celebrates correct answers, gives hints |
-| **Voice (input)** | Players speak answers — no typing, no buttons |
-| **Vision** | Camera captures real-world objects during Vision Quests for AI identification |
-| **Interruption** | Players can barge in mid-question — AI stops, acknowledges, continues |
-| **Spatial** | Territory growth is visible on a map — progression has geographic meaning |
-
-## What the Live Agent Actually Does
-
-The Mimz AI host:
-1. Greets new players and collects interests through natural conversation (onboarding)
-2. Reads quiz questions aloud with appropriate difficulty
-3. Listens to spoken answers and evaluates correctness
-4. Calls `grade_answer` to score — backend awards XP, updates streak
-5. Calls `award_territory` when the player earns expansion
-6. Calls `grant_materials` to award building resources
-7. Calls `apply_combo_bonus` when streaks reach 3+
-8. Initiates Vision Quests and guides camera exploration
-9. Calls `validate_vision_result` when the player shows an object
-10. Calls `unlock_structure` when a blueprint is earned
-11. Ends rounds with summary and calls `end_round` for leaderboard update
-
-## How Google Cloud Is Used
-
-| Service | Role | Evidence |
-|---------|------|---------|
-| **Cloud Run** | Hosts Fastify backend (containerized, auto-scaling) | `backend/Dockerfile`, deploy commands |
-| **Firestore** | Persists users, districts, squads, events, rewards, audit logs | 10 collections, 30+ repository functions |
-| **Firebase Auth** | Identity (Apple/Google/Email sign-in) | Auth middleware verifies ID tokens |
-| **Gemini 2.0 Flash Live** | Real-time multimodal AI via WebSocket | Persona, 15 tool definitions, ephemeral tokens |
-
-## Key Technologies
-
-`flutter` `dart` `gemini-2.0-flash-live` `google-cloud-run` `firestore` `firebase-auth` `fastify` `typescript` `zod` `riverpod` `go-router` `websocket` `vitest`
-
 ## Inspiration
 
-Learning apps are passive. Games are fun but shallow. Map games are solitary. We wanted to build something where AI doesn't just quiz you — it *hosts* you. Where correct answers literally expand your territory. Where pointing your camera at the real world earns rewards. Gemini Live made this possible: a real-time, multimodal AI that can listen, speak, see, and execute game logic in a single conversation.
+Most learning and trivia apps still feel flat: you answer something, get points, and move on. We wanted to build something that feels alive.
 
-## How We Built It
+Mimz came from a simple question: what if learning, curiosity, and live interaction could visibly change a world you care about? Instead of hiding progress in a dashboard, we wanted progress to become a place. That led us to a map-based game where users grow a personal district through real-time voice challenges, camera-powered quests, and shared squad goals.
 
-1. Designed a 20+ screen Flutter app with an editorial design system
-2. Built a production Fastify backend with Zod-validated schemas, Firebase Auth, and Firestore
-3. Implemented a full Gemini Live WebSocket integration with 15 typed tool calls
-4. Created a domain-driven live interaction stack (audio capture, playback, turn detection, reconnect policy)
-5. Wired tool calls to backend-authoritative game logic with anti-abuse protections
-6. Wrote 33 backend unit tests and comprehensive documentation
+The Gemini Live Agent Challenge was the perfect fit because the core idea only works if the agent can actually listen, speak, see, adapt in real time, and handle interruptions naturally. That is exactly what the Live Agents category is asking for. 
 
-## Challenges
+## What it does
 
-- **Latency**: Keeping voice interactions snappy required careful audio buffering and optimistic UI
-- **Persona consistency**: Tuning the system instruction to keep Mimz in character across topics
-- **Authoritative tool execution**: Balancing responsive client UX with server-side-only state mutations
-- **Multi-modal coordination**: Syncing camera input, voice output, and map updates in one screen
-- **Anti-abuse**: Validating unbounded model outputs (Gemini can propose any score — backend must verify)
+Mimz is a mobile-first live AI game where users build a personal district on a stylized map.
 
-## Accomplishments
+The app starts with a live onboarding conversation. The agent asks about the user’s interests, study or work background, and play style, then personalizes the experience from the beginning.
 
-- 20+ production screens with editorial design system (dark theme, glassmorphism, micro-animations)
-- Full Gemini Live integration with 15 custom tool definitions and Zod-validated execution
-- Backend-authoritative game state with reward caps, territory bounds, and audit logging
-- 33 passing unit tests covering tool schemas, scoring logic, and domain models
-- Comprehensive documentation: architecture diagrams, API reference, security model, demo script
+From there, users can:
+- play real-time voice challenge rounds
+- interrupt the agent naturally to ask for hints, repeat, or switch difficulty
+- complete camera-based quests by showing objects, notes, books, or other real-world signals
+- earn territory points and materials
+- expand their district on the map
+- unlock structures like a Library or Observatory
+- join squads and contribute to shared missions
+- participate in recurring events and leaderboards
 
-## What We Intentionally Scoped Out
+The key idea is that progress is visible. When you do well, your district grows.
 
-- Real-time multiplayer (squad missions demo as single-player)
-- Push notifications (FCM)
-- AR structure preview on real-world map
-- App Store / Play Store release builds
-- Internationalization (English only)
-- Offline mode
+## How we built it
 
-These are real future work items, not missing features. The core Live Agent experience is complete.
+We built Mimz as a mobile-first Flutter app with an architecture centered entirely around Gemini Live.
 
-## Built With
+On the client side, the mobile app handles onboarding, permissions, map UI, live round screens, camera quests, district rendering, and squad/event flows. For real-time interaction, the app opens a direct Gemini Live WebSocket session using ephemeral, short-lived credentials securely issued by our backend.
 
-flutter, dart, gemini, google-cloud, cloud-run, firestore, firebase-auth, typescript, fastify, websocket, google-maps
+On the backend, we built a Google Cloud-hosted Node/Fastify API that handles authoritative game logic: user profiles, district state, rewards, squads, events, leaderboards, and tool execution. The live model does not directly mutate game state. Instead, the model proposes actions via Tool Calls, our Fastify backend strictly validates and conditionally applies them, and the app updates from confirmed state.
+
+We used:
+- Flutter + Dart for the mobile client
+- Gemini 2.0 Flash Live API for low-latency voice and vision interaction
+- Google GenAI SDK for supporting backend model workflows
+- Google Cloud Run for hosting the authoritative, scalable Node/Fastify backend
+- Firestore for application and game state persistence
+- Firebase Auth for secure identity resolution
+- Google Secret Manager for secure API configuration
+
+We also built the UI around a custom map-native design system so the product feels like a premium consumer app instead of a generic AI wrapper.
+
+## Challenges we ran into
+
+The hardest challenge was making the product feel truly live instead of “voice layered on top of a normal app.”
+
+We had to solve for:
+- interruption handling during live rounds
+- keeping audio, camera, and game state in sync
+- designing tool execution so the model feels fluid but the backend stays authoritative
+- translating map growth into a system that is visually satisfying but technically practical
+- keeping location use privacy-safe without exposing exact user coordinates
+- balancing challenge difficulty so the game feels rewarding without becoming punishing
+
+Another major challenge was product scope. The big idea can easily become too broad, so we cut aggressively and focused on the moments that best demonstrate the Live Agents category: live onboarding, real-time voice play, camera quests, district growth, and shared progression.
+
+## Accomplishments that we're proud of
+
+We are proud that Mimz feels like a real product, not just a hackathon demo.
+
+Our favorite accomplishments are:
+- building a live onboarding flow that personalizes the game from the first interaction
+- getting real-time voice rounds to feel fast and interruptible over a direct WebSocket connection
+- making camera quests meaningful instead of gimmicky
+- turning progress into visible district growth on the custom map canvas
+- creating a design system that feels premium, youth-focused, and unlike a generic AI app
+- keeping the system grounded with backend-authoritative validation preventing prompt-injection spoofing
+
+Most importantly, we built something that clearly moves beyond the text box.
+
+## What we learned
+
+We learned that multimodal UX only feels magical when every layer agrees: model behavior, interface timing, audio states, camera states, backend tools, and visual feedback.
+
+We also learned that for live agents, restraint matters. A smaller number of polished interactions is much stronger than a broad feature list. The best moments came from tight cause-and-effect loops: speak, answer, confirm, reward, grow.
+
+On the engineering side, we learned a lot about structuring real-time model interactions so they stay responsive while still keeping product state safe and deterministic.
+
+## What's next for Mimz
+
+Next, we want to deepen the world and the social layer.
+
+Our roadmap includes:
+- richer squad missions and team structures
+- seasonal city events
+- more structure types and district customization
+- better progression balancing
+- more camera quest categories
+- stronger sharing and invite loops
+- a companion web layer for public profiles, leaderboards, and event pages
+
+Long term, we want Mimz to become a new kind of daily habit: a live social world where learning and curiosity build something people genuinely care about.
