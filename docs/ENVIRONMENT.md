@@ -51,6 +51,8 @@ Pass via `flutter run --dart-define=KEY=VALUE`.
 |----------|---------|-------------|
 | `BACKEND_URL` | `http://localhost:8080` | Backend API base URL |
 | `USE_MOCK_LIVE` | `false` | Enable mock live adapter (no API key needed) |
+| `FIREBASE_ANDROID_API_KEY` | (none) | Firebase Android API key used by `firebase_options.dart` |
+| `FIREBASE_IOS_API_KEY` | (none) | Firebase iOS API key used by `firebase_options.dart` |
 
 ---
 

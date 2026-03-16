@@ -15,6 +15,11 @@ import 'package:flutter/foundation.dart'
 /// );
 /// ```
 class DefaultFirebaseOptions {
+  static const String _androidApiKey =
+      String.fromEnvironment('FIREBASE_ANDROID_API_KEY');
+  static const String _iosApiKey =
+      String.fromEnvironment('FIREBASE_IOS_API_KEY');
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       throw UnsupportedError(
@@ -49,23 +54,39 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'REDACTED_FIREBASE_ANDROID_API_KEY',
-    appId: '1:1012962167727:android:dd7c267a1edf01c0e7bd5a',
-    messagingSenderId: '1012962167727',
-    projectId: 'mimzapp',
-    storageBucket: 'mimzapp.firebasestorage.app',
-  );
+  static FirebaseOptions get android {
+    if (_androidApiKey.isEmpty) {
+      throw UnsupportedError(
+        'Missing FIREBASE_ANDROID_API_KEY. Pass it via --dart-define.',
+      );
+    }
+    return FirebaseOptions(
+      apiKey: _androidApiKey,
+      appId: '1:1012962167727:android:dd7c267a1edf01c0e7bd5a',
+      messagingSenderId: '1012962167727',
+      projectId: 'mimzapp',
+      storageBucket: 'mimzapp.firebasestorage.app',
+    );
+  }
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'REDACTED_FIREBASE_IOS_API_KEY',
-    appId: '1:1012962167727:ios:45c7af776d18210ce7bd5a',
-    messagingSenderId: '1012962167727',
-    projectId: 'mimzapp',
-    storageBucket: 'mimzapp.firebasestorage.app',
-    androidClientId: '1012962167727-0p0dn1t5snr5m1r8sb6hcun9t5b6j24n.apps.googleusercontent.com',
-    iosClientId: '1012962167727-lorb8qhom0cvhe5nnj22ealeajf5uv5a.apps.googleusercontent.com',
-    iosBundleId: 'com.mimz.mimzApp',
-  );
+  static FirebaseOptions get ios {
+    if (_iosApiKey.isEmpty) {
+      throw UnsupportedError(
+        'Missing FIREBASE_IOS_API_KEY. Pass it via --dart-define.',
+      );
+    }
+    return FirebaseOptions(
+      apiKey: _iosApiKey,
+      appId: '1:1012962167727:ios:45c7af776d18210ce7bd5a',
+      messagingSenderId: '1012962167727',
+      projectId: 'mimzapp',
+      storageBucket: 'mimzapp.firebasestorage.app',
+      androidClientId:
+          '1012962167727-0p0dn1t5snr5m1r8sb6hcun9t5b6j24n.apps.googleusercontent.com',
+      iosClientId:
+          '1012962167727-lorb8qhom0cvhe5nnj22ealeajf5uv5a.apps.googleusercontent.com',
+      iosBundleId: 'com.mimz.mimzApp',
+    );
+  }
 
 }

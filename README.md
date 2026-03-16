@@ -160,9 +160,15 @@ npm run dev
 ```bash
 cd app
 flutter pub get
-flutter run
+flutter run \
+  --dart-define=FIREBASE_ANDROID_API_KEY=YOUR_ANDROID_KEY \
+  --dart-define=FIREBASE_IOS_API_KEY=YOUR_IOS_KEY
 # For mock live sessions (no API key needed):
-flutter run --dart-define=USE_MOCK_LIVE=true --dart-define=BACKEND_URL=http://localhost:8080
+flutter run \
+  --dart-define=USE_MOCK_LIVE=true \
+  --dart-define=BACKEND_URL=http://localhost:8080 \
+  --dart-define=FIREBASE_ANDROID_API_KEY=YOUR_ANDROID_KEY \
+  --dart-define=FIREBASE_IOS_API_KEY=YOUR_IOS_KEY
 ```
 
 ---
