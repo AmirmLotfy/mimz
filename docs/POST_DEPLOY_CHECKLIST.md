@@ -31,7 +31,7 @@
 - [ ] `flutter analyze lib/` → No issues
 
 ## Gemini API
-- [ ] API key `REDACTED_GOOGLE_API_KEY` is active
+- [ ] API key is active in Secret Manager (do not paste raw key in docs)
 - [ ] Generative Language API enabled in GCP project `mimzapp`
 
 ## Final Smoke Test

@@ -70,8 +70,8 @@
 
 ## FlutterFire Configuration
 - `firebase_options.dart`: ✅ Regenerated with real API keys
-- Android API key: `REDACTED_FIREBASE_ANDROID_API_KEY`
-- iOS API key: `REDACTED_FIREBASE_IOS_API_KEY`
+- Android API key: configured in `firebase_options.dart` (redacted in docs)
+- iOS API key: configured in `firebase_options.dart` (redacted in docs)
 - `google-services.json`: ✅ Downloaded to `app/android/app/`
 - `GoogleService-Info.plist`: ✅ Downloaded to `app/ios/Runner/`
 
