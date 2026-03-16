@@ -92,6 +92,33 @@ class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
       score: score,
     );
   }
+
+  /// Syncs UI state based on rewards executed entirely on the backend
+  /// (e.g. by a Gemini Live tool execution).
+  void syncBackendReward(Map<String, dynamic> payload) {
+    final current = state.valueOrNull ?? District.demo;
+
+    final sectorsAdded = (payload['sectorsAdded'] as num?)?.toInt() ?? 0;
+    
+    // We update local state to reflect the new sectors without making another API call.
+    if (sectorsAdded > 0) {
+      final updated = current.copyWith(
+        sectors: current.sectors + sectorsAdded,
+        area: '${((current.sectors + sectorsAdded) * 1.1).toStringAsFixed(1)} sq km',
+        newSectors: sectorsAdded,
+      );
+      state = AsyncValue.data(updated);
+
+      // Fire growth event so the map UI plays the shockwave animations
+      _ref.read(districtGrowthEventProvider.notifier).state =
+          DistrictGrowthEvent(
+            newSectors: sectorsAdded,
+            materialsEarned: const Resources(stone: 0, glass: 0, wood: 0),
+            scoreEarned: 0,
+            timestamp: DateTime.now(),
+          );
+    }
+  }
 }
 
 /// Current mission text — updated by game events

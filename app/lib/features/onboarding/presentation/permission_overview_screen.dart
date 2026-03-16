@@ -9,13 +9,56 @@ import '../providers/onboarding_provider.dart';
 import '../../../core/providers.dart';
 
 /// Screen 4 — Permission overview with trust framework
-class PermissionOverviewScreen extends ConsumerWidget {
+class PermissionOverviewScreen extends ConsumerStatefulWidget {
   const PermissionOverviewScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PermissionOverviewScreen> createState() => _PermissionOverviewScreenState();
+}
+
+class _PermissionOverviewScreenState extends ConsumerState<PermissionOverviewScreen> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkAndAdvance();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(permissionsProvider.notifier).refresh();
+    }
+  }
+
+  void _checkAndAdvance() {
+    // Small delay to allow providers to settle
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      final permissions = ref.read(permissionsProvider);
+      if (permissions.allGranted) {
+        context.go('/onboarding/live');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final permissions = ref.watch(permissionsProvider);
     final locationService = ref.read(locationServiceProvider);
+
+    // Auto-advance if all granted while on the screen
+    ref.listen(permissionsProvider, (prev, next) {
+      if (next.allGranted) {
+        context.go('/onboarding/live');
+      }
+    });
 
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
@@ -81,8 +124,9 @@ class PermissionOverviewScreen extends ConsumerWidget {
                   final granted = await locationService.requestPermission();
                   if (granted) {
                     ref.read(permissionsProvider.notifier).grantLocation();
+                  } else {
+                    if (context.mounted) context.go('/permissions/location');
                   }
-                  if (context.mounted) context.go('/permissions/location');
                 },
                 onDismiss: () => context.go('/permissions/location'),
               ).animate().fadeIn(delay: 200.ms, duration: 400.ms).slideY(begin: 0.1),

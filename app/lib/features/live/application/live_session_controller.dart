@@ -45,6 +45,7 @@ class LiveSessionController {
   // ─── Subscriptions ──────────────────────────────
   StreamSubscription? _wsEventSub;
   StreamSubscription? _audioCaptureSub;
+  StreamSubscription? _amplitudeSub;
   StreamSubscription? _cameraFrameSub;
   StreamSubscription? _playbackStateSub;
   StreamSubscription? _turnSub;
@@ -66,6 +67,9 @@ class LiveSessionController {
   static const maxHintsPerRound = 3;
   static const maxRepeatsPerRound = 5;
   Timer? _sessionDurationTimer;
+  /// Fires if setupComplete is not received from server within handshake window.
+  static const _handshakeTimeout = Duration(seconds: 18);
+  Timer? _handshakeTimer;
 
   LiveSessionController({
     required LiveWebSocketClient ws,
@@ -254,13 +258,33 @@ class LiveSessionController {
       await _ws.connect(
         token: token.token,
         model: token.model,
-        systemInstruction: config.systemInstruction,
+        // Prefer backend-personalized instruction (has user name, interests, difficulty).
+        // Fall back to static config preset if backend didn't return one.
+        systemInstruction: token.systemInstruction ?? config.systemInstruction,
         voiceName: config.voiceName,
         responseModalities: config.responseModalities,
         tools: token.tools,
       );
 
       _ws.setInactivityTimeout(config.inactivityTimeout);
+
+      // If server never sends setupComplete, fail after handshake timeout
+      _handshakeTimer?.cancel();
+      _handshakeTimer = Timer(_handshakeTimeout, () {
+        if (_state.phase == LiveConnectionPhase.connecting ||
+            _state.phase == LiveConnectionPhase.handshaking) {
+          _logger.log('handshake_timeout');
+          _emitState(_state.copyWith(
+            phase: LiveConnectionPhase.failed,
+            error: const LiveError(
+              code: LiveErrorCode.wsConnectFailed,
+              message: "Live session didn't start in time. Check your connection and try again.",
+              recovery: LiveErrorRecovery.retry,
+            ),
+          ));
+          _teardown(keepState: true);
+        }
+      });
 
     } on LiveError catch (e) {
       _emitState(_state.copyWith(
@@ -299,9 +323,15 @@ class LiveSessionController {
   void _setupEventListeners() {
     _wsEventSub = _ws.events.listen(_handleEvent);
 
-    // Audio capture → WebSocket
+    // Audio capture → WebSocket + amplitude
     _audioCaptureSub = _audioCapture.audioStream.listen((chunk) {
       _ws.sendAudio(chunk);
+    });
+    _amplitudeSub = _audioCapture.amplitudeStream.listen((amp) {
+      // Only update amplitude when user is actively speaking to avoid flicker.
+      if (_state.isMicActive) {
+        _emitState(_state.copyWith(audioAmplitude: amp));
+      }
     });
 
     // Camera frames → WebSocket (vision quest only)
@@ -390,6 +420,8 @@ class LiveSessionController {
   }
 
   void _onSessionStarted(String sessionId) {
+    _handshakeTimer?.cancel();
+    _handshakeTimer = null;
     _emitState(_state.copyWith(
       phase: LiveConnectionPhase.connected,
       sessionId: sessionId,
@@ -467,6 +499,8 @@ class LiveSessionController {
   // ═══════════════════════════════════════════════════
 
   void _handleError(LiveError error) {
+    _handshakeTimer?.cancel();
+    _handshakeTimer = null;
     _logger.log('error', metadata: {
       'code': error.code.name,
       'recovery': error.recovery.name,
@@ -534,8 +568,11 @@ class LiveSessionController {
 
   Future<void> _teardown({bool keepState = false}) async {
     _sessionDurationTimer?.cancel();
+    _handshakeTimer?.cancel();
+    _handshakeTimer = null;
     await _wsEventSub?.cancel();
     await _audioCaptureSub?.cancel();
+    await _amplitudeSub?.cancel();
     await _cameraFrameSub?.cancel();
     await _playbackStateSub?.cancel();
     await _turnSub?.cancel();
@@ -552,6 +589,7 @@ class LiveSessionController {
         isMicActive: false,
         isPlaybackActive: false,
         isCameraActive: false,
+        audioAmplitude: 0.0,
       ));
     }
   }

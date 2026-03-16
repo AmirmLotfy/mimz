@@ -22,8 +22,14 @@ class PlayHubScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       body: SafeArea(
+        bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(MimzSpacing.base),
+          padding: EdgeInsets.only(
+            left: MimzSpacing.base,
+            right: MimzSpacing.base,
+            top: MimzSpacing.base,
+            bottom: MimzSpacing.base + 100, // padding for floating pill
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

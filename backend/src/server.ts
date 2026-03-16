@@ -14,6 +14,9 @@ import { eventsRoutes } from './routes/events.js';
 import { leaderboardRoutes } from './routes/leaderboard.js';
 import { rewardsRoutes } from './routes/rewards.js';
 import { notificationsRoutes } from './routes/notifications.js';
+import { interestsRoutes } from './routes/interests.js';
+import { questionsRoutes } from './routes/questions.js';
+import { feedbackRoutes } from './routes/feedback.js';
 
 // ─── Initialize Firebase ──────────────────────────
 initFirebase();
@@ -97,6 +100,9 @@ export async function buildApp() {
   await server.register(leaderboardRoutes, { prefix: '/leaderboard' });
   await server.register(rewardsRoutes, { prefix: '/rewards' });
   await server.register(notificationsRoutes, { prefix: '/notifications' });
+  await server.register(feedbackRoutes, { prefix: '/feedback' });
+  await server.register(interestsRoutes, { prefix: '/interests' });
+  await server.register(questionsRoutes, { prefix: '' });
 
   return server;
 }

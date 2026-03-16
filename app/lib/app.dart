@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'design_system/tokens.dart';
 import 'routing/router.dart';
+import 'core/app_lifecycle_observer.dart';
 
 class MimzApp extends ConsumerWidget {
   const MimzApp({super.key});
@@ -12,7 +13,6 @@ class MimzApp extends ConsumerWidget {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setRouterRef(ProviderScope.containerOf(context));
     });
-
     return MaterialApp.router(
       title: 'Mimz',
       debugShowCheckedModeBanner: false,
@@ -20,6 +20,9 @@ class MimzApp extends ConsumerWidget {
       darkTheme: MimzTheme.dark,
       themeMode: ThemeMode.light,
       routerConfig: appRouter,
+      builder: (context, child) {
+        return AppLifecycleObserver(child: child!);
+      },
     );
   }
 }

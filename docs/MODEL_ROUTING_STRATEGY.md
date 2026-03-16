@@ -6,9 +6,9 @@ Centralized model registry in `backend/src/config/models.ts`. All model IDs are 
 
 | Role | Default Model | Env Override | Cost Tier | Fallback |
 |------|--------------|-------------|-----------|----------|
-| `LIVE_REALTIME` | `gemini-2.0-flash-live-001` | `GEMINI_LIVE_MODEL` | medium | `gemini-2.0-flash-live-001` |
+| `LIVE_REALTIME` | `gemini-2.5-flash-native-audio-preview-12-2025` | `GEMINI_LIVE_MODEL` | medium | `gemini-2.0-flash-live-001` |
 | `ASYNC_CHALLENGE` | `gemini-2.5-flash` | `GEMINI_MODEL` | medium | `gemini-2.0-flash` |
-| `LOW_COST_UTILITY` | `gemini-2.5-flash-lite` | `GEMINI_UTILITY_MODEL` | low | `gemini-2.0-flash-lite` |
+| `LOW_COST_UTILITY` | `gemini-2.5-flash-lite` | `GEMINI_UTILITY_MODEL` | low | `gemini-2.5-flash-lite` |
 
 ## Task-to-Model Mapping
 

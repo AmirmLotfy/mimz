@@ -208,6 +208,9 @@ class _RoundResultScreenState extends ConsumerState<RoundResultScreen> {
         sectorsEarned: rewards.sectorsEarned,
         materialsEarned: rewards.materialsEarned,
       );
+      // Force a backend re-fetch so the world screen shows confirmed state,
+      // bypassing the 30s debounce.
+      await ref.read(districtProvider.notifier).refresh();
     } catch (e) {
       // Continue to world even if backend fails — local state already updated
     }

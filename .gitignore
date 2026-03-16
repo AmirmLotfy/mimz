@@ -43,3 +43,13 @@ firebase-debug.log
 service-account*.json
 google-services.json
 GoogleService-Info.plist
+google-services*.json
+
+# Logs and build artifacts
+*crash_logs*
+*filtered_crash*
+*flutter_logs*
+test_results.txt
+build_release.log
+Mimz-launcher.zip
+app/android/build/

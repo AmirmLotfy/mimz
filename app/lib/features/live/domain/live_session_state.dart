@@ -35,6 +35,11 @@ class LiveSessionState {
   final bool isPlaybackActive;
   final bool isCameraActive;
 
+  // ─── Audio amplitude (0.0 – 1.0 RMS) ────────────
+  /// Real-time mic amplitude for waveform visualizer.
+  /// Updated every PCM chunk (~20ms) when user is speaking.
+  final double audioAmplitude;
+
   // ─── Error ───────────────────────────────────────
   final LiveError? error;
   final int reconnectAttempts;
@@ -60,6 +65,7 @@ class LiveSessionState {
     this.isMicActive = false,
     this.isPlaybackActive = false,
     this.isCameraActive = false,
+    this.audioAmplitude = 0.0,
     this.error,
     this.reconnectAttempts = 0,
     this.lastRewardPayload,
@@ -81,6 +87,7 @@ class LiveSessionState {
     bool? isMicActive,
     bool? isPlaybackActive,
     bool? isCameraActive,
+    double? audioAmplitude,
     LiveError? error,
     int? reconnectAttempts,
     Map<String, dynamic>? lastRewardPayload,
@@ -105,6 +112,7 @@ class LiveSessionState {
       isMicActive: isMicActive ?? this.isMicActive,
       isPlaybackActive: isPlaybackActive ?? this.isPlaybackActive,
       isCameraActive: isCameraActive ?? this.isCameraActive,
+      audioAmplitude: audioAmplitude ?? this.audioAmplitude,
       error: clearError ? null : (error ?? this.error),
       reconnectAttempts: reconnectAttempts ?? this.reconnectAttempts,
       lastRewardPayload: lastRewardPayload ?? this.lastRewardPayload,

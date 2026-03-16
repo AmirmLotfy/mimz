@@ -7,7 +7,7 @@ set -euo pipefail
 
 # ─── Defaults ──────────────────────────────────────────────
 PROJECT_ID="${GCP_PROJECT_ID:-}"
-REGION="${CLOUD_RUN_REGION:-us-central1}"
+REGION="${CLOUD_RUN_REGION:-europe-west1}"
 SERVICE_NAME="mimz-backend"
 IMAGE_TAG="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 MEMORY="512Mi"
@@ -76,7 +76,10 @@ if gcloud secrets describe gemini-api-key --project="${PROJECT_ID}" &>/dev/null;
   echo "   Using Secret Manager for GEMINI_API_KEY"
   GEMINI_SECRET_FLAG="--set-secrets=GEMINI_API_KEY=gemini-api-key:latest"
 else
-  echo "   ⚠️  Secret 'gemini-api-key' not found. Set GEMINI_API_KEY via env vars manually."
+  echo "❌ Secret 'gemini-api-key' not found in project '${PROJECT_ID}'."
+  echo "   Create it before deployment:"
+  echo "   echo -n '<YOUR_GEMINI_API_KEY>' | gcloud secrets create gemini-api-key --data-file=- --project=${PROJECT_ID}"
+  exit 1
 fi
 
 gcloud run deploy "${SERVICE_NAME}" \
@@ -95,7 +98,7 @@ GCP_PROJECT_ID=${PROJECT_ID},\
 FIREBASE_PROJECT_ID=${PROJECT_ID},\
 LOG_LEVEL=info,\
 RATE_LIMIT_MAX=100,\
-GEMINI_LIVE_MODEL=gemini-2.0-flash-live-001" \
+GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025" \
   ${GEMINI_SECRET_FLAG} \
   --quiet
 

@@ -1,9 +1,19 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import * as game from '../services/gameService.js';
 import * as db from '../lib/db.js';
 import { STRUCTURE_CATALOG } from '../models/types.js';
 
 export async function districtRoutes(server: FastifyInstance) {
+  const expandSchema = z.object({
+    sectors: z.number().int().min(1).max(10),
+  });
+  const addResourcesSchema = z.object({
+    stone: z.number().int().optional(),
+    glass: z.number().int().optional(),
+    wood: z.number().int().optional(),
+  });
+
   // GET /district — Get user's district
   server.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = request.userId!;
@@ -18,6 +28,49 @@ export async function districtRoutes(server: FastifyInstance) {
       resourceRate: game.calculateResourceRate(district.structures),
       catalog: STRUCTURE_CATALOG,
     };
+  });
+
+  // POST /district/expand — Expand territory
+  server.post('/expand', async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.userId!;
+    const parsed = expandSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: 'Invalid expand payload',
+        details: parsed.error.issues,
+      });
+    }
+    try {
+      const result = await game.expandTerritory(userId, parsed.data.sectors);
+      await game.audit(userId, 'expand_territory_rest', parsed.data as unknown as Record<string, unknown>);
+      return result;
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  });
+
+  // POST /district/resources — Add resources
+  server.post('/resources', async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.userId!;
+    const parsed = addResourcesSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: 'Invalid resources payload',
+        details: parsed.error.issues,
+      });
+    }
+
+    try {
+      const district = await game.getDistrict(userId);
+      if (!district) {
+        return reply.status(404).send({ error: 'No district found' });
+      }
+      await db.addResources(district.id, parsed.data);
+      await game.audit(userId, 'add_resources_rest', parsed.data as unknown as Record<string, unknown>);
+      return { success: true };
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
   });
 
   // GET /district/public/:districtId — Public coarse district view

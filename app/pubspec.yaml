@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.8
 
   # Routing
   go_router: ^15.1.2
@@ -29,6 +30,10 @@ dependencies:
   firebase_core: ^3.12.1
   firebase_auth: ^5.5.1
   cloud_firestore: ^5.6.5
+  firebase_storage: ^12.4.4
+
+  # Media
+  image_picker: ^1.1.2
 
   # Maps
   google_maps_flutter: ^2.10.0
@@ -41,7 +46,12 @@ dependencies:
 
   # Audio
   just_audio: ^0.9.42
-  record: ^5.2.1
+  record: ^6.2.0
+
+  # Auth & Security
+  local_auth: ^2.3.0
+  url_launcher: ^6.3.1
+  google_sign_in: ^6.2.2
 
   # UI
   google_fonts: ^6.2.1
@@ -71,4 +81,3 @@ flutter:
 
   assets:
     - assets/images/
-

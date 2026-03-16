@@ -1,5 +1,5 @@
 import '../domain/live_event.dart';
-// import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Guards all permission checks needed before a live session starts.
 ///
@@ -32,35 +32,53 @@ class LivePermissionGuard {
   }
 
   Future<LiveError?> _checkMicrophone() async {
-    // Real implementation:
-    // final status = await Permission.microphone.request();
-    // if (status.isGranted) return null;
-    // if (status.isPermanentlyDenied) {
-    //   return const LiveError(
-    //     code: LiveErrorCode.permissionDenied,
-    //     message: 'Microphone permission permanently denied',
-    //     recovery: LiveErrorRecovery.openSettings,
-    //   );
-    // }
-    // return const LiveError(
-    //   code: LiveErrorCode.permissionDenied,
-    //   message: 'Microphone permission denied',
-    //   recovery: LiveErrorRecovery.retry,
-    // );
-    return null; // Permission granted in demo mode
+    final status = await Permission.microphone.request();
+    if (status.isGranted) return null;
+    if (status.isPermanentlyDenied) {
+      return const LiveError(
+        code: LiveErrorCode.permissionDenied,
+        message: 'Microphone permission permanently denied',
+        recovery: LiveErrorRecovery.openSettings,
+      );
+    }
+    return const LiveError(
+      code: LiveErrorCode.permissionDenied,
+      message: 'Microphone permission denied',
+      recovery: LiveErrorRecovery.retry,
+    );
   }
 
   Future<LiveError?> _checkCamera() async {
-    // final status = await Permission.camera.request();
-    // if (status.isGranted) return null;
-    // return const LiveError(...)
-    return null;
+    final status = await Permission.camera.request();
+    if (status.isGranted) return null;
+    if (status.isPermanentlyDenied) {
+      return const LiveError(
+        code: LiveErrorCode.permissionDenied,
+        message: 'Camera permission permanently denied',
+        recovery: LiveErrorRecovery.openSettings,
+      );
+    }
+    return const LiveError(
+      code: LiveErrorCode.permissionDenied,
+      message: 'Camera permission denied',
+      recovery: LiveErrorRecovery.retry,
+    );
   }
 
   Future<LiveError?> _checkLocation() async {
-    // final status = await Permission.location.request();
-    // if (status.isGranted) return null;
-    // return const LiveError(...)
-    return null;
+    final status = await Permission.location.request();
+    if (status.isGranted || status.isLimited) return null;
+    if (status.isPermanentlyDenied) {
+      return const LiveError(
+        code: LiveErrorCode.permissionDenied,
+        message: 'Location permission permanently denied',
+        recovery: LiveErrorRecovery.openSettings,
+      );
+    }
+    return const LiveError(
+      code: LiveErrorCode.permissionDenied,
+      message: 'Location permission denied',
+      recovery: LiveErrorRecovery.retry,
+    );
   }
 }

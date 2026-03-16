@@ -18,11 +18,17 @@ class EphemeralTokenResponse {
   final DateTime expiresAt;
   final List<Map<String, dynamic>> tools;
 
+  /// Personalized system instruction returned by the backend.
+  /// Includes the user's name, interests, and difficulty preference.
+  /// Prefer this over the static config preset when available.
+  final String? systemInstruction;
+
   EphemeralTokenResponse({
     required this.token,
     required this.model,
     required this.expiresAt,
     required this.tools,
+    this.systemInstruction,
   });
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
@@ -36,6 +42,7 @@ class EphemeralTokenResponse {
           (throw const FormatException('Backend must provide model in ephemeral token response')),
       expiresAt: DateTime.parse(session['expiresAt'] as String),
       tools: (session['tools'] as List?)?.cast<Map<String, dynamic>>() ?? [],
+      systemInstruction: session['systemInstruction'] as String?,
     );
   }
 }

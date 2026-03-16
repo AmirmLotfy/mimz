@@ -39,7 +39,7 @@ This gave us the best of both worlds: fast conversational turn-taking plus deter
 * Tool execution layer with strict Zod validation, caps, idempotency, and audit logs
 
 **AI**
-* Gemini 2.0 Flash Live API for realtime voice sessions
+* Gemini 2.5 Flash Native Audio API for realtime voice sessions
 * Gemini Vision models for asynchronous visual validation and tool-driven decisions
 * Ephemeral token minting pattern for secure, temporary session establishment
 

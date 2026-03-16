@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import fp from 'fastify-plugin';
 import { getFirebaseAuth } from '../lib/firebase.js';
 
 declare module 'fastify' {
@@ -9,7 +10,7 @@ declare module 'fastify' {
 }
 
 /** Routes that skip authentication. */
-const PUBLIC_ROUTES = ['/healthz', '/readyz'];
+const PUBLIC_ROUTES = ['/health', '/healthz', '/readyz'];
 
 /**
  * Firebase Auth middleware — verifies ID token from Authorization header.
@@ -17,7 +18,7 @@ const PUBLIC_ROUTES = ['/healthz', '/readyz'];
  * In development without Firebase configured, falls back to demo user.
  * In production, rejects unauthenticated requests.
  */
-export async function authMiddleware(server: FastifyInstance) {
+export const authMiddleware = fp(async (server: FastifyInstance) => {
   server.decorateRequest('userId', undefined);
   server.decorateRequest('userEmail', undefined);
 
@@ -55,4 +56,4 @@ export async function authMiddleware(server: FastifyInstance) {
       return reply.status(401).send({ error: 'Invalid authentication token' });
     }
   });
-}
+});

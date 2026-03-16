@@ -1,18 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../../../services/haptics_service.dart';
 import '../providers/onboarding_provider.dart';
 
 /// Screen 7 — Camera permission
-class CameraPermissionScreen extends ConsumerWidget {
+class CameraPermissionScreen extends ConsumerStatefulWidget {
   const CameraPermissionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CameraPermissionScreen> createState() => _CameraPermissionScreenState();
+}
+
+class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAndAdvance();
+  }
+
+  void _checkAndAdvance() async {
+    await ref.read(permissionsProvider.notifier).refresh();
+    if (mounted && ref.read(permissionsProvider).camera) {
+      context.go('/onboarding/profile-setup');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen for changes and advance if granted
+    ref.listen(permissionsProvider, (prev, next) {
+      if (next.camera) {
+        context.go('/onboarding/profile-setup');
+      }
+    });
+
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -22,9 +47,10 @@ class CameraPermissionScreen extends ConsumerWidget {
         ),
         title: const Text('Vision Quest'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(MimzSpacing.xl),
-        child: Column(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(MimzSpacing.xl),
+          child: Column(
           children: [
             const Spacer(),
             Container(
@@ -121,7 +147,23 @@ class CameraPermissionScreen extends ConsumerWidget {
                     ),
                   ),
                   ElevatedButton(
-                    onPressed: () => context.go('/permissions'),
+                    onPressed: () async {
+                      ref.read(hapticsServiceProvider).mediumImpact();
+                      final status = await Permission.camera.request();
+                      if (status.isGranted || status.isLimited) {
+                        ref.read(hapticsServiceProvider).success();
+                        await ref.read(permissionsProvider.notifier).grantCamera();
+                      } else if (mounted) {
+                        ref.read(hapticsServiceProvider).error();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Camera permission denied. Vision Quest requires camera access.',
+                            ),
+                          ),
+                        );
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: MimzColors.persimmonHit,
                       foregroundColor: MimzColors.white,
@@ -140,22 +182,47 @@ class CameraPermissionScreen extends ConsumerWidget {
               label: 'Start Exploration',
               variant: MimzButtonVariant.accent,
               onPressed: () async {
-                HapticFeedback.mediumImpact();
+                ref.read(hapticsServiceProvider).mediumImpact();
                 final status = await Permission.camera.request();
-                if (status.isGranted || status.isLimited) {
-                  ref.read(permissionsProvider.notifier).grantCamera();
+                if (status.isPermanentlyDenied) {
+                  ref.read(hapticsServiceProvider).error();
+                  await openAppSettings();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Camera is permanently denied. Enable it in Settings.',
+                        ),
+                      ),
+                    );
+                  }
+                  return;
                 }
-                if (context.mounted) context.go('/permissions');
+                if (status.isGranted || status.isLimited) {
+                  ref.read(hapticsServiceProvider).success();
+                  await ref.read(permissionsProvider.notifier).grantCamera();
+                } else if (mounted) {
+                  ref.read(hapticsServiceProvider).error();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Camera permission denied. You can grant it later in app settings.',
+                      ),
+                    ),
+                  );
+                }
+                if (context.mounted) context.go('/onboarding/profile-setup');
               },
             ),
             const SizedBox(height: MimzSpacing.md),
             MimzButton(
               label: 'Maybe later',
               variant: MimzButtonVariant.ghost,
-              onPressed: () => context.go('/permissions'),
+              onPressed: () => context.go('/onboarding/profile-setup'),
             ),
             const SizedBox(height: MimzSpacing.base),
           ],
+          ),
         ),
       ),
     );

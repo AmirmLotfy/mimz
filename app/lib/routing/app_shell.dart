@@ -1,9 +1,13 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../services/haptics_service.dart';
 import '../design_system/tokens.dart';
 
 /// App shell with bottom navigation — wraps main tabbed screens
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   final Widget child;
 
   const AppShell({super.key, required this.child});
@@ -18,65 +22,150 @@ class AppShell extends StatelessWidget {
     return 0;
   }
 
+  void _onTap(BuildContext context, WidgetRef ref, int index) {
+    ref.read(hapticsServiceProvider).selection();
+    switch (index) {
+      case 0:
+        context.go('/world');
+      case 1:
+        context.go('/play');
+      case 2:
+        context.go('/squad');
+      case 3:
+        context.go('/events');
+      case 4:
+        context.go('/profile');
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentIndex = _currentIndex(context);
+
     return Scaffold(
+      extendBody: true, // Allow content to flow behind the pill
       body: child,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: MimzColors.white,
-          border: Border(
-            top: BorderSide(color: MimzColors.borderLight, width: 0.5),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(left: MimzSpacing.xl, right: MimzSpacing.xl, bottom: MimzSpacing.md),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(40),
+              boxShadow: [
+                BoxShadow(
+                  color: MimzColors.deepInk.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(40),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  height: 64,
+                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: MimzColors.white.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(40),
+                    border: Border.all(
+                      color: MimzColors.borderLight.withValues(alpha: 0.5),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _NavItem(
+                        icon: Icons.public_outlined,
+                        activeIcon: Icons.public,
+                        label: 'WORLD',
+                        isActive: currentIndex == 0,
+                        onTap: () => _onTap(context, ref, 0),
+                      ),
+                      _NavItem(
+                        icon: Icons.play_circle_outline,
+                        activeIcon: Icons.play_circle,
+                        label: 'PLAY',
+                        isActive: currentIndex == 1,
+                        onTap: () => _onTap(context, ref, 1),
+                      ),
+                      _NavItem(
+                        icon: Icons.people_outline,
+                        activeIcon: Icons.people,
+                        label: 'SQUAD',
+                        isActive: currentIndex == 2,
+                        onTap: () => _onTap(context, ref, 2),
+                      ),
+                      _NavItem(
+                        icon: Icons.event_outlined,
+                        activeIcon: Icons.event,
+                        label: 'EVENTS',
+                        isActive: currentIndex == 3,
+                        onTap: () => _onTap(context, ref, 3),
+                      ),
+                      _NavItem(
+                        icon: Icons.person_outline,
+                        activeIcon: Icons.person,
+                        label: 'ME',
+                        isActive: currentIndex == 4,
+                        onTap: () => _onTap(context, ref, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex(context),
-          onTap: (index) {
-            switch (index) {
-              case 0:
-                context.go('/world');
-              case 1:
-                context.go('/play');
-              case 2:
-                context.go('/squad');
-              case 3:
-                context.go('/events');
-              case 4:
-                context.go('/profile');
-            }
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: MimzColors.white,
-          selectedItemColor: MimzColors.mossCore,
-          unselectedItemColor: MimzColors.textSecondary,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.public_outlined),
-              activeIcon: Icon(Icons.public),
-              label: 'WORLD',
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? MimzColors.mossCore : MimzColors.textSecondary;
+    
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isActive ? activeIcon : icon,
+              color: color,
+              size: 24,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.play_circle_outline),
-              activeIcon: Icon(Icons.play_circle),
-              label: 'PLAY',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline),
-              activeIcon: Icon(Icons.people),
-              label: 'SQUAD',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.event_outlined),
-              activeIcon: Icon(Icons.event),
-              label: 'EVENTS',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'ME',
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: MimzTypography.caption.copyWith(
+                color: color,
+                fontSize: 9,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              ),
             ),
           ],
         ),

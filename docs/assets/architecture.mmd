@@ -1,66 +1,73 @@
 %%{init: {
   'theme': 'base',
   'themeVariables': {
-    'primaryColor': '#1E293B',
-    'primaryTextColor': '#F8FAFC',
-    'primaryBorderColor': '#334155',
-    'lineColor': '#64748B',
-    'secondaryColor': '#0F172A',
-    'tertiaryColor': '#020617',
-    'clusterBkg': '#0B1120',
-    'clusterBorder': '#1E293B',
-    'nodeBorder': '#334155',
-    'mainBkg': '#020617',
-    'fontSize': '16px',
+    'primaryColor': '#111827',
+    'primaryTextColor': '#F9FAFB',
+    'primaryBorderColor': '#374151',
+    'lineColor': '#6B7280',
+    'secondaryColor': '#1F2937',
+    'tertiaryColor': '#111827',
+    'clusterBkg': 'transparent',
+    'clusterBorder': 'rgba(255,255,255,0.1)',
+    'nodeBorder': '#374151',
+    'mainBkg': 'transparent',
+    'fontSize': '15px',
     'fontFamily': 'Inter, system-ui, sans-serif'
   }
 }}%%
 flowchart LR
-    subgraph Client ["Client Layer (Flutter)"]
-        direction TB
-        App["📱 iOS & Android App<br/>(Riverpod + Audio)"]
-    end
 
-    subgraph Intelligence ["AI Layer (Google)"]
-        direction TB
-        Gemini{"🧠 Gemini 2.0<br/>Flash Live API"}
-    end
-
-    subgraph Backend ["Logic Layer (Cloud Run)"]
-        direction TB
-        API["📡 Fastify REST API<br/>(Node.js + TypeScript)"]
-        Tools["⚙️ Tool Validator<br/>(Zod Parsing)"]
-    end
-
-    subgraph Data ["Data Layer (Firebase)"]
-        direction TB
-        Auth["🔐 Firebase Auth"]
-        DB[("🗄️ Cloud Firestore")]
-    end
-
-    %% Communication Flows
-    App <-->|"1. Bidirectional WebSocket<br/>(Realtime Voice)"| Gemini
-    Gemini -.->|"2. Emit Tool Intent<br/>(e.g., grade_answer)"| App
+    classDef client fill:#0B0F19,stroke:#3B82F6,stroke-width:2px,color:#FFFFFF,rx:12,ry:12;
+    classDef ai fill:#0B0F19,stroke:#A855F7,stroke-width:2px,color:#FFFFFF,rx:12,ry:12;
+    classDef backend fill:#0B0F19,stroke:#10B981,stroke-width:2px,color:#FFFFFF,rx:12,ry:12;
+    classDef data fill:#0B0F19,stroke:#F59E0B,stroke-width:2px,color:#FFFFFF,rx:12,ry:12;
     
-    App -->|"3. HTTPS POST<br/>(Tool Execution)"| API
+    style Client fill:#3B82F60A,stroke:#3B82F633,stroke-width:1.5px,rx:20,ry:20,stroke-dasharray: 5 5
+    style Intelligence fill:#A855F70A,stroke:#A855F733,stroke-width:1.5px,rx:20,ry:20,stroke-dasharray: 5 5
+    style Backend fill:#10B9810A,stroke:#10B98133,stroke-width:1.5px,rx:20,ry:20,stroke-dasharray: 5 5
+    style Data fill:#F59E0B0A,stroke:#F59E0B33,stroke-width:1.5px,rx:20,ry:20,stroke-dasharray: 5 5
+
+    subgraph Client ["<b>📲 Client Layer (Flutter)</b>"]
+        direction TB
+        App(("<b>iOS & Android App</b><br/><span style='font-size:13px;color:#9CA3AF;font-weight:400'>Riverpod + Live Audio</span>"))
+    end
+
+    subgraph Intelligence ["<b>🧠 Intelligence Layer (Google)</b>"]
+        direction TB
+        Gemini[/"<b>Gemini 2.5</b><br/><span style='font-size:13px;color:#9CA3AF;font-weight:400'>Flash Native Audio API</span>"\]
+    end
+
+    subgraph Backend ["<b>⚡ Logic Layer (Cloud Run)</b>"]
+        direction TB
+        API[("<b>Fastify API</b><br/><span style='font-size:13px;color:#9CA3AF;font-weight:400'>Node.js + TypeScript</span>")]
+        Tools{{"<b>Execution Engine</b><br/><span style='font-size:13px;color:#9CA3AF;font-weight:400'>Zod Validation</span>"}}
+        API --- Tools
+    end
+
+    subgraph Data ["<b>🗄️ Data Layer (Firebase)</b>"]
+        direction TB
+        Auth>"<b>Firebase Auth</b>"]
+        DB[("<b>Firestore</b><br/><span style='font-size:13px;color:#9CA3AF;font-weight:400'>Realtime persistence</span>")]
+    end
+
+    App -->|"<b>1. Bidirectional WebSocket</b><br/>Realtime Voice + Vision"| Gemini
+    Gemini -.->|"<b>2. Tool Call Intent</b><br/>e.g., grade_answer"| App
     
-    API -->|"4. Verify Token"| Auth
-    API -->|"5. Process Tool"| Tools
-    Tools -->|"6. Authoritative Write"| DB
-    Tools -.->|"7. Return New Game State"| App
+    App -->|"<b>3. HTTPS POST</b><br/>Execute Tool Request"| API
+    
+    API -.->|"<b>4. Verify JWT</b>"| Auth
+    Tools -->|"<b>5. Authoritative Write</b>"| DB
+    Tools -.->|"<b>6. Return New State</b>"| App
 
-    %% Enterprise Styling
-    classDef clientNode fill:#0F172A,stroke:#3B82F6,stroke-width:2px,color:#F8FAFC,rx:8,ry:8;
-    classDef aiNode fill:#0F172A,stroke:#8B5CF6,stroke-width:2px,color:#F8FAFC,rx:8,ry:8;
-    classDef backendNode fill:#0F172A,stroke:#10B981,stroke-width:2px,color:#F8FAFC,rx:8,ry:8;
-    classDef dataNode fill:#0F172A,stroke:#F59E0B,stroke-width:2px,color:#F8FAFC,rx:8,ry:8;
-
-    class App clientNode;
-    class Gemini aiNode;
-    class API,Tools backendNode;
-    class Auth,DB dataNode;
-
-    style Client fill:#0B1120,stroke:#1E293B,stroke-width:2px,color:#94A3B8,rx:12,ry:12
-    style Intelligence fill:#0B1120,stroke:#1E293B,stroke-width:2px,color:#94A3B8,rx:12,ry:12
-    style Backend fill:#0B1120,stroke:#1E293B,stroke-width:2px,color:#94A3B8,rx:12,ry:12
-    style Data fill:#0B1120,stroke:#1E293B,stroke-width:2px,color:#94A3B8,rx:12,ry:12
+    class App client
+    class Gemini ai
+    class API,Tools backend
+    class Auth,DB data
+    
+    linkStyle 0 stroke:#A855F7,stroke-width:3px,fill:none,color:#A855F7
+    linkStyle 1 stroke:#10B981,stroke-width:2px,stroke-dasharray: 5 5,fill:none,color:#6EE7B7
+    linkStyle 2 stroke:#3B82F6,stroke-width:3px,fill:none,color:#93C5FD
+    linkStyle 3 stroke:#9CA3AF,stroke-width:1.5px,stroke-dasharray: 4 4,fill:none,color:#FCD34D
+    linkStyle 4 stroke:#F59E0B,stroke-width:3px,fill:none,color:#FCD34D
+    linkStyle 5 stroke:#3B82F6,stroke-width:2px,stroke-dasharray: 5 5,fill:none,color:#93C5FD
+    linkStyle 6 stroke:#10B981,stroke-width:1px,fill:none,color:#10B981

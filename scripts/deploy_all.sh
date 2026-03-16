@@ -1,18 +1,31 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# deploy_all.sh — Full Mimz deployment: Firebase rules + backend + FlutterFire config
+# Usage: ./scripts/deploy_all.sh
+# Safe to rerun.
 
-echo "=== Mimz Full Deployment ==="
+set -euo pipefail
 
-echo "1/5: Bootstrapping GCP/Firebase..."
-./scripts/bootstrap_firebase.sh
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "2/5: Applying Firebase Rules..."
-./scripts/apply_firebase_rules.sh
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "   Mimz Full Deployment"
+echo "   Project: mimzapp"
+echo "   Region:  europe-west1"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
 
-echo "3/5: Configuring FlutterFire..."
-./scripts/configure_flutterfire.sh
+echo "Step 1/3 — Firebase rules and indexes"
+bash "$SCRIPTS_DIR/deploy_rules_and_indexes.sh"
+echo ""
 
-echo "4/5: Deploying Backend to Cloud Run..."
-./scripts/deploy_backend.sh
+echo "Step 2/3 — Backend to Cloud Run"
+bash "$SCRIPTS_DIR/deploy_backend.sh"
+echo ""
 
-echo "5/5: Deployment Process Complete!"
+echo "Step 3/3 — FlutterFire config"
+bash "$SCRIPTS_DIR/configure_flutterfire.sh"
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ All deployments complete."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

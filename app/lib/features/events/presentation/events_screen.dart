@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import '../../../design_system/tokens.dart';
 import '../providers/events_provider.dart';
 import '../../../data/models/event.dart';
+import '../../../services/haptics_service.dart';
 
 /// Events screen — wired with eventsProvider and tappable cards
 class EventsScreen extends ConsumerWidget {
@@ -35,7 +36,12 @@ class EventsScreen extends ConsumerWidget {
               ),
             )
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(MimzSpacing.base),
+              padding: EdgeInsets.only(
+                left: MimzSpacing.base,
+                right: MimzSpacing.base,
+                top: MimzSpacing.base,
+                bottom: MimzSpacing.base + 100, // padding for floating pill
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -47,7 +53,7 @@ class EventsScreen extends ConsumerWidget {
                     _EventCard(
                       event: activeEvent,
                       isLive: true,
-                      onTap: () => _showEventDetail(context, activeEvent, isLive: true),
+                      onTap: () => _showEventDetail(context, ref, activeEvent, isLive: true),
                     ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
                     const SizedBox(height: MimzSpacing.xl),
                   ],
@@ -62,7 +68,7 @@ class EventsScreen extends ConsumerWidget {
                             padding: const EdgeInsets.only(bottom: MimzSpacing.md),
                             child: _EventCard(
                               event: entry.value,
-                              onTap: () => _showEventDetail(context, entry.value),
+                              onTap: () => _showEventDetail(context, ref, entry.value),
                             )
                                 .animate(delay: Duration(milliseconds: 200 * entry.key))
                                 .fadeIn(duration: 400.ms)
@@ -74,95 +80,11 @@ class EventsScreen extends ConsumerWidget {
     );
   }
 
-  void _showEventDetail(BuildContext context, MimzEvent event, {bool isLive = false}) {
-    HapticFeedback.selectionClick();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: MimzColors.cloudBase,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(MimzRadius.xl)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(MimzSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: MimzColors.borderLight,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: MimzSpacing.xl),
-            if (isLive)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: MimzSpacing.md,
-                  vertical: MimzSpacing.xs,
-                ),
-                margin: const EdgeInsets.only(bottom: MimzSpacing.md),
-                decoration: BoxDecoration(
-                  color: MimzColors.persimmonHit,
-                  borderRadius: BorderRadius.circular(MimzRadius.sm),
-                ),
-                child: Text('🔴 LIVE NOW', style: MimzTypography.caption.copyWith(
-                  color: MimzColors.white, fontWeight: FontWeight.w700,
-                )),
-              ),
-            Text(event.title, style: MimzTypography.displaySmall),
-            const SizedBox(height: MimzSpacing.md),
-            Text(event.description, style: MimzTypography.bodyMedium.copyWith(
-              color: MimzColors.textSecondary,
-            )),
-            const SizedBox(height: MimzSpacing.base),
-            Row(
-              children: [
-                const Icon(Icons.people, color: MimzColors.mossCore, size: 18),
-                const SizedBox(width: MimzSpacing.sm),
-                Text('${event.participants} players', style: MimzTypography.bodySmall),
-              ],
-            ),
-            const SizedBox(height: MimzSpacing.xxl),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(isLive ? 'Joining "${event.title}"...' : 'Registered for "${event.title}"!'),
-                      backgroundColor: MimzColors.mossCore,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(MimzRadius.md),
-                      ),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: MimzColors.mossCore,
-                  foregroundColor: MimzColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(MimzRadius.md),
-                  ),
-                ),
-                child: Text(
-                  isLive ? 'JOIN NOW' : 'REGISTER',
-                  style: MimzTypography.buttonText.copyWith(color: MimzColors.white),
-                ),
-              ),
-            ),
-            const SizedBox(height: MimzSpacing.base),
-          ],
-        ),
-      ),
+  void _showEventDetail(BuildContext context, WidgetRef ref, MimzEvent event, {bool isLive = false}) {
+    ref.read(hapticsServiceProvider).selection();
+    context.push(
+      '/events/detail',
+      extra: {'event': event, 'isLive': isLive},
     );
   }
 }

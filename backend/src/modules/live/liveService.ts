@@ -1,25 +1,89 @@
 import { config } from '../../config/index.js';
 import { LIVE_MODEL } from '../../config/models.js';
 import { randomUUID } from 'crypto';
+import * as db from '../../lib/db.js';
 
 /**
  * Gemini Live persona and tool definitions for the live session.
  */
 
-export const MIMZ_PERSONA = `You are Mimz, a charismatic AI game host for a live voice trivia and exploration game.
+/**
+ * Build a personalized system instruction for the given user.
+ *
+ * Injects name, interests, and difficulty so Gemini speaks to the
+ * specific player rather than using a generic prompt.
+ */
+export function buildPersonalizedInstruction(
+  sessionType: string,
+  displayName?: string,
+  interests?: string[],
+  difficultyPreference?: string,
+): string {
+  const name = displayName || 'Explorer';
+  const difficulty = difficultyPreference || 'dynamic';
 
-RULES:
-- Keep every response to 2-3 sentences max
-- Be energetic but concise — never ramble
-- Always use tool calls for game state changes (never just describe them)
-- After a player answers, call grade_answer immediately
-- If correct: celebrate briefly, award territory/materials as appropriate
-- If incorrect: be supportive, hint briefly, move on
-- Streaks ≥3: call apply_combo_bonus
-- Use end_round when the session concludes
-- During vision quests: analyze images, call validate_vision_result
-- Never invent game state — only confirmed tool results are real
-`;
+  const interestLine =
+    interests && interests.length > 0
+      ? `Their learning interests include: ${interests.slice(0, 5).join(', ')}.`
+      : 'They have broad interests — pick varied topics.';
+
+  const difficultyLine =
+    difficulty === 'casual'
+      ? 'Use easy questions. Keep the energy light.'
+      : difficulty === 'challenger'
+        ? 'Use hard questions. They want a real challenge.'
+        : 'Use a mix of medium and hard questions. Keep it dynamic.';
+
+  if (sessionType === 'onboarding') {
+    return `You are Mimz, a warm and curious AI guide helping ${name} set up their district.
+
+BEHAVIOR:
+- Greet them by name: "${name}"
+- Ask about their interests conversationally (don't list options)
+- Ask what they'd like to name their district
+- Keep it to 3-4 exchanges maximum
+- Be genuinely interested, not scripted
+- When done, call start_onboarding, then save_user_profile with collected info
+
+VOICE STYLE: Friendly, editorial, slightly playful. Never robotic. Max 2 sentences per turn.`;
+  }
+
+  if (sessionType === 'vision_quest') {
+    return `You are Mimz, guiding ${name} through a visual exploration challenge.
+
+BEHAVIOR:
+- Call start_vision_quest to begin
+- Ask them to show you something specific
+- When you receive an image, analyze it carefully
+- Call validate_vision_result with your honest assessment
+- If valid: celebrate and call grant_materials
+- Guide toward 3 discoveries per quest
+- Be genuinely curious about what they show you
+
+VOICE STYLE: Curious, observant, appreciative. Max 2 sentences per turn.`;
+  }
+
+  // Default: quiz
+  return `You are Mimz, the live game host playing with ${name}.
+
+PLAYER CONTEXT:
+- ${interestLine}
+- ${difficultyLine}
+
+STRICT BEHAVIOR RULES:
+- Call start_live_round immediately to begin
+- Pick topics from their interests when possible
+- Ask one question at a time — read it clearly and completely
+- Wait for their spoken answer before calling grade_answer
+- ALWAYS call grade_answer after every answer (never skip)
+- If correct: celebrate in one sentence, then call award_territory (1-2 sectors) and grant_materials
+- If streak ≥ 3: also call apply_combo_bonus
+- If incorrect: one supportive sentence, then move to the next question
+- After 5 questions, call end_round with the summary
+- Keep total speaking time per turn under 3 seconds
+
+VOICE STYLE: High-energy, smart, warm. Think editorial podcast host. Never robotic. Never verbose.`;
+}
 
 export const LIVE_TOOL_DECLARATIONS = [
   {
@@ -43,7 +107,7 @@ export const LIVE_TOOL_DECLARATIONS = [
       },
       {
         name: 'get_current_district',
-        description: 'Get the player\'s current district state including structures and resources.',
+        description: "Get the player's current district state including structures and resources.",
         parameters: { type: 'object', properties: {} },
       },
       {
@@ -60,11 +124,11 @@ export const LIVE_TOOL_DECLARATIONS = [
       },
       {
         name: 'grade_answer',
-        description: 'Grade a player\'s spoken answer to a quiz question.',
+        description: "Grade a player's spoken answer to a quiz question.",
         parameters: {
           type: 'object',
           properties: {
-            answer: { type: 'string', description: 'The player\'s spoken answer' },
+            answer: { type: 'string', description: "The player's spoken answer" },
             questionId: { type: 'string', description: 'Question identifier' },
             isCorrect: { type: 'boolean', description: 'Whether the answer is correct' },
             confidence: { type: 'number', description: 'Confidence 0-1' },
@@ -79,7 +143,7 @@ export const LIVE_TOOL_DECLARATIONS = [
         parameters: {
           type: 'object',
           properties: {
-            sectors: { type: 'number', description: 'Sectors to award (1-5)' },
+            sectors: { type: 'number', description: 'Sectors to award (1-3)' },
           },
           required: ['sectors'],
         },
@@ -142,7 +206,7 @@ export const LIVE_TOOL_DECLARATIONS = [
       },
       {
         name: 'unlock_structure',
-        description: 'Unlock a structure in the player\'s district.',
+        description: "Unlock a structure in the player's district.",
         parameters: {
           type: 'object',
           properties: {
@@ -221,18 +285,45 @@ export function isSessionValid(sessionId: string): boolean {
 /**
  * Mint an ephemeral session token.
  *
- * In production, this should call the Gemini API to create a scoped
- * short-lived token. For hackathon demo, returns the API key directly
- * (with short TTL and session tracking).
+ * Reads the user's profile to inject personalized system instruction
+ * so Gemini speaks to the specific player by name with their interests.
  *
- * TODO(production): Replace with actual Gemini ephemeral token API call:
- *   POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
- *   with tokenConfig for scoped access
+ * In production, swap `config.geminiApiKey` for actual Gemini ephemeral
+ * token API call, which scopes the key to this session and model only.
  */
-export function mintEphemeralToken(userId: string, sessionType: string) {
+export async function mintEphemeralToken(userId: string, sessionType: string) {
+  if (!config.geminiApiKey || config.geminiApiKey === 'dev-key-replace-me') {
+    throw new Error('GEMINI_API_KEY is not configured for live sessions.');
+  }
+
   const sessionId = `ses_${randomUUID()}`;
   const expiresAt = new Date(Date.now() + config.ephemeralTokenTtlMs).toISOString();
   const model = LIVE_MODEL;
+
+  // Load user profile for personalization
+  let displayName: string | undefined;
+  let interests: string[] | undefined;
+  let difficultyPreference: string | undefined;
+
+  if (userId) {
+    try {
+      const user = await db.getUser(userId);
+      if (user) {
+        displayName = user.displayName;
+        interests = user.interests;
+        difficultyPreference = user.difficultyPreference;
+      }
+    } catch {
+      // Non-fatal — fall back to generic persona
+    }
+  }
+
+  const systemInstruction = buildPersonalizedInstruction(
+    sessionType,
+    displayName,
+    interests,
+    difficultyPreference,
+  );
 
   const session: LiveSession = {
     sessionId,
@@ -250,7 +341,7 @@ export function mintEphemeralToken(userId: string, sessionType: string) {
     sessionId,
     model,
     expiresAt,
-    systemInstruction: MIMZ_PERSONA,
+    systemInstruction,
     tools: LIVE_TOOL_DECLARATIONS,
   };
 }

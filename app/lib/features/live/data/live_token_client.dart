@@ -5,20 +5,25 @@ import 'live_backend_dtos.dart';
 /// Fetches and validates ephemeral tokens from the backend.
 ///
 /// Handles retry on expiry and keeps token lifetime concerns isolated.
+/// Each session type (onboarding, quiz, vision_quest) gets its own cached
+/// token so system instructions are never cross-contaminated.
 class LiveTokenClient {
   final Dio _dio;
   EphemeralTokenResponse? _cachedToken;
+  String? _cachedSessionType;
 
   LiveTokenClient({required Dio dio}) : _dio = dio;
 
-  /// Fetch a fresh ephemeral token. If a valid cached token exists and has
-  /// at least [minRemaining] time left, returns it instead.
+  /// Fetch a fresh ephemeral token. If a valid cached token exists for the
+  /// same [sessionType] with at least [minRemaining] time left, returns it.
   Future<EphemeralTokenResponse> fetchToken({
     required String sessionType,
     Duration minRemaining = const Duration(minutes: 1),
   }) async {
-    // Return cached if still valid
-    if (_cachedToken != null && !_cachedToken!.isExpired &&
+    // Return cached only if same session type and still valid
+    if (_cachedToken != null &&
+        _cachedSessionType == sessionType &&
+        !_cachedToken!.isExpired &&
         _cachedToken!.timeRemaining > minRemaining) {
       return _cachedToken!;
     }
@@ -41,6 +46,7 @@ class LiveTokenClient {
       }
 
       _cachedToken = token;
+      _cachedSessionType = sessionType;
       return token;
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {

@@ -4,7 +4,7 @@
 
 Mimz is a mobile-first live voice-and-vision game where players grow a personal district on a stylized map by answering real-time spoken challenges, completing camera-based discovery quests, and collaborating in squads. Every interaction is voice-first and camera-capable — no typing, no multiple choice. Players speak, point, discover, and watch their world grow.
 
-Built for the **Gemini Live Agent Challenge**. Powered by Gemini 2.0 Flash Live API, Cloud Run, and Firestore.
+Built for the **Gemini Live Agent Challenge**. Powered by Gemini 2.5 Flash Native Audio API, Cloud Run, and Firestore.
 
 ---
 
@@ -47,11 +47,11 @@ Mimz is a **Live Agent** — not a chatbot wrapper. Here's why:
 
 ## Architecture
 
-![Mimz System Architecture](docs/assets/architecture-diagram.png)
+![Mimz System Architecture](docs/assets/mimz_architecture.svg)
 
 **Flow**: App gets ephemeral token from backend → opens WebSocket to Gemini → bidirectional audio + tool calls → tool results executed authoritatively on backend → state persisted to Firestore → UI updates reactively.
 
-> 📎 **Devpost**: Upload `docs/assets/architecture-diagram.png` to the Image Gallery.
+> 📎 **Devpost**: Upload `docs/assets/mimz_architecture.svg` to the Image Gallery.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full Mermaid diagrams and sequence flows.
 
@@ -66,12 +66,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full Mermaid diagrams and s
 | Routing | go_router | Declarative navigation with shell |
 | Backend | Fastify 5 (TypeScript) | REST API server |
 | Database | Cloud Firestore | Document store with real-time sync |
-| AI Engine | Gemini 2.0 Flash Live | Real-time multimodal conversation |
+| AI Engine | Gemini 2.5 Flash Native Audio | Real-time multimodal conversation |
 | Auth | Firebase Authentication | Apple / Google / Email sign-in |
 | Hosting | Google Cloud Run | Serverless container hosting |
 | Maps | Google Maps Platform | Location-based district rendering |
 | Validation | Zod | Runtime schema validation (backend) |
-| Testing | Vitest | Backend unit tests (33 passing) |
+| Testing | Vitest | Backend unit tests (76 passing, 8 files) |
 
 ---
 
@@ -102,7 +102,7 @@ Mimz-Final/
 │   │   ├── modules/live/        # Tool registry, 15 handlers, persona, token minting
 │   │   ├── services/            # Game logic (scoring, rewards, territory, audit)
 │   │   └── routes/              # 10 route files, 25+ endpoints
-│   ├── test/                    # 4 test files, 33 tests
+│   ├── test/                    # 8 test files, 76 tests
 │   ├── Dockerfile               # Multi-stage Cloud Run build
 │   └── .env.example             # All required environment variables
 ├── docs/                        # Comprehensive documentation
@@ -169,7 +169,9 @@ flutter run --dart-define=USE_MOCK_LIVE=true --dart-define=BACKEND_URL=http://lo
 
 ## Reproducible Testing
 
-Follow these steps to verify the project works. No Google Cloud account is required for Steps 1–3.
+**Judges:** Use the steps below to test this project. Steps 1–3 require no API keys or Google Cloud account; Step 4 needs the Flutter SDK; Step 5 is optional (Cloud Run).
+
+Follow these steps to verify the project works:
 
 ### Step 1 — Backend Unit Tests (no API key needed)
 
@@ -179,18 +181,22 @@ npm install
 npm test
 ```
 
-**Expected output:**
+**Expected output:** You should see 8 test files and 76 tests passing, for example:
 ```
-✓ test/structureCatalog.test.ts  (5 tests)  3ms
-✓ test/toolRegistry.test.ts     (8 tests)  4ms
-✓ test/domainModels.test.ts     (7 tests)  7ms
-✓ test/gameLogic.test.ts        (13 tests) 2ms
+✓ test/structureCatalog.test.ts   (5 tests)
+✓ test/domainModels.test.ts      (7 tests)
+✓ test/modelConfig.test.ts       (4 tests)
+✓ test/toolRegistry.test.ts     (9 tests)
+✓ test/gameLogic.test.ts         (13 tests)
+✓ test/validationService.test.ts (20 tests)
+✓ test/idempotency.test.ts       (12 tests)
+✓ test/routes.test.ts            (6 tests)
 
-Test Files  4 passed (4)
-     Tests  33 passed (33)
+Test Files  8 passed (8)
+     Tests  76 passed (76)
 ```
 
-**What this proves:** Domain models validate correctly, all 15 tool schemas enforce bounds, scoring logic handles streaks/combos/difficulty, and the structure catalog is internally consistent.
+**What this proves:** Domain models validate correctly, all 15 tool schemas enforce bounds, scoring logic handles streaks/combos/difficulty, idempotent tool execution prevents double grants, the structure catalog is internally consistent, and health/readyz and route registration work.
 
 ### Step 2 — Backend API Smoke Test (no API key needed)
 
@@ -229,7 +235,7 @@ curl -s -X POST http://localhost:8080/live/tool-execute \
 
 # Get live session config
 curl -s http://localhost:8080/live/config | python3 -m json.tool
-# Expected: { "modes": [...], "model": "gemini-2.0-flash-live-001" }
+# Expected: { "modes": [...], "model": "gemini-2.5-flash-native-audio-preview-12-2025" }
 ```
 
 **What this proves:** The full tool execution pipeline works end-to-end — Zod validates arguments, the handler runs scoring logic, and the response matches the expected shape. This is the same pipeline that Gemini Live tool calls flow through in production.
@@ -292,21 +298,19 @@ See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for full details.
 
 ## Automated Cloud Deployment
 
-Deployment is fully automated via a deploy script and a Cloud Build CI/CD pipeline.
+Deployment is fully automated via bash scripts provided in the repository.
 
 ### One-Command Deploy
 
 ```bash
-# Deploy everything with one command
-./scripts/deploy.sh --project YOUR_PROJECT_ID
+# Deploy everything with one command (Rules, Backend, FlutterFire)
+./scripts/deploy_all.sh
 ```
 
-This script ([`scripts/deploy.sh`](scripts/deploy.sh)) automates 5 steps:
-1. **Enables GCP APIs** (Cloud Run, Cloud Build, Firestore, Artifact Registry)
-2. **Builds the Docker container** via Cloud Build
-3. **Deploys to Cloud Run** with all env vars + auto-detects Secret Manager secrets
-4. **Retrieves the service URL**
-5. **Verifies deployment** by hitting `/healthz` and `/readyz` endpoints
+This script ([`scripts/deploy_all.sh`](scripts/deploy_all.sh)) automates 3 steps:
+1. **Applies Firebase Rules** (`firestore.rules` and `storage.rules`)
+2. **Deploys Node.js Backend** to Cloud Run with all env vars + Secret Manager secrets
+3. **Regenerates FlutterFire Config** to ensure the app has actual API keys
 
 ### CI/CD Pipeline
 
@@ -314,7 +318,7 @@ This script ([`scripts/deploy.sh`](scripts/deploy.sh)) automates 5 steps:
 
 ```yaml
 # Automated pipeline steps:
-1. npm ci && npm test          # Run 33 unit tests — fail fast
+1. npm ci && npm test          # Run 76 unit tests — fail fast
 2. docker build                # Multi-stage production image
 3. docker push                 # Tag with git SHA + latest
 4. gcloud run deploy           # Deploy to Cloud Run
@@ -332,9 +336,32 @@ gcloud builds triggers create github \
   --project=YOUR_PROJECT_ID
 ```
 
-> 📎 **Judges**: See [`scripts/deploy.sh`](scripts/deploy.sh) and [`cloudbuild.yaml`](cloudbuild.yaml) for the full automation code.
+> 📎 **Judges**: See [`scripts/deploy_all.sh`](scripts/deploy_all.sh) and [`cloudbuild.yaml`](cloudbuild.yaml) for the full automation code.
 
-See [docs/CLOUD_RUN_DEPLOY.md](docs/CLOUD_RUN_DEPLOY.md) for manual instructions and [docs/CLOUD_PROOF.md](docs/CLOUD_PROOF.md) for proving GCP usage.
+See [docs/RUNBOOK.md](docs/RUNBOOK.md) for manual instructions and [docs/DEPLOYMENT_SUMMARY.md](docs/DEPLOYMENT_SUMMARY.md) for full deployment output.
+
+---
+
+## Proof of Google Cloud Deployment
+
+**For judges:** One code file is enough to prove GCP usage.
+
+### Primary proof (single link)
+
+**[scripts/deploy_backend.sh](scripts/deploy_backend.sh)** — deploys the backend to **Cloud Run** (`gcloud run deploy`), sets Firestore/Firebase env vars, and wires **Gemini API** via Secret Manager (`GEMINI_API_KEY=GEMINI_API_KEY:latest`). Use this repo link in your submission (e.g. `https://github.com/OWNER/Mimz-Final/blob/main/scripts/deploy_backend.sh`).
+
+### Optional: screen recording
+
+A short screen recording of the app on GCP (Cloud Run console, Firestore, logs) also qualifies. What to capture and how to redact: [docs/CLOUD_PROOF.md](docs/CLOUD_PROOF.md).
+
+### Optional: more code links
+
+| GCP service | File |
+|-------------|------|
+| Cloud Run CI/CD | [cloudbuild.yaml](cloudbuild.yaml) |
+| Firestore + Firebase Auth | [backend/src/lib/firebase.ts](backend/src/lib/firebase.ts), [backend/src/lib/db.ts](backend/src/lib/db.ts) |
+| Gemini Live (token, tools) | [backend/src/modules/live/liveService.ts](backend/src/modules/live/liveService.ts), [backend/src/routes/live.ts](backend/src/routes/live.ts) |
+| Auth middleware | [backend/src/middleware/auth.ts](backend/src/middleware/auth.ts) |
 
 ---
 
@@ -376,7 +403,7 @@ See [docs/assets/demo-checklist.md](docs/assets/demo-checklist.md) for the full 
 
 This is a hackathon build. The following is intentionally scoped:
 
-- **Firebase Auth** runs in demo mode locally — real verification requires `flutterfire configure`
+- **Auth Providers**: Google Sign-In and Email auth are fully implemented in the app, but explicitly enabling them in the Firebase Console is a required manual step.
 - **Audio capture/playback** services have interfaces implemented; platform-specific package code needs uncommenting after iOS/Android permission setup
 - **Google Maps** renders as a stylized grid painter in demo; real map rendering requires API key configuration
 - **Real-time multiplayer** (squad missions, live events) is single-player demo
@@ -403,6 +430,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for details.
 | Document | Purpose |
 |----------|---------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, diagrams, data flows |
+| [CLOUD_PROOF.md](docs/CLOUD_PROOF.md) | How to prove GCP usage (screen recording, console, logs) |
 | [HACKATHON_SUBMISSION.md](docs/HACKATHON_SUBMISSION.md) | Devpost-ready submission content |
 | [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | 4-minute demo walkthrough with failure recovery |
 | [CLOUD_PROOF.md](docs/CLOUD_PROOF.md) | How to prove GCP usage to judges |

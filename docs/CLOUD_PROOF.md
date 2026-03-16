@@ -11,7 +11,7 @@ How to prove Mimz uses Google Cloud for hackathon judging.
 | **Cloud Run** | Hosts the Fastify backend (25+ endpoints) | Cloud Run console → show running service |
 | **Firestore** | Persists users, districts, rewards, audit logs | Firestore console → show collections with real data |
 | **Firebase Auth** | Manages user identity (Apple/Google/Email) | Firebase console → Authentication tab |
-| **Gemini 2.0 Flash Live** | Real-time voice + vision AI via WebSocket | Backend logs showing ephemeral token mints |
+| **Gemini 2.5 Flash Native Audio** | Real-time voice + vision AI via WebSocket | Backend logs showing ephemeral token mints |
 
 ---
 

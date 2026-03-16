@@ -1,25 +1,58 @@
-# Mimz Deployment Discovery
+# Deploy Discovery — Mimz
 
-## 1. Application Architecture Paths
-- **Flutter App**: `app/`
-- **Backend API**: `backend/`
+## Project
+- **Firebase project ID**: `mimzapp`
+- **GCP project number**: `1012962167727`
+- **Region**: `europe-west1`
 
-## 2. Flutter App Identifiers
-- **Android `applicationId`**: `com.mimz.mimz_app`
-- **iOS `PRODUCT_BUNDLE_IDENTIFIER`**: `com.mimz.mimzApp`
-- **macOS/Web**: No clear macOS or web requirements extracted. Focusing on Mobile targets.
+## Flutter App
+- **Path**: `app/`
+- **Android applicationId**: `com.mimz.mimz_app`
+- **iOS bundle identifier**: `com.mimz.mimzApp`
+- **Display name**: `Mimz`
 
-## 3. Firebase & Auth State
-- **Firebase Libraries**: `firebase_core`, `firebase_auth` present.
-- **`firebase_options.dart`**: Yes, already exists in `app/lib/firebase_options.dart` but will be overwritten by `flutterfire configure` to align with `mimzapp`.
-- **Auth Providers**: Google Sign-In and Apple Sign-In libraries are *not* explicitly defined in `pubspec.yaml`, indicating it either uses Email/Password, Anonymous auth, or requires configuration.
+## Firebase Apps
+| Platform | App ID |
+|---|---|
+| Android | `1:1012962167727:android:dd7c267a1edf01c0e7bd5a` |
+| iOS | `1:1012962167727:ios:45c7af776d18210ce7bd5a` |
 
-## 4. Backend Deployment Config
-- **Runtime**: Node.js 20 (TypeScript + Fastify)
-- **Deployment Strategy**: Dockerfile exists at `backend/Dockerfile`. Ideal for Cloud Run deployment via Cloud Build.
-- **Required Secrets / Environment Variables**:
-  - `GCP_PROJECT_ID` (mimzapp)
-  - `FIREBASE_PROJECT_ID` (mimzapp)
-  - `NODE_ENV` (production)
-  - `GEMINI_API_KEY` (Secret Manager)
-  - `FIRESTORE_DATABASE`, `STORAGE_BUCKET`, `GEMINI_MODEL`, `GEMINI_LIVE_MODEL`, `GEMINI_UTILITY_MODEL` mapping to standards.
+- **google-services.json**: `app/android/app/google-services.json` ✅
+- **GoogleService-Info.plist**: `app/ios/Runner/GoogleService-Info.plist` ✅
+- **firebase_options.dart**: `app/lib/firebase_options.dart` ✅ (real keys)
+
+## Firebase Config Files
+- **firebase.json**: root-level (references `firestore.rules`, `storage.rules`)
+- **firestore.rules**: root-level ✅
+- **storage.rules**: root-level ✅
+- **firestore.indexes.json**: not present (none needed currently)
+
+## Auth Implementation
+- **Email/password**: ✅ implemented
+- **Google Sign-In**: ✅ implemented (androidClientId + iosClientId in firebase_options.dart)
+- **Apple Sign-In**: ❌ not implemented
+- **Anonymous/Guest**: ❌ explicitly blocked (per app auth rules)
+
+## Backend
+- **Path**: `backend/`
+- **Runtime**: Node.js 20 (TypeScript, compiled to `dist/`)
+- **Dockerfile**: 2-stage build, exposes port 8080
+- **Cloud Run service**: `mimz-backend` (europe-west1)
+- **Health endpoint**: `GET /readyz`
+
+## Environment Variables Required
+| Variable | Source | Notes |
+|---|---|---|
+| `NODE_ENV` | Cloud Run env | `production` |
+| `GCP_PROJECT_ID` | Cloud Run env | `mimzapp` |
+| `FIREBASE_PROJECT_ID` | Cloud Run env | `mimzapp` |
+| `FIRESTORE_DATABASE` | Cloud Run env | `(default)` |
+| `STORAGE_BUCKET` | Cloud Run env | `mimzapp.firebasestorage.app` |
+| `GEMINI_API_KEY` | Secret Manager | `GEMINI_API_KEY:latest` |
+| `GEMINI_MODEL` | Cloud Run env | `gemini-2.5-flash` |
+| `GEMINI_LIVE_MODEL` | Cloud Run env | `gemini-2.5-flash-native-audio-preview-12-2025` |
+| `GEMINI_UTILITY_MODEL` | Cloud Run env | `gemini-2.5-flash-lite` |
+
+## No Web Hosting
+The app is a Flutter mobile app only. No web companion target exists.
+Firebase Hosting is not needed.

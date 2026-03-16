@@ -27,6 +27,8 @@ export async function bootstrapUser(userId: string, email?: string): Promise<Use
     sectors: 1,
     districtName: 'My District',
     interests: [],
+    difficultyPreference: 'dynamic',
+    squadPreference: 'social',
     visibility: 'coarse',
     createdAt: now,
   };
@@ -74,14 +76,36 @@ export async function getUser(userId: string): Promise<User | null> {
   return db.getUser(userId);
 }
 
-export async function updateProfile(userId: string, updates: Partial<User>): Promise<User | null> {
+export async function updateProfile(
+  userId: string,
+  updates: Partial<User> & {
+    profileImageUrl?: string | null;
+    storagePath?: string | null;
+    preferredName?: string | null;
+    majorOrProfession?: string | null;
+    voicePreference?: string | null;
+  },
+): Promise<User | null> {
   // Whitelist allowed fields
   const safe: Partial<User> = {};
-  if (updates.displayName) safe.displayName = updates.displayName;
-  if (updates.handle) safe.handle = updates.handle;
-  if (updates.interests) safe.interests = updates.interests;
-  if (updates.visibility) safe.visibility = updates.visibility;
-  if (updates.districtName) {
+  if (updates.displayName !== undefined) safe.displayName = updates.displayName;
+  if (updates.handle !== undefined) safe.handle = updates.handle;
+
+  if (updates.preferredName !== undefined) safe.preferredName = updates.preferredName;
+  if (updates.ageBand !== undefined) safe.ageBand = updates.ageBand;
+  if (updates.studyWorkStatus !== undefined) safe.studyWorkStatus = updates.studyWorkStatus;
+  if (updates.majorOrProfession !== undefined) safe.majorOrProfession = updates.majorOrProfession;
+  if (updates.interests !== undefined) safe.interests = updates.interests;
+
+  if (updates.difficultyPreference !== undefined) safe.difficultyPreference = updates.difficultyPreference;
+  if (updates.squadPreference !== undefined) safe.squadPreference = updates.squadPreference;
+  if (updates.voicePreference !== undefined) safe.voicePreference = updates.voicePreference;
+
+  if (updates.profileImageUrl !== undefined) safe.profileImageUrl = updates.profileImageUrl;
+  if (updates.storagePath !== undefined) safe.storagePath = updates.storagePath;
+
+  if (updates.visibility !== undefined) safe.visibility = updates.visibility;
+  if (updates.districtName !== undefined) {
     safe.districtName = updates.districtName;
     // Also update the district name
     const district = await db.getDistrictByOwner(userId);

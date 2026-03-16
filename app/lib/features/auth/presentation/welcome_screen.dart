@@ -24,7 +24,14 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Spacer(flex: 2),
+                  const Spacer(flex: 1),
+                  // Logo
+                  Image.asset(
+                    'assets/images/logo-dark.png',
+                    width: 140,
+                    fit: BoxFit.contain,
+                  ).animate().fadeIn(duration: 400.ms),
+                  const Spacer(flex: 1),
                   Text(
                     'YOUR',
                     style: MimzTypography.displayLarge.copyWith(

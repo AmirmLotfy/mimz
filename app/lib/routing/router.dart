@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/splash_screen.dart';
 import '../features/auth/presentation/welcome_screen.dart';
 import '../features/auth/presentation/auth_screen.dart';
+import '../features/auth/presentation/email_auth_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/onboarding/presentation/permission_overview_screen.dart';
 import '../features/onboarding/presentation/location_permission_screen.dart';
@@ -12,6 +13,9 @@ import '../features/onboarding/presentation/live_onboarding_screen.dart';
 import '../features/onboarding/presentation/onboarding_summary_screen.dart';
 import '../features/onboarding/presentation/emblem_selection_screen.dart';
 import '../features/onboarding/presentation/district_naming_screen.dart';
+import '../features/onboarding/presentation/basic_profile_setup_screen.dart';
+import '../features/onboarding/presentation/interest_selection_screen.dart';
+import '../features/onboarding/presentation/gameplay_preferences_screen.dart';
 import '../features/world/presentation/world_home_screen.dart';
 import '../features/world/presentation/leaderboard_screen.dart';
 import '../features/live/presentation/play_hub_screen.dart';
@@ -23,9 +27,18 @@ import '../features/live/presentation/vision_quest_history_screen.dart';
 import '../features/squads/presentation/squad_hub_screen.dart';
 import '../features/squads/presentation/squad_leaderboard_screen.dart';
 import '../features/events/presentation/events_screen.dart';
+import '../features/events/presentation/event_detail_screen.dart';
+import '../data/models/event.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/rewards/presentation/reward_vault_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/settings/presentation/security_screen.dart';
+import '../features/settings/presentation/profile_edit_screen.dart';
+import '../features/settings/presentation/privacy_policy_screen.dart';
+import '../features/settings/presentation/terms_of_service_screen.dart';
+import '../features/settings/presentation/help_support_screen.dart';
+import '../features/settings/presentation/feedback_screen.dart';
+import '../features/notifications/presentation/notification_inbox_screen.dart';
 import '../features/district/presentation/district_detail_screen.dart';
 import 'app_shell.dart';
 
@@ -69,7 +82,7 @@ final appRouter = GoRouter(
     if (container == null) return null;
 
     final isAuthenticated = container.read(isAuthenticatedProvider);
-    final isOnboarded = container.read(isOnboardedProvider);
+    final isOnboarded = container.read(isOnboardedProvider).valueOrNull ?? false;
     final location = state.matchedLocation;
 
     final isProtected = _protectedRoutePrefixes.any((p) => location.startsWith(p));
@@ -114,6 +127,10 @@ final appRouter = GoRouter(
       path: '/auth',
       builder: (context, state) => const AuthScreen(),
     ),
+    GoRoute(
+      path: '/auth/email',
+      builder: (context, state) => const EmailAuthScreen(),
+    ),
 
     // Onboarding flow
     GoRoute(
@@ -147,6 +164,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/district/name',
       builder: (context, state) => const DistrictNamingScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding/profile-setup',
+      builder: (context, state) => const BasicProfileSetupScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding/interests',
+      builder: (context, state) => const InterestSelectionScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding/preferences',
+      builder: (context, state) => const GameplayPreferencesScreen(),
     ),
 
     // Main app shell with bottom navigation
@@ -204,8 +233,50 @@ final appRouter = GoRouter(
       builder: (context, state) => const SettingsScreen(),
     ),
     GoRoute(
+      path: '/settings/security',
+      builder: (context, state) => const SecurityScreen(),
+    ),
+    GoRoute(
+      path: '/settings/profile-edit',
+      builder: (context, state) => const ProfileEditScreen(),
+    ),
+    GoRoute(
+      path: '/settings/privacy',
+      builder: (context, state) => const PrivacyPolicyScreen(),
+    ),
+    GoRoute(
+      path: '/settings/terms',
+      builder: (context, state) => const TermsOfServiceScreen(),
+    ),
+    GoRoute(
+      path: '/settings/help',
+      builder: (context, state) => const HelpSupportScreen(),
+    ),
+    GoRoute(
+      path: '/settings/feedback',
+      builder: (context, state) => const FeedbackScreen(),
+    ),
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationInboxScreen(),
+    ),
+    GoRoute(
       path: '/leaderboard',
       builder: (context, state) => const LeaderboardScreen(),
+    ),
+    GoRoute(
+      path: '/events/detail',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final event = extra?['event'];
+        if (event is! MimzEvent) {
+          return const EventsScreen();
+        }
+        return EventDetailScreen(
+          event: event,
+          isLive: extra?['isLive'] == true,
+        );
+      },
     ),
     GoRoute(
       path: '/district/detail',

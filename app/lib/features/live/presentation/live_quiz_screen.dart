@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/waveform_visualizer.dart';
+import '../application/live_session_controller.dart';
 import '../providers/live_providers.dart';
 // Hide liveSessionStateProvider to avoid ambiguous import (it's re-exported from live_providers.dart)
 import '../providers/live_session_provider.dart' hide liveSessionStateProvider;
 import '../domain/live_connection_phase.dart';
+import '../domain/live_event.dart';
 import '../../../data/models/quiz_state.dart';
 import '../../../services/sound_service.dart';
+import '../../world/providers/world_provider.dart';
 
 /// Screen 16 — Live Quiz with real Gemini Live session
 ///
@@ -25,20 +29,23 @@ class LiveQuizScreen extends ConsumerStatefulWidget {
 class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
   QuizStatus? _prevStatus;
   bool _sessionSoundPlayed = false;
+  LiveSessionController? _controller;
 
   @override
   void initState() {
     super.initState();
     // Start the real Gemini Live session when the screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(liveSessionControllerProvider).startQuizSession();
+      if (!mounted) return;
+      _controller = ref.read(liveSessionControllerProvider);
+      _controller?.startQuizSession();
     });
   }
 
   @override
   void dispose() {
-    // End session when leaving the screen
-    ref.read(liveSessionControllerProvider).endSession();
+    // End session when leaving (do not use ref after dispose)
+    _controller?.endSession();
     super.dispose();
   }
 
@@ -68,6 +75,26 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
       _sessionSoundPlayed = true;
       SoundService.instance.playSessionStart();
     }
+
+    // React to backend tool execution results (like XP or territory gains)
+    ref.listen(liveSessionStateProvider, (previous, next) {
+      final oldPayload = previous?.valueOrNull?.lastRewardPayload;
+      final newPayload = next.valueOrNull?.lastRewardPayload;
+      
+      if (newPayload != null && newPayload != oldPayload) {
+        // Did we get territory?
+        if (newPayload.containsKey('sectorsAdded')) {
+          ref.read(districtProvider.notifier).syncBackendReward(newPayload);
+        }
+        
+        // Did we answer a question?
+        if (newPayload.containsKey('isCorrect')) {
+          final isCorrect = newPayload['isCorrect'] as bool? ?? false;
+          final points = (newPayload['pointsAwarded'] as num?)?.toInt() ?? 100;
+          ref.read(quizStateProvider.notifier).scoreAnswer(correct: isCorrect, points: points);
+        }
+      }
+    });
 
     return Scaffold(
       backgroundColor: MimzColors.nightSurface,
@@ -143,7 +170,7 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
                   ),
                 ),
                 const Spacer(flex: 2),
-                // Waveform — driven by real mic activity
+                // Waveform — driven by real mic amplitude
                 WaveformVisualizer(
                   isActive: isMicActive || phase == LiveConnectionPhase.modelSpeaking,
                   color: phase == LiveConnectionPhase.modelSpeaking
@@ -151,6 +178,9 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
                       : MimzColors.persimmonHit,
                   height: 80,
                   barCount: 9,
+                  // Pass real mic amplitude when user is speaking.
+                  // Falls back to sine wave animation when model is speaking.
+                  amplitude: isMicActive ? (sessionState?.audioAmplitude) : null,
                 ),
                 const Spacer(),
                 // AI Transcript / Question — real text from Gemini
@@ -264,6 +294,71 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
                           color: MimzColors.white.withValues(alpha: 0.5),
                         ),
                       ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
+                    ],
+                  ),
+                ),
+              ),
+
+            // ─── Failed overlay with retry (UX-07) ─────────────────
+            if (phase == LiveConnectionPhase.failed)
+              Positioned.fill(
+                child: Container(
+                  color: MimzColors.nightSurface.withValues(alpha: 0.95),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.signal_wifi_statusbar_connected_no_internet_4,
+                        color: MimzColors.error,
+                        size: 52,
+                      ).animate().scale(duration: 400.ms, curve: Curves.elasticOut),
+                      const SizedBox(height: MimzSpacing.xl),
+                      Text(
+                        'Connection Lost',
+                        style: MimzTypography.headlineLarge.copyWith(
+                          color: MimzColors.white,
+                        ),
+                      ).animate().fadeIn(duration: 300.ms),
+                      const SizedBox(height: MimzSpacing.sm),
+                      Text(
+                        sessionState?.error?.message ?? 'Session failed. Tap to retry.',
+                        style: MimzTypography.bodySmall.copyWith(
+                          color: MimzColors.white.withValues(alpha: 0.5),
+                        ),
+                        textAlign: TextAlign.center,
+                      ).animate().fadeIn(delay: 150.ms, duration: 300.ms),
+                      const SizedBox(height: MimzSpacing.xxl),
+                      GestureDetector(
+                        onTap: () {
+                          ref.read(liveSessionControllerProvider).startQuizSession();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: MimzSpacing.xxl,
+                            vertical: MimzSpacing.base,
+                          ),
+                          decoration: BoxDecoration(
+                            color: MimzColors.persimmonHit,
+                            borderRadius: BorderRadius.circular(MimzRadius.pill),
+                          ),
+                          child: Text(
+                            'Retry Session',
+                            style: MimzTypography.headlineMedium.copyWith(
+                              color: MimzColors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ).animate(delay: 300.ms).fadeIn(duration: 400.ms).slideY(begin: 0.2),
+                      if (sessionState?.error?.recovery == LiveErrorRecovery.openSettings) ...[
+                        const SizedBox(height: MimzSpacing.md),
+                        TextButton(
+                          onPressed: () async {
+                            await openAppSettings();
+                          },
+                          child: const Text('Open Settings'),
+                        ),
+                      ],
                     ],
                   ),
                 ),

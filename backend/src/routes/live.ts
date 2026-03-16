@@ -12,7 +12,7 @@ export async function liveRoutes(server: FastifyInstance) {
     const body = LiveSessionTokenRequestSchema.safeParse(request.body ?? {});
     const sessionType = body.success ? body.data.sessionType : 'quiz';
 
-    const session = mintEphemeralToken(userId, sessionType);
+    const session = await mintEphemeralToken(userId, sessionType);
 
     await game.audit(userId, 'ephemeral_token_minted', {
       sessionType,
@@ -20,7 +20,16 @@ export async function liveRoutes(server: FastifyInstance) {
     });
 
     server.log.info({ userId, sessionType }, 'Ephemeral token minted');
-    return { session: { token: session.token, sessionId: session.sessionId, model: session.model, expiresAt: session.expiresAt, tools: session.tools } };
+    return {
+      session: {
+        token: session.token,
+        sessionId: session.sessionId,
+        model: session.model,
+        expiresAt: session.expiresAt,
+        tools: session.tools,
+        systemInstruction: session.systemInstruction,
+      },
+    };
   });
 
   // ─── POST /live/tool-execute ─────────────────────

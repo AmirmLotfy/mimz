@@ -1,24 +1,43 @@
-# Post-Deployment Validation Checklist
+# Post-Deploy Checklist — Mimz
 
-After running the deployment scripts for the Mimz project, follow this checklist to verify production health.
+## Firebase
+- [ ] `firebase_options.dart` has real API keys (not `YOUR_KEY_HERE`)
+- [ ] `google-services.json` exists at `app/android/app/google-services.json`
+- [ ] `GoogleService-Info.plist` exists at `app/ios/Runner/GoogleService-Info.plist`
+- [ ] Firestore rules deployed (check Firebase console)
+- [ ] Storage rules deployed (check Firebase console)
+- [ ] Firebase Auth: Email/Password provider **enabled** in console
+- [ ] Firebase Auth: Google provider **enabled** in console
 
-## 1. Cloud Run Backend
-- [ ] Backend is actively running on Cloud Run (`mimz-backend`) in `us-central1`.
-- [ ] Visit `https://[CLOUD_RUN_URL]/healthz` — should return `200 OK` with JSON `{"status": "ok"}`.
-- [ ] All required environment variables are attached under **Revisions > Variables & Secrets** (including `GEMINI_API_KEY` bound from Secret Manager).
+## Android Google Sign-In
+- [ ] SHA-1 fingerprint added to Firebase Android app in console:
+  `69:96:33:63:27:1D:EB:88:1C:1F:8D:5F:7C:8C:90:1E:DB:B5:C8:31`
+- [ ] For production: release keystore SHA-1 also added
 
-## 2. Firebase Console
-- [ ] **Authentication**: Email/Password, Google, and Apple sign-in providers are enabled.
-- [ ] **Authentication Settings**: "Link accounts that use the same email" is active.
-- [ ] **Project Settings**: Android app `com.mimz.mimz_app` has the correct release/debug SHA-1 fingerprints registered.
-- [ ] **Firestore**: Database exists and `firestore.rules` are actively visible in the Rules tab.
-- [ ] **Storage**: Default bucket `mimzapp.firebasestorage.app` exists and `storage.rules` are visible.
+## iOS Google Sign-In
+- [ ] URL scheme added in Xcode → Runner → Info → URL Types:
+  `1012962167727-lorb8qhom0cvhe5nnj22ealeajf5uv5a`
 
-## 3. Flutter Configuration
-- [ ] `lib/firebase_options.dart` successfully generated and defines both `android` and `ios` platforms.
-- [ ] Android bundle runs locally or passes CI without `google-services.json` missing project errors.
-- [ ] iOS bundle compiles successfully without missing `GoogleService-Info.plist` errors.
+## Backend (Cloud Run)
+- [ ] `mimz-backend` service is running in `europe-west1`
+- [ ] `GET /readyz` returns 200
+- [ ] `GEMINI_API_KEY` secret is version 3+ in Secret Manager
+- [ ] Cloud Run service has Secret Manager accessor role
 
-## 4. Automation & Scripts
-- [ ] All `.sh` scripts in `scripts/` have execute permissions.
-- [ ] Executable `deploy_backend.sh` can be reliably rerun to push hotfixes.
+## Flutter App
+- [ ] `BACKEND_URL` in `live_providers.dart` points to actual Cloud Run URL
+  (currently `localhost` for dev — must update for production build)
+- [ ] `USE_MOCK_LIVE=false` (default, confirms no mock in production)
+- [ ] `flutter analyze lib/` → No issues
+
+## Gemini API
+- [ ] API key `REDACTED_GOOGLE_API_KEY` is active
+- [ ] Generative Language API enabled in GCP project `mimzapp`
+
+## Final Smoke Test
+- [ ] Open app on physical device
+- [ ] Sign in with email/password
+- [ ] Complete onboarding (voice session starts, Gemini responds by name)
+- [ ] Start a quiz round (Gemini asks questions, waveform shows amplitude)
+- [ ] Answer correctly (XP awarded, district grows)
+- [ ] CLAIM REWARDS → world map shows fresh data

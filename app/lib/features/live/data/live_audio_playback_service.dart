@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
+import 'package:just_audio/just_audio.dart';
 
 /// Abstract interface for audio playback.
 abstract class AudioPlaybackService {
   bool get isPlaying;
   Stream<bool> get playbackStateStream;
 
-  /// Queue a chunk of audio for sequential playback.
+  /// Queue a chunk of raw PCM 16-bit 24kHz mono audio.
   void enqueue(Uint8List audioData, String mimeType);
 
   /// Stop playback immediately (for barge-in).
@@ -20,12 +21,9 @@ abstract class AudioPlaybackService {
   void dispose();
 }
 
-/// Production implementation using `just_audio` or direct PCM playback.
-///
-/// Queues incoming audio chunks and plays them sequentially to avoid overlap
-/// corruption. Supports immediate stop for barge-in.
+/// Plays raw PCM data in memory by prepending a WAV header and piping to just_audio.
 class LiveAudioPlaybackService implements AudioPlaybackService {
-  // final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player = AudioPlayer();
 
   final _queue = Queue<_AudioChunk>();
   bool _isPlaying = false;
@@ -55,22 +53,21 @@ class LiveAudioPlaybackService implements AudioPlaybackService {
       final chunk = _queue.removeFirst();
 
       try {
-        // Real implementation — write PCM to temp file or use streaming player:
-        // For PCM data:
-        //   final tempFile = File('${(await getTemporaryDirectory()).path}/live_audio.pcm');
-        //   await tempFile.writeAsBytes(chunk.data);
-        //   await _player.setFilePath(tempFile.path);
-        //   await _player.play();
-        //   await _player.playerStateStream
-        //       .firstWhere((s) => s.processingState == ProcessingState.completed);
-
-        // Estimated playback duration based on PCM data size
-        // 24kHz, 16-bit, mono = 48000 bytes/sec
-        final durationMs = (chunk.data.length / 48).round();
-        await Future.delayed(Duration(milliseconds: durationMs.clamp(10, 5000)));
-
+        // Gemini outputs 24kHz 16-bit mono PCM.
+        final wavData = _addWavHeader(chunk.data, 24000);
+        final source = _MemoryAudioSource(wavData);
+        
+        await _player.setAudioSource(source);
+        await _player.play();
+        
+        // Wait until this specific chunk is finished playing
+        if (_player.playing) {
+          await _player.playerStateStream.firstWhere(
+            (state) => state.processingState == ProcessingState.completed || !_isPlaying,
+          );
+        }
       } catch (e) {
-        // Log but don't crash the queue
+        // Ignore playback errors from interrupted chunks
       }
     }
 
@@ -82,7 +79,7 @@ class LiveAudioPlaybackService implements AudioPlaybackService {
   Future<void> stopImmediately() async {
     _queue.clear();
     _isPlaying = false;
-    // await _player.stop();
+    await _player.stop();
     if (!_isDisposed) _stateController.add(false);
   }
 
@@ -97,7 +94,33 @@ class LiveAudioPlaybackService implements AudioPlaybackService {
     _queue.clear();
     _isPlaying = false;
     _stateController.close();
-    // _player.dispose();
+    _player.dispose();
+  }
+
+  /// Adds a standard WAV header to raw PCM 16-bit data.
+  Uint8List _addWavHeader(Uint8List pcmBytes, int sampleRate) {
+    const channels = 1;
+    final byteRate = sampleRate * channels * 2;
+    
+    final header = ByteData(44);
+    header.setUint8(0, 82); header.setUint8(1, 73); header.setUint8(2, 70); header.setUint8(3, 70); // "RIFF"
+    header.setUint32(4, 36 + pcmBytes.length, Endian.little);
+    header.setUint8(8, 87); header.setUint8(9, 65); header.setUint8(10, 86); header.setUint8(11, 69); // "WAVE"
+    header.setUint8(12, 102); header.setUint8(13, 109); header.setUint8(14, 116); header.setUint8(15, 32); // "fmt "
+    header.setUint32(16, 16, Endian.little);
+    header.setUint16(20, 1, Endian.little); // Format = PCM
+    header.setUint16(22, channels, Endian.little);
+    header.setUint32(24, sampleRate, Endian.little);
+    header.setUint32(28, byteRate, Endian.little);
+    header.setUint16(32, channels * 2, Endian.little); // Block align
+    header.setUint16(34, 16, Endian.little); // Bits per sample
+    header.setUint8(36, 100); header.setUint8(37, 97); header.setUint8(38, 116); header.setUint8(39, 97); // "data"
+    header.setUint32(40, pcmBytes.length, Endian.little);
+
+    final builder = BytesBuilder();
+    builder.add(header.buffer.asUint8List());
+    builder.add(pcmBytes);
+    return builder.toBytes();
   }
 }
 
@@ -105,4 +128,23 @@ class _AudioChunk {
   final Uint8List data;
   final String mimeType;
   const _AudioChunk({required this.data, required this.mimeType});
+}
+
+class _MemoryAudioSource extends StreamAudioSource {
+  final Uint8List _buffer;
+  
+  _MemoryAudioSource(this._buffer);
+
+  @override
+  Future<StreamAudioResponse> request([int? start, int? end]) async {
+    start ??= 0;
+    end ??= _buffer.length;
+    return StreamAudioResponse(
+      sourceLength: _buffer.length,
+      contentLength: end - start,
+      offset: start,
+      stream: Stream.value(_buffer.sublist(start, end)),
+      contentType: 'audio/wav',
+    );
+  }
 }

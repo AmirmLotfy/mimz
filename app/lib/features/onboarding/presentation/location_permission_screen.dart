@@ -1,18 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../../../services/haptics_service.dart';
 import '../providers/onboarding_provider.dart';
 
 /// Screen 5 — Location permission dedicated screen
-class LocationPermissionScreen extends ConsumerWidget {
+class LocationPermissionScreen extends ConsumerStatefulWidget {
   const LocationPermissionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LocationPermissionScreen> createState() => _LocationPermissionScreenState();
+}
+
+class _LocationPermissionScreenState extends ConsumerState<LocationPermissionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAndPop();
+  }
+
+  void _checkAndPop() async {
+    await ref.read(permissionsProvider.notifier).refresh();
+    if (mounted && ref.read(permissionsProvider).location) {
+      context.go('/permissions');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen for changes and pop if granted
+    ref.listen(permissionsProvider, (prev, next) {
+      if (next.location) {
+        context.go('/permissions');
+      }
+    });
+
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -22,8 +47,9 @@ class LocationPermissionScreen extends ConsumerWidget {
         ),
         title: const Text('Location Access'),
       ),
-      body: Column(
-        children: [
+      body: SafeArea(
+        child: Column(
+          children: [
           // Map preview
           Container(
             height: 260,
@@ -105,10 +131,34 @@ class LocationPermissionScreen extends ConsumerWidget {
                     label: 'Allow Location Access',
                     icon: Icons.navigation,
                     onPressed: () async {
-                      HapticFeedback.mediumImpact();
+                      ref.read(hapticsServiceProvider).mediumImpact();
                       final status = await Permission.location.request();
+                      if (status.isPermanentlyDenied) {
+                        ref.read(hapticsServiceProvider).error();
+                        await openAppSettings();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Location is permanently denied. Enable it in Settings to continue.',
+                              ),
+                            ),
+                          );
+                        }
+                        return;
+                      }
                       if (status.isGranted || status.isLimited) {
-                        ref.read(permissionsProvider.notifier).grantLocation();
+                        ref.read(hapticsServiceProvider).success();
+                        await ref.read(permissionsProvider.notifier).grantLocation();
+                      } else if (mounted) {
+                        ref.read(hapticsServiceProvider).error();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Location permission denied. You can grant it later in app settings.',
+                            ),
+                          ),
+                        );
                       }
                       if (context.mounted) context.go('/permissions');
                     },
@@ -129,7 +179,8 @@ class LocationPermissionScreen extends ConsumerWidget {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

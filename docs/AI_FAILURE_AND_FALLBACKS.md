@@ -51,7 +51,7 @@ Error detected → check recovery strategy
 
 ## Fallback Model Strategy
 - Primary model from `MODEL_REGISTRY` via env config
-- Each role has a `fallback` model ID (e.g., `gemini-2.0-flash` as fallback for `gemini-2.5-flash`)
+- Each role has a `fallback` model ID (e.g., `gemini-2.0-flash` as fallback for `gemini-2.5-flash-native-audio-preview-...`)
 - `getModelWithFallback(role)` returns both for application-level retry logic
 
 ## Demo-Safe Behavior

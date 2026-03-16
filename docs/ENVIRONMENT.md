@@ -27,8 +27,8 @@ Copy from `backend/.env.example`. Descriptions below.
 | `FIREBASE_PROJECT_ID` | (from GCP_PROJECT_ID) | Firebase project ID if different from GCP |
 | `FIRESTORE_DATABASE` | `(default)` | Firestore database name |
 | `STORAGE_BUCKET` | (none) | Cloud Storage bucket |
-| `GEMINI_MODEL` | `gemini-2.0-flash-exp` | Gemini model for async tasks |
-| `GEMINI_LIVE_MODEL` | `gemini-2.0-flash-live-001` | Gemini model for live sessions |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model for async tasks |
+| `GEMINI_LIVE_MODEL` | `gemini-2.5-flash-native-audio-preview-12-2025` | Gemini model for live sessions |
 | `EPHEMERAL_TOKEN_TTL_MS` | `300000` | Ephemeral token lifetime (5 min) |
 | `MAX_REWARD_PER_HOUR` | `5000` | Anti-abuse: max XP per hour per user |
 | `MAX_SECTORS_PER_ROUND` | `3` | Anti-abuse: max territory per round |

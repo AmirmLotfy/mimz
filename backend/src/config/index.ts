@@ -19,9 +19,9 @@ const ConfigSchema = z.object({
 
   // Gemini
   geminiApiKey: z.string().min(1),
-  geminiModel: z.string().default('gemini-2.5-flash'),
-  geminiLiveModel: z.string().default('gemini-2.0-flash-live-001'),
-  geminiUtilityModel: z.string().default('gemini-2.5-flash-lite'),
+  geminiModel: z.string().default('gemini-2.0-flash'),
+  geminiLiveModel: z.string().default('gemini-2.0-flash-exp'),
+  geminiUtilityModel: z.string().default('gemini-2.0-flash-lite'),
 
   // Token
   ephemeralTokenTtlMs: z.coerce.number().int().default(5 * 60 * 1000), // 5 minutes
@@ -33,17 +33,20 @@ const ConfigSchema = z.object({
 });
 
 function loadConfig() {
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
+  const isProd = nodeEnv === 'production';
+
   const raw = {
     port: process.env.PORT,
-    nodeEnv: process.env.NODE_ENV,
+    nodeEnv,
     logLevel: process.env.LOG_LEVEL,
     rateLimitMax: process.env.RATE_LIMIT_MAX,
     rateLimitWindow: process.env.RATE_LIMIT_WINDOW,
-    gcpProjectId: process.env.GCP_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT ?? 'mimz-dev',
+    gcpProjectId: process.env.GCP_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT ?? (isProd ? '' : 'mimz-dev'),
     firebaseProjectId: process.env.FIREBASE_PROJECT_ID,
     firestoreDatabase: process.env.FIRESTORE_DATABASE,
     storageBucket: process.env.STORAGE_BUCKET,
-    geminiApiKey: process.env.GEMINI_API_KEY ?? 'dev-key-replace-me',
+    geminiApiKey: process.env.GEMINI_API_KEY ?? (isProd ? '' : 'dev-key-replace-me'),
     geminiModel: process.env.GEMINI_MODEL,
     geminiLiveModel: process.env.GEMINI_LIVE_MODEL,
     geminiUtilityModel: process.env.GEMINI_UTILITY_MODEL,
@@ -64,8 +67,8 @@ function loadConfig() {
 
   return result.success ? result.data : ConfigSchema.parse({
     ...raw,
-    gcpProjectId: raw.gcpProjectId || 'mimz-dev',
-    geminiApiKey: raw.geminiApiKey || 'dev-key-replace-me',
+    gcpProjectId: raw.gcpProjectId || (isProd ? '' : 'mimz-dev'),
+    geminiApiKey: raw.geminiApiKey || (isProd ? '' : 'dev-key-replace-me'),
   });
 }
 

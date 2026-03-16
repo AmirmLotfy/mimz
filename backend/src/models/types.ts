@@ -34,7 +34,23 @@ export const UserSchema = z.object({
   sectors: z.number().int().min(0).default(1),
   districtId: z.string().optional(),
   districtName: z.string().default('My District'),
+  
+  // Account/Profile Media
+  profileImageUrl: z.string().nullable().optional(),
+  storagePath: z.string().nullable().optional(),
+
+  // Personalization
+  preferredName: z.string().nullable().optional(),
+  ageBand: z.string().optional(),
+  studyWorkStatus: z.string().optional(),
+  majorOrProfession: z.string().nullable().optional(),
   interests: z.array(z.string()).default([]),
+  
+  // Preferences
+  difficultyPreference: z.enum(['easy', 'dynamic', 'hard']).default('dynamic'),
+  squadPreference: z.enum(['solo', 'social']).default('social'),
+  voicePreference: z.string().nullable().optional(),
+
   visibility: VisibilitySchema.default('coarse'),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema.optional(),
@@ -43,12 +59,28 @@ export type User = z.infer<typeof UserSchema>;
 
 export const UserProfileSchema = UserSchema.pick({
   displayName: true,
+  preferredName: true,
   handle: true,
+  profileImageUrl: true,
+  studyWorkStatus: true,
+  majorOrProfession: true,
   interests: true,
   visibility: true,
   districtName: true,
+  difficultyPreference: true,
+  squadPreference: true,
+  voicePreference: true,
 }).partial();
 export type UserProfile = z.infer<typeof UserProfileSchema>;
+
+export const ProfilePatchSchema = UserProfileSchema.extend({
+  profileImageUrl: z.string().url().nullable().optional(),
+  storagePath: z.string().nullable().optional(),
+  preferredName: z.string().nullable().optional(),
+  majorOrProfession: z.string().nullable().optional(),
+  voicePreference: z.string().nullable().optional(),
+});
+export type ProfilePatch = z.infer<typeof ProfilePatchSchema>;
 
 // ─── District ────────────────────────────────────────────
 
@@ -247,6 +279,17 @@ export const NotificationSchema = z.object({
 });
 export type Notification = z.infer<typeof NotificationSchema>;
 
+// ─── Feedback ─────────────────────────────────────────────
+
+export const FeedbackCategorySchema = z.enum(['general', 'bug', 'ux', 'feature']);
+export type FeedbackCategory = z.infer<typeof FeedbackCategorySchema>;
+
+export const FeedbackSubmissionSchema = z.object({
+  category: FeedbackCategorySchema.default('general'),
+  message: z.string().trim().min(10).max(1200),
+});
+export type FeedbackSubmission = z.infer<typeof FeedbackSubmissionSchema>;
+
 // ─── Structure Catalog ───────────────────────────────────
 
 export interface StructureCatalogEntry {
@@ -306,3 +349,108 @@ export const STRUCTURE_CATALOG: StructureCatalogEntry[] = [
     requirements: { minSectors: 6, minXp: 8000 },
   },
 ];
+
+// ─── Question System ──────────────────────────────────────
+
+export const QuestionDifficultySchema = z.enum(['easy', 'medium', 'hard']);
+export type QuestionDifficulty = z.infer<typeof QuestionDifficultySchema>;
+
+export const QuestionTypeSchema = z.enum([
+  'multiple_choice',
+  'short_answer',
+  'fill_blank',
+  'true_false',
+  'numeric',
+]);
+export type QuestionType = z.infer<typeof QuestionTypeSchema>;
+
+export const AnswerSchemaSchema = z.object({
+  // For exact / alias matching
+  exact: z.string().optional(),
+  aliases: z.array(z.string()).default([]),
+
+  // For multiple choice
+  choices: z.array(z.object({
+    id: z.string(),
+    text: z.string(),
+    isCorrect: z.boolean(),
+  })).default([]),
+
+  // For numeric answers
+  numericAnswer: z.number().optional(),
+  numericTolerance: z.number().default(0),
+
+  // For semantic (AI-graded)
+  semanticKeywords: z.array(z.string()).default([]),
+  semanticThreshold: z.number().min(0).max(1).default(0.8),
+});
+export type AnswerSchema = z.infer<typeof AnswerSchemaSchema>;
+
+export const QuestionSchema = z.object({
+  id: z.string(),
+  topic: z.string(),
+  subtopic: z.string().optional(),
+  tags: z.array(z.string()).default([]),
+  difficulty: QuestionDifficultySchema,
+  type: QuestionTypeSchema,
+
+  // Human-readable question text
+  text: z.string(),
+
+  // Spoken delivery phrasing (TTS-optimized, no markdown)
+  spokenPhrase: z.string(),
+
+  // Answer grading data (kept server-side, never sent to client)
+  answerSchema: AnswerSchemaSchema,
+
+  // Metadata
+  source: z.enum(['deterministic', 'ai_generated']).default('ai_generated'),
+  language: z.string().default('en').optional(),
+  interests: z.array(z.string()).default([]),
+  createdAt: TimestampSchema.optional(),
+});
+export type Question = z.infer<typeof QuestionSchema>;
+
+// Client-safe question (strips answer schema)
+export const ClientQuestionSchema = QuestionSchema.omit({ answerSchema: true }).extend({
+  // For multiple choice, include the shuffled options (without isCorrect flag)
+  choices: z.array(z.object({ id: z.string(), text: z.string() })).optional(),
+});
+export type ClientQuestion = z.infer<typeof ClientQuestionSchema>;
+
+// ─── Answer Validation ────────────────────────────────────
+
+export const AnswerValidationRequestSchema = z.object({
+  sessionId: z.string(),
+  questionId: z.string(),
+  userAnswer: z.string().max(500),
+  answeredInMs: z.number().int().min(0).optional(),
+});
+export type AnswerValidationRequest = z.infer<typeof AnswerValidationRequestSchema>;
+
+export const AnswerValidationResultSchema = z.object({
+  isCorrect: z.boolean(),
+  confidenceScore: z.number().min(0).max(1),
+  matchType: z.enum(['exact', 'alias', 'multiple_choice', 'numeric', 'semantic', 'none']),
+  normalizedAnswer: z.string(),
+  correctAnswer: z.string(),
+  explanation: z.string().optional(),
+  pointsAwarded: z.number().int().default(0),
+  streakBonus: z.number().int().default(0),
+  newStreak: z.number().int().default(0),
+});
+export type AnswerValidationResult = z.infer<typeof AnswerValidationResultSchema>;
+
+// ─── Question Generation Request ─────────────────────────
+
+export const QuestionGenerationRequestSchema = z.object({
+  userId: z.string(),
+  sessionId: z.string(),
+  interests: z.array(z.string()).default([]),
+  difficulty: QuestionDifficultySchema.default('medium'),
+  count: z.number().int().min(1).max(20).default(5),
+  excludeIds: z.array(z.string()).default([]),
+  topic: z.string().optional(),
+});
+export type QuestionGenerationRequest = z.infer<typeof QuestionGenerationRequestSchema>;
+

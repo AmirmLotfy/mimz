@@ -1,13 +1,24 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Central API client for all backend communication
 class ApiClient {
   late final Dio _dio;
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  Dio get dio => _dio;
 
-  // TODO: Update with your deployed Cloud Run URL
-  static const String _defaultBaseUrl = 'https://mimz-backend-1012962167727.us-central1.run.app';
+  static const _androidOptions = AndroidOptions(
+    encryptedSharedPreferences: true,
+  );
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+    aOptions: _androidOptions,
+  );
+
+  // Production Cloud Run URL — can be overridden via --dart-define=BACKEND_URL=...
+  static const String _defaultBaseUrl = String.fromEnvironment(
+    'BACKEND_URL',
+    defaultValue: 'https://mimz-backend-1012962167727.europe-west1.run.app',
+  );
 
   ApiClient({String? baseUrl}) {
     _dio = Dio(BaseOptions(
@@ -20,12 +31,15 @@ class ApiClient {
       },
     ));
 
-    _dio.interceptors.add(_AuthInterceptor(_storage));
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      error: true,
-    ));
+    // Pass the _dio reference so the retry interceptor preserves base URL + settings
+    _dio.interceptors.add(_AuthInterceptor(_storage, _dio));
+    if (kDebugMode) {
+      _dio.interceptors.add(LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        error: true,
+      ));
+    }
   }
 
   // ─── Auth ──────────────────────────────────────────────
@@ -64,9 +78,21 @@ class ApiClient {
     return res.data as Map<String, dynamic>;
   }
 
-  /// Generic PATCH method for arbitrary routes (e.g. /profile with emblemId or districtName)
+  /// Generic PATCH method for arbitrary routes
   Future<Map<String, dynamic>> patch(String path, Map<String, dynamic> data) async {
     final res = await _dio.patch(path, data: data);
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Generic POST method for arbitrary routes
+  Future<Map<String, dynamic>> post(String path, Map<String, dynamic> data) async {
+    final res = await _dio.post(path, data: data);
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Generic GET method for arbitrary routes
+  Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query}) async {
+    final res = await _dio.get(path, queryParameters: query);
     return res.data as Map<String, dynamic>;
   }
 
@@ -132,7 +158,7 @@ class ApiClient {
   // ─── Health ────────────────────────────────────────────
   Future<bool> checkHealth() async {
     try {
-      final res = await _dio.get('/healthz');
+      final res = await _dio.get('/health');
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -140,11 +166,14 @@ class ApiClient {
   }
 }
 
-/// Interceptor that attaches Firebase ID token to every request
+/// Interceptor that attaches Firebase ID token to every request,
+/// and retries once on 401 using the parent [Dio] instance (which
+/// preserves the base URL, timeouts, and all other interceptors).
 class _AuthInterceptor extends Interceptor {
   final FlutterSecureStorage _storage;
+  final Dio _dio;
 
-  _AuthInterceptor(this._storage);
+  _AuthInterceptor(this._storage, this._dio);
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
@@ -158,25 +187,28 @@ class _AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      // Token expired — attempt to refresh and retry once
+      // Token may have expired mid-session — retry once using the parent Dio
+      // (which preserves base URL so the request reaches the correct server).
       try {
         final newToken = await _storage.read(key: 'firebase_id_token');
         if (newToken != null) {
-          err.requestOptions.headers['Authorization'] = 'Bearer $newToken';
-          // Retry the request with the refreshed token
-          final dio = Dio();
-          final response = await dio.request(
+          final retryOptions = Options(
+            method: err.requestOptions.method,
+            headers: {
+              ...err.requestOptions.headers,
+              'Authorization': 'Bearer $newToken',
+            },
+          );
+          final response = await _dio.request<dynamic>(
             err.requestOptions.path,
-            options: Options(
-              method: err.requestOptions.method,
-              headers: err.requestOptions.headers,
-            ),
+            options: retryOptions,
             data: err.requestOptions.data,
+            queryParameters: err.requestOptions.queryParameters,
           );
           return handler.resolve(response);
         }
       } catch (_) {
-        // Retry failed — fall through to error
+        // Retry failed — fall through to original error
       }
     }
     handler.next(err);

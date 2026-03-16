@@ -34,7 +34,7 @@ On the backend, we built a Google Cloud-hosted Node/Fastify API that handles aut
 
 We used:
 - Flutter + Dart for the mobile client
-- Gemini 2.0 Flash Live API for low-latency voice and vision interaction
+- Gemini 2.5 Flash Native Audio API for low-latency voice and vision interaction
 - Google GenAI SDK for supporting backend model workflows
 - Google Cloud Run for hosting the authoritative, scalable Node/Fastify backend
 - Firestore for application and game state persistence

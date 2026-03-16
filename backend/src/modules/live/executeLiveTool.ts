@@ -5,6 +5,41 @@ import * as db from '../../lib/db.js';
 import type { LiveToolExecutionResponse } from '../../models/types.js';
 
 // ═══════════════════════════════════════════════════════
+// IDEMPOTENCY GUARD
+// Prevents double-grant if the model retries a tool call.
+// Key: `${correlationId}:${toolName}` → cached result
+// Cleared automatically after 10 min.
+// ═══════════════════════════════════════════════════════
+
+const _idempotencyCache = new Map<string, ToolResult>();
+const _idempotencyExpiry = new Map<string, number>();
+const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, expiry] of _idempotencyExpiry) {
+    if (expiry < now) {
+      _idempotencyCache.delete(key);
+      _idempotencyExpiry.delete(key);
+    }
+  }
+}, 60_000);
+
+function idempotencyKey(correlationId: string, toolName: string): string {
+  return `${correlationId}:${toolName}`;
+}
+
+function getCachedResult(correlationId: string, toolName: string): ToolResult | undefined {
+  return _idempotencyCache.get(idempotencyKey(correlationId, toolName));
+}
+
+function setCachedResult(correlationId: string, toolName: string, result: ToolResult): void {
+  const key = idempotencyKey(correlationId, toolName);
+  _idempotencyCache.set(key, result);
+  _idempotencyExpiry.set(key, Date.now() + IDEMPOTENCY_TTL_MS);
+}
+
+// ═══════════════════════════════════════════════════════
 // TOOL EXECUTION CONTEXT
 // ═══════════════════════════════════════════════════════
 
@@ -102,6 +137,10 @@ const handlers: Record<string, ToolHandler> = {
   },
 
   async grade_answer(args, ctx) {
+    // Idempotency: if same correlationId already processed, return cached result
+    const cached = getCachedResult(ctx.correlationId, 'grade_answer');
+    if (cached) return cached;
+
     const isCorrect = args.isCorrect as boolean ?? true;
     const user = await db.getUser(ctx.userId);
     if (!user) throw new Error('User not found');
@@ -134,7 +173,7 @@ const handlers: Record<string, ToolHandler> = {
       toolName: 'grade_answer', sessionId: ctx.sessionId,
     });
 
-    return {
+    const result: ToolResult = {
       success: true,
       data: {
         isCorrect,
@@ -146,26 +185,34 @@ const handlers: Record<string, ToolHandler> = {
           : 'Incorrect. Streak reset. Keep going!',
       },
     };
+    setCachedResult(ctx.correlationId, 'grade_answer', result);
+    return result;
   },
 
   async award_territory(args, ctx) {
+    // Idempotency: if same correlationId already processed, return cached result
+    const cached = getCachedResult(ctx.correlationId, 'award_territory');
+    if (cached) return cached;
+
     const sectors = args.sectors as number;
-    const result = await game.expandTerritory(ctx.userId, sectors);
+    const expansion = await game.expandTerritory(ctx.userId, sectors);
 
     await game.grantReward(ctx.userId, 'territory', sectors, 'award_territory', ctx.sessionId);
     await game.audit(ctx.userId, 'award_territory', { sectors }, {
       toolName: 'award_territory', sessionId: ctx.sessionId,
     });
 
-    return {
+    const result: ToolResult = {
       success: true,
       data: {
         sectorsAdded: sectors,
-        totalSectors: result.sectors,
-        area: result.area,
+        totalSectors: expansion.sectors,
+        area: expansion.area,
         message: `🗺 Territory expanded by ${sectors} sector${sectors > 1 ? 's' : ''}!`,
       },
     };
+    setCachedResult(ctx.correlationId, 'award_territory', result);
+    return result;
   },
 
   async apply_combo_bonus(args, ctx) {
@@ -248,18 +295,26 @@ const handlers: Record<string, ToolHandler> = {
 
   // ─── Vision Quest ────────────────────────────────
   async start_vision_quest(args, ctx) {
+    const questId = `vq_${randomUUID()}`;
     const quest = {
-      id: `vq_${randomUUID()}`,
+      id: questId,
       userId: ctx.userId,
       theme: (args.theme as string) || 'discovery',
       status: 'active' as const,
       confidence: 0,
       isValid: false,
+      sessionId: ctx.sessionId,
       startedAt: new Date().toISOString(),
     };
 
-    // Could persist to Firestore if needed
-    await game.audit(ctx.userId, 'start_vision_quest', { questId: quest.id }, {
+    // Persist to Firestore so vision quest history is real
+    try {
+      await db.createVisionQuest(quest);
+    } catch {
+      // Non-fatal — audit trail still created below
+    }
+
+    await game.audit(ctx.userId, 'start_vision_quest', { questId: quest.id, theme: quest.theme }, {
       toolName: 'start_vision_quest', sessionId: ctx.sessionId,
     });
 
@@ -320,14 +375,27 @@ const handlers: Record<string, ToolHandler> = {
   async join_squad_mission(args, ctx) {
     const missionId = args.missionId as string;
 
-    // Find user's squad and mark participation
-    await game.audit(ctx.userId, 'join_squad_mission', { missionId }, {
+    // Persist participation record to Firestore
+    const squadId = await db.getSquadIdForUser(ctx.userId);
+    if (squadId) {
+      try {
+        await db.addSquadMissionParticipant(squadId, missionId, ctx.userId);
+      } catch {
+        // Non-fatal — user may already be a participant
+      }
+    }
+
+    await game.audit(ctx.userId, 'join_squad_mission', { missionId, squadId: squadId || 'none' }, {
       toolName: 'join_squad_mission', sessionId: ctx.sessionId,
     });
 
     return {
       success: true,
-      data: { missionId, message: 'Joined squad mission!' },
+      data: {
+        missionId,
+        squadId: squadId || null,
+        message: 'Joined squad mission!',
+      },
     };
   },
 

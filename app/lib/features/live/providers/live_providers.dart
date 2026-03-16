@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import '../../../core/providers.dart';
+import '../../../services/api_client.dart';
 
 import '../domain/live_session_state.dart';
 import '../domain/live_event.dart';
@@ -17,15 +19,7 @@ import '../application/live_session_logger.dart';
 // ─── Infrastructure Providers ─────────────────────
 
 final _dioProvider = Provider<Dio>((ref) {
-  return Dio(BaseOptions(
-    baseUrl: const String.fromEnvironment(
-      'BACKEND_URL',
-      defaultValue: 'https://mimz-backend-1012962167727.us-central1.run.app',
-    ),
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 30),
-    headers: {'Content-Type': 'application/json'},
-  ));
+  return ref.watch(apiClientProvider).dio;
 });
 
 final liveCodecProvider = Provider<LiveMessageCodec>((ref) {

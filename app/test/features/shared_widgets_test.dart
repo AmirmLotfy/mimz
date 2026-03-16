@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mimz_app/design_system/components/mimz_button.dart';
 
 void main() {
@@ -7,11 +8,13 @@ void main() {
     testWidgets('renders primary button correctly', (WidgetTester tester) async {
       bool pressed = false;
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: MimzButton(
-              label: 'PRIMARY',
-              onPressed: () => pressed = true,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: MimzButton(
+                label: 'PRIMARY',
+                onPressed: () => pressed = true,
+              ),
             ),
           ),
         ),
@@ -27,11 +30,13 @@ void main() {
 
     testWidgets('renders disabled button', (WidgetTester tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: MimzButton(
-              label: 'DISABLED',
-              onPressed: null,
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: MimzButton(
+                label: 'DISABLED',
+                onPressed: null,
+              ),
             ),
           ),
         ),

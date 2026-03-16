@@ -12,6 +12,12 @@ service firebase.storage {
       allow write: if isAuthenticated() && request.auth.uid == userId;
     }
 
+    // App profile image uploads (current client path)
+    match /user-profile-images/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
     // District assets (uploaded via vision quest, etc)
     match /districts/{districtId}/{allPaths=**} {
       allow read: if isAuthenticated();

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/providers.dart';
@@ -23,32 +24,40 @@ const _kOnboardingKey = 'mimz_onboarding_complete';
 /// Persistent onboarding-complete flag backed by flutter_secure_storage.
 /// Set to true after the user names their district for the first time.
 final isOnboardedProvider =
-    StateNotifierProvider<OnboardingNotifier, bool>((ref) {
+    StateNotifierProvider<OnboardingNotifier, AsyncValue<bool>>((ref) {
   return OnboardingNotifier();
 });
 
-class OnboardingNotifier extends StateNotifier<bool> {
-  OnboardingNotifier() : super(false) {
+class OnboardingNotifier extends StateNotifier<AsyncValue<bool>> {
+  OnboardingNotifier() : super(const AsyncValue.loading()) {
     _load();
   }
 
-  static const _storage = FlutterSecureStorage();
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+  );
 
   Future<void> _load() async {
-    final val = await _storage.read(key: _kOnboardingKey);
-    if (mounted) state = val == 'true';
+    try {
+      final val = await _storage.read(key: _kOnboardingKey);
+      if (mounted) state = AsyncValue.data(val == 'true');
+    } catch (e, st) {
+      if (mounted) state = AsyncValue.error(e, st);
+    }
   }
 
   /// Call this when the user successfully completes district naming.
   Future<void> markOnboarded() async {
     await _storage.write(key: _kOnboardingKey, value: 'true');
-    if (mounted) state = true;
+    if (mounted) state = const AsyncValue.data(true);
   }
 
   /// Reset — called on sign out to remove the flag.
   Future<void> resetOnboarding() async {
     await _storage.delete(key: _kOnboardingKey);
-    if (mounted) state = false;
+    if (mounted) state = const AsyncValue.data(false);
   }
 }
 
@@ -71,8 +80,19 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<MimzUser>> {
     if (authService.currentStatus == AuthStatus.authenticated) {
       await fetchUser();
     } else {
-      state = AsyncValue.data(MimzUser.demo);
+      // Not authenticated — no user to show
+      state = const AsyncValue.error('Not authenticated', StackTrace.empty);
     }
+
+    // Listen for future auth state changes to keep user in sync
+    _ref.listen<AsyncValue<AuthStatus>>(authStatusProvider, (previous, next) {
+      final status = next.valueOrNull;
+      if (status == AuthStatus.authenticated) {
+        fetchUser();
+      } else if (status == AuthStatus.unauthenticated) {
+        state = const AsyncValue.error('Not authenticated', StackTrace.empty);
+      }
+    });
   }
 
   Future<void> fetchUser() async {
@@ -82,9 +102,10 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<MimzUser>> {
       final response = await apiClient.bootstrap();
       final user = MimzUser.fromJson(response['user'] as Map<String, dynamic>);
       state = AsyncValue.data(user);
-    } catch (e) {
-      // Fallback to demo user
-      state = AsyncValue.data(MimzUser.demo);
+    } catch (e, st) {
+      debugPrint('[Mimz] bootstrap failed: $e');
+      if (st != null) debugPrint('[Mimz] $st');
+      state = AsyncValue.error(e, st);
     }
   }
 

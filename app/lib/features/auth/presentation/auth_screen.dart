@@ -1,12 +1,15 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
+import '../../../services/auth_service.dart';
 import '../providers/auth_provider.dart';
 import '../../../core/providers.dart';
+import '../../../data/models/user.dart';
 
-/// Screen 3 — Sign up / auth screen with Apple, Google, Email
+/// Auth entry screen — Google or Email paths. No guest mode.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -18,48 +21,64 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   String? _error;
   bool _loading = false;
 
-  Future<void> _signIn(Future<void> Function() fn) async {
+  /// User-facing message when profile bootstrap fails (after Google sign-in).
+  static String _profileLoadErrorMessage(AsyncValue<MimzUser> userState) {
+    final err = userState.error;
+    if (err is DioException) {
+      final code = err.response?.statusCode;
+      if (code == 401) {
+        return 'Sign-in not recognized. Please try again or use another account.';
+      }
+      if (code != null && code >= 500) {
+        return 'Server issue. Please try again in a moment.';
+      }
+      if (err.type == DioExceptionType.connectionTimeout ||
+          err.type == DioExceptionType.receiveTimeout ||
+          err.type == DioExceptionType.connectionError) {
+        return 'Could not reach the server. Check your connection and try again.';
+      }
+    }
+    return 'Could not load your profile. Please check your connection and try again.';
+  }
+
+  Future<void> _handleGoogleSignIn() async {
     setState(() { _error = null; _loading = true; });
     try {
-      await fn();
-      if (mounted) {
-        // After auth, wait briefly for providers to settle and check if already onboarded
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (!mounted) return;
-        final isOnboarded = ref.read(isOnboardedProvider);
-        if (isOnboarded) {
-          context.go('/world');
-        } else {
-          context.go('/permissions');
+      final authService = ref.read(authServiceProvider);
+      final result = await authService.signInWithGoogle();
+
+      if (!mounted) return;
+
+      if (!result.success) {
+        // Cancelled is silent; other errors show a message
+        if (result.error != AuthErrorType.cancelled) {
+          setState(() { _error = result.message ?? 'Sign-in failed. Try again.'; });
         }
+        return;
       }
-    } catch (e) {
-      if (mounted) {
+
+      // Bootstrap user then navigate
+      await ref.read(currentUserProvider.notifier).fetchUser();
+      if (!mounted) return;
+      final userState = ref.read(currentUserProvider);
+      if (userState.hasError || userState.valueOrNull == null) {
         setState(() {
-          _loading = false;
-          _error = _friendlyError(e.toString());
+          _error = _profileLoadErrorMessage(userState);
         });
+        return;
       }
+
+      final isOnboarded = ref.read(isOnboardedProvider).valueOrNull ?? false;
+      context.go(isOnboarded ? '/world' : '/permissions');
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Sign-in failed. Try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  String _friendlyError(String raw) {
-    if (raw.contains('network')) return 'No internet connection. Try again.';
-    if (raw.contains('wrong-password') || raw.contains('invalid-credential')) {
-      return 'Wrong email or password.';
-    }
-    if (raw.contains('user-not-found')) return 'No account found with that email.';
-    if (raw.contains('too-many-requests')) return 'Too many attempts. Try again later.';
-    if (raw.contains('cancelled') || raw.contains('canceled')) return '';
-    return 'Sign-in failed. Please try again.';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final authService = ref.read(authServiceProvider);
-
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -67,16 +86,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           onPressed: () => context.go('/welcome'),
           icon: const Icon(Icons.arrow_back),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-               final isOnboarded = ref.read(isOnboardedProvider);
-               context.go(isOnboarded ? '/world' : '/permissions');
-            },
-            child: const Text('Skip',
-                style: TextStyle(color: MimzColors.textSecondary)),
-          ),
-        ],
+        // NO SKIP BUTTON — guests are not allowed
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -98,18 +108,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 )),
               ),
               const SizedBox(height: MimzSpacing.xl),
-              // Brand icon
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: MimzColors.surfaceLight,
-                  borderRadius: BorderRadius.circular(MimzRadius.lg),
-                  border: Border.all(color: MimzColors.borderLight),
-                ),
-                child: const Icon(Icons.eco, color: MimzColors.mossCore, size: 32),
+
+              // Brand logo
+              Image.asset(
+                'assets/images/logo-dark.png', 
+                width: 140, // Let height scale naturally to preserve aspect ratio
+                fit: BoxFit.contain
               ).animate().scale(begin: const Offset(0.8, 0.8), duration: 400.ms),
               const SizedBox(height: MimzSpacing.xl),
+
               Text('Join the\nAtlas', style: MimzTypography.displayLarge, textAlign: TextAlign.center)
                   .animate().fadeIn(duration: 500.ms),
               const SizedBox(height: MimzSpacing.sm),
@@ -138,37 +145,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       Expanded(
                         child: Text(
                           _error!,
-                          style: MimzTypography.bodySmall.copyWith(
-                            color: MimzColors.error,
-                          ),
+                          style: MimzTypography.bodySmall.copyWith(color: MimzColors.error),
                         ),
                       ),
                     ],
                   ),
                 ).animate().fadeIn(duration: 300.ms).shake(),
 
-              // Loading overlay
+              // Loading bar
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.only(bottom: MimzSpacing.md),
                   child: LinearProgressIndicator(color: MimzColors.mossCore),
                 ),
 
-              // Apple Sign In
-              _SocialButton(
-                icon: Icons.apple,
-                label: 'Continue with Apple',
-                onTap: _loading ? null : () => _signIn(authService.signInWithApple),
+              // Google Sign In (primary)
+              _AuthButton(
+                icon: Icons.g_mobiledata,
+                label: 'Continue with Google',
+                onTap: _loading ? null : _handleGoogleSignIn,
                 isPrimary: true,
               ),
               const SizedBox(height: MimzSpacing.md),
-              // Google Sign In
-              _SocialButton(
-                icon: Icons.g_mobiledata,
-                label: 'Continue with Google',
-                onTap: _loading ? null : () => _signIn(authService.signInWithGoogle),
-              ),
-              const SizedBox(height: MimzSpacing.md),
+
               // Divider
               Row(
                 children: [
@@ -181,15 +180,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ],
               ),
               const SizedBox(height: MimzSpacing.md),
-              // Email Sign In
-              _SocialButton(
+
+              // Email (secondary) → opens email form
+              _AuthButton(
                 icon: Icons.mail_outline,
                 label: 'Continue with Email',
-                onTap: _loading ? null : () => _signIn(
-                  () => authService.signInWithEmail('demo@mimz.app', 'password'),
-                ),
+                onTap: _loading ? null : () => context.push('/auth/email'),
               ),
               const SizedBox(height: MimzSpacing.xxl),
+
+              // Already have account hint
+              GestureDetector(
+                onTap: _loading ? null : () => context.push('/auth/email'),
+                child: Text(
+                  'I already have an account — sign in',
+                  style: MimzTypography.bodySmall.copyWith(
+                    color: MimzColors.mossCore,
+                    decoration: TextDecoration.underline,
+                    decorationColor: MimzColors.mossCore,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: MimzSpacing.xl),
               // Legal footer
               Text(
                 'By continuing, you agree to our Terms of Service and Privacy Policy.',
@@ -205,13 +218,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 }
 
-class _SocialButton extends StatelessWidget {
+class _AuthButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
   final bool isPrimary;
 
-  const _SocialButton({
+  const _AuthButton({
     required this.icon,
     required this.label,
     required this.onTap,

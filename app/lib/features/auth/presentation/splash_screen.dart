@@ -44,8 +44,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
 
-    // Authenticated — check if onboarding complete
-    final isOnboarded = ref.read(isOnboardedProvider);
+    final isOnboardedAsync = ref.read(isOnboardedProvider);
+    if (isOnboardedAsync.isLoading) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+    }
+
+    final isOnboarded = ref.read(isOnboardedProvider).valueOrNull ?? false;
     if (isOnboarded) {
       context.go('/world');
     } else {
@@ -62,86 +67,33 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Spacer(flex: 3),
-              // Logo icon
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  color: MimzColors.deepInk,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: MimzColors.deepInk.withValues(alpha: 0.2),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    const Center(
-                      child: Text(
-                        'M',
-                        style: TextStyle(
-                          color: MimzColors.white,
-                          fontSize: 44,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: const BoxDecoration(
-                          color: MimzColors.persimmonHit,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              const Spacer(flex: 2),
+              // Logo icon - center stage
+              Image.asset(
+                'assets/images/logo-dark.png',
+                width: 180, // Slightly larger since it's the sole focus now
+                fit: BoxFit.contain,
               )
                   .animate()
-                  .fadeIn(duration: 600.ms)
-                  .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.0, 1.0)),
-              const SizedBox(height: MimzSpacing.xl),
-              Text('Mimz', style: MimzTypography.displayLarge)
-                  .animate(delay: 300.ms)
-                  .fadeIn(duration: 400.ms),
-              const Spacer(flex: 4),
-              Text(
-                'Learn live. Build your district.',
-                style: MimzTypography.bodyLarge.copyWith(
-                  color: MimzColors.textSecondary,
-                ),
-              ).animate(delay: 600.ms).fadeIn(duration: 400.ms),
-              const SizedBox(height: MimzSpacing.lg),
+                  .fadeIn(duration: 800.ms)
+                  .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.0, 1.0), curve: Curves.easeOutBack),
+              const Spacer(flex: 3),
               // Animated loading dots
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(3, (i) => Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: const BoxDecoration(
                     color: MimzColors.mossCore,
                     shape: BoxShape.circle,
                   ),
-                ).animate(delay: Duration(milliseconds: 600 + i * 150))
-                    .fadeIn(duration: 300.ms)
-                    .shimmer(duration: 1000.ms)
-                    .fadeOut(duration: 500.ms, delay: 1000.ms)),
+                ).animate(onPlay: (controller) => controller.repeat())
+                    .fadeIn(duration: 300.ms, delay: Duration(milliseconds: i * 200))
+                    .shimmer(duration: 1000.ms, delay: 500.ms)
+                    .fadeOut(duration: 300.ms, delay: 1000.ms)),
               ),
-              const SizedBox(height: MimzSpacing.xxl),
-              Text(
-                'LEARN LIVE. BUILD YOUR DISTRICT.',
-                style: MimzTypography.caption,
-              ).animate(delay: 800.ms).fadeIn(duration: 400.ms),
               const SizedBox(height: MimzSpacing.xxl),
             ],
           ),

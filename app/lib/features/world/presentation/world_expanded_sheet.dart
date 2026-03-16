@@ -382,7 +382,7 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                     ),
                   ).animate(delay: 400.ms).fadeIn(duration: 400.ms),
                 ),
-              const SizedBox(height: MimzSpacing.xxl),
+              const SizedBox(height: MimzSpacing.xxl + 100), // padding for floating pill
             ],
           ),
         );

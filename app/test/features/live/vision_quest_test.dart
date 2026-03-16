@@ -24,7 +24,7 @@ void main() {
     expect(find.byIcon(Icons.videocam), findsOneWidget);
     
     // We also expect the scanning UI elements
-    expect(find.text('IDENTIFY'), findsOneWidget);
-    expect(find.text('FIND THIS ITEM'), findsOneWidget);
+    expect(find.text('VISION QUEST'), findsOneWidget);
+    expect(find.text('CURRENT TARGET'), findsOneWidget);
   });
 }

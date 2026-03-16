@@ -5,14 +5,83 @@ import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../design_system/components/mimz_chip.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/providers.dart';
+import '../providers/onboarding_provider.dart';
 
-/// Screen 9 — Onboarding summary / profile summary
-class OnboardingSummaryScreen extends ConsumerWidget {
+/// Screen — Onboarding profile summary before district setup.
+/// Shows condensed view of all collected data and saves to backend.
+class OnboardingSummaryScreen extends ConsumerStatefulWidget {
   const OnboardingSummaryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OnboardingSummaryScreen> createState() =>
+      _OnboardingSummaryScreenState();
+}
+
+class _OnboardingSummaryScreenState
+    extends ConsumerState<OnboardingSummaryScreen> {
+  bool _isSaving = false;
+
+  Future<void> _complete() async {
+    setState(() => _isSaving = true);
+
+    final onboardingData = ref.read(onboardingDataProvider);
+    final interests = ref.read(interestsProvider);
+    final user = ref.read(currentUserProvider).valueOrNull;
+
+    // Build payload
+    final payload = <String, dynamic>{
+      if (onboardingData.preferredName != null)
+        'preferredName': onboardingData.preferredName,
+      if (onboardingData.ageBand != null) 'ageBand': onboardingData.ageBand,
+      if (onboardingData.studyWorkStatus != null)
+        'studyWorkStatus': onboardingData.studyWorkStatus,
+      if (onboardingData.majorOrProfession != null)
+        'majorOrProfession': onboardingData.majorOrProfession,
+      'difficultyPreference': onboardingData.difficultyPreference,
+      'squadPreference': onboardingData.squadPreference,
+      if (interests.isNotEmpty) 'interests': interests,
+      // Also update displayName if preferredName captured
+      if (onboardingData.preferredName != null &&
+          onboardingData.preferredName!.isNotEmpty)
+        'displayName': onboardingData.preferredName,
+    };
+
+    // Update local user state immediately for snappy UI
+    if (user != null) {
+      ref.read(currentUserProvider.notifier).updateUser(user.copyWith(
+            preferredName: onboardingData.preferredName,
+            ageBand: onboardingData.ageBand,
+            studyWorkStatus: onboardingData.studyWorkStatus,
+            majorOrProfession: onboardingData.majorOrProfession,
+            difficultyPreference: onboardingData.difficultyPreference,
+            squadPreference: onboardingData.squadPreference,
+            interests: interests,
+          ));
+    }
+
+    // Persist to backend
+    try {
+      await ref.read(apiClientProvider).patch('/profile', payload);
+    } catch (_) {
+      // Non-fatal — local state already updated
+    }
+
+    if (mounted) {
+      setState(() => _isSaving = false);
+      context.go('/district/emblem');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).valueOrNull;
+    final onboardingData = ref.watch(onboardingDataProvider);
+    final interests = ref.watch(interestsProvider);
+
+    final displayName =
+        onboardingData.preferredName ?? user?.displayName ?? 'Explorer';
+
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -31,133 +100,142 @@ class OnboardingSummaryScreen extends ConsumerWidget {
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: MimzSpacing.xl),
-            // Avatar
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 56,
-                  backgroundColor: MimzColors.mossCore.withValues(alpha: 0.2),
-                  child: const Icon(
-                    Icons.person,
-                    size: 56,
-                    color: MimzColors.mossCore,
+            // Avatar + Name
+            Center(
+              child: Column(
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 56,
+                        backgroundColor:
+                            MimzColors.mossCore.withValues(alpha: 0.2),
+                        child: Text(
+                          displayName.isNotEmpty
+                              ? displayName[0].toUpperCase()
+                              : 'M',
+                          style: MimzTypography.displayMedium.copyWith(
+                            color: MimzColors.mossCore,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: MimzColors.mossCore,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: MimzColors.cloudBase, width: 3),
+                          ),
+                          child: const Icon(Icons.edit,
+                              color: MimzColors.white, size: 14),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: MimzColors.mossCore,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: MimzColors.cloudBase, width: 3),
-                    ),
-                    child: const Icon(Icons.edit, color: MimzColors.white, size: 14),
+                  const SizedBox(height: MimzSpacing.base),
+                  Text(displayName, style: MimzTypography.headlineLarge),
+                  Text(
+                    user?.email ?? '',
+                    style: MimzTypography.bodyMedium
+                        .copyWith(color: MimzColors.textSecondary),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: MimzSpacing.base),
-            Text(user?.displayName ?? 'Explorer', style: MimzTypography.headlineLarge),
-            Text(
-              user?.email ?? 'mimz_explorer',
-              style: MimzTypography.bodyMedium.copyWith(
-                color: MimzColors.textSecondary,
+                ],
               ),
             ),
-            Text(
-              'Just joined',
-              style: MimzTypography.bodySmall,
+            const SizedBox(height: MimzSpacing.xxl),
+
+            // About section
+            _sectionHeader('About You'),
+            const SizedBox(height: MimzSpacing.md),
+            _InfoRow(
+                icon: Icons.cake_outlined,
+                label: 'AGE',
+                value: onboardingData.ageBand ?? 'Not set'),
+            const SizedBox(height: MimzSpacing.sm),
+            _InfoRow(
+                icon: Icons.work_outline,
+                label: 'STATUS',
+                value: onboardingData.studyWorkStatus ?? 'Not set'),
+            if (onboardingData.majorOrProfession != null) ...[
+              const SizedBox(height: MimzSpacing.sm),
+              _InfoRow(
+                icon: Icons.school_outlined,
+                label: 'FIELD',
+                value: onboardingData.majorOrProfession!,
+              ),
+            ],
+            const SizedBox(height: MimzSpacing.xxl),
+
+            // Interests
+            _sectionHeader('Your Interests'),
+            const SizedBox(height: MimzSpacing.md),
+            if (interests.isNotEmpty)
+              Wrap(
+                spacing: MimzSpacing.sm,
+                runSpacing: MimzSpacing.sm,
+                children: interests
+                    .map((i) => MimzChip(
+                          label: i,
+                          isSelected: true,
+                          onDelete: null,
+                        ))
+                    .toList(),
+              )
+            else
+              Text(
+                'No interests selected.',
+                style: MimzTypography.bodySmall
+                    .copyWith(color: MimzColors.textSecondary),
+              ),
+            const SizedBox(height: MimzSpacing.xxl),
+
+            // Play Style
+            _sectionHeader('Play Style'),
+            const SizedBox(height: MimzSpacing.md),
+            _InfoRow(
+              icon: Icons.speed,
+              label: 'DIFFICULTY',
+              value: _difficultyLabel(onboardingData.difficultyPreference),
+            ),
+            const SizedBox(height: MimzSpacing.sm),
+            _InfoRow(
+              icon: Icons.group,
+              label: 'MODE',
+              value: onboardingData.squadPreference == 'social'
+                  ? 'Squad Player'
+                  : 'Solo Explorer',
             ),
             const SizedBox(height: MimzSpacing.xxl),
-            // Interests section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Your Interests', style: MimzTypography.headlineMedium),
-                Row(
-                  children: [
-                    const Icon(Icons.add_circle_outline,
-                        color: MimzColors.mossCore, size: 18),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Add New',
-                      style: MimzTypography.labelLarge.copyWith(
-                        color: MimzColors.mossCore,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+
+            // Account
+            _sectionHeader('Account'),
             const SizedBox(height: MimzSpacing.md),
-            const Wrap(
-              spacing: MimzSpacing.sm,
-              runSpacing: MimzSpacing.sm,
-              children: [
-                MimzChip(
-                  label: 'Technology',
-                  icon: Icons.computer,
-                  isSelected: true,
-                  onDelete: null,
-                ),
-                MimzChip(
-                  label: 'Science',
-                  icon: Icons.science,
-                  isSelected: true,
-                ),
-                MimzChip(
-                  label: 'History',
-                  icon: Icons.history_edu,
-                  isSelected: true,
-                ),
-                MimzChip(
-                  label: 'Architecture',
-                  icon: Icons.apartment,
-                  isSelected: true,
-                ),
-                MimzChip(
-                  label: 'Music',
-                  icon: Icons.music_note,
-                  isSelected: true,
-                ),
-                MimzChip(
-                  label: 'Design',
-                  icon: Icons.palette,
-                  isSelected: true,
-                ),
-              ],
-            ),
-            const SizedBox(height: MimzSpacing.xxl),
-            // Account details
-            Text('Account Details',
-                style: MimzTypography.headlineMedium),
-            const SizedBox(height: MimzSpacing.md),
-            _DetailRow(
+            _InfoRow(
               icon: Icons.mail_outline,
               label: 'EMAIL',
               value: user?.email ?? 'user@mimz.app',
             ),
-            const SizedBox(height: MimzSpacing.md),
-            const _DetailRow(
-              icon: Icons.lock_outline,
-              label: 'SECURITY',
-              value: 'Set up later',
-            ),
             const SizedBox(height: MimzSpacing.xxl),
+
             MimzButton(
-              label: 'COMPLETE SETUP  →',
-              onPressed: () => context.go('/district/name'),
+              label: _isSaving ? 'Saving...' : 'COMPLETE SETUP  →',
+              onPressed: _isSaving ? null : _complete,
             ),
             const SizedBox(height: MimzSpacing.md),
-            Text(
-              'By clicking continue, you agree to our Terms of Service',
-              style: MimzTypography.bodySmall,
-              textAlign: TextAlign.center,
+            Center(
+              child: Text(
+                'By clicking continue, you agree to our Terms of Service',
+                style: MimzTypography.bodySmall,
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: MimzSpacing.xxl),
           ],
@@ -165,14 +243,30 @@ class OnboardingSummaryScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _sectionHeader(String title) => Text(
+        title,
+        style: MimzTypography.headlineMedium,
+      );
+
+  String _difficultyLabel(String pref) {
+    switch (pref) {
+      case 'easy':
+        return 'Casual';
+      case 'hard':
+        return 'Challenger';
+      default:
+        return 'Dynamic (adapts to you)';
+    }
+  }
 }
 
-class _DetailRow extends StatelessWidget {
+class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
 
-  const _DetailRow({
+  const _InfoRow({
     required this.icon,
     required this.label,
     required this.value,
@@ -194,9 +288,9 @@ class _DetailRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: MimzTypography.caption.copyWith(
-                color: MimzColors.mistBlue,
-              )),
+              Text(label,
+                  style: MimzTypography.caption
+                      .copyWith(color: MimzColors.mistBlue)),
               Text(value, style: MimzTypography.bodyMedium),
             ],
           ),

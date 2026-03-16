@@ -1,7 +1,7 @@
 import { getDb } from './firebase.js';
 import { FieldValue } from 'firebase-admin/firestore';
 import { randomUUID } from 'crypto';
-import type { User, District, RewardGrant, RoundSession, AuditLog, Squad, MimzEvent } from '../models/types.js';
+import type { User, District, RewardGrant, RoundSession, AuditLog, Squad, MimzEvent, FeedbackSubmission } from '../models/types.js';
 
 /**
  * Firestore data access layer.
@@ -128,6 +128,31 @@ export async function getActiveRound(userId: string): Promise<RoundSession | nul
   return snap.empty ? null : (snap.docs[0].data() as RoundSession);
 }
 
+// ─── Vision Quests ───────────────────────────────────────
+
+export async function createVisionQuest(quest: {
+  id: string;
+  userId: string;
+  theme: string;
+  status: string;
+  confidence: number;
+  isValid: boolean;
+  sessionId?: string;
+  startedAt: string;
+}): Promise<void> {
+  await getDb().collection('visionQuests').doc(quest.id).set(quest);
+}
+
+export async function updateVisionQuest(
+  questId: string,
+  updates: Record<string, unknown>,
+): Promise<void> {
+  await getDb().collection('visionQuests').doc(questId).update({
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 // ─── Squads ──────────────────────────────────────────────
 
 export async function getSquad(squadId: string): Promise<Squad | null> {
@@ -168,6 +193,23 @@ export async function updateSquadMissionProgress(squadId: string, missionId: str
   await getDb().collection('squads').doc(squadId).collection('missions').doc(missionId).update({
     currentProgress: FieldValue.increment(amount),
   });
+}
+
+export async function addSquadMissionParticipant(
+  squadId: string,
+  missionId: string,
+  userId: string,
+): Promise<void> {
+  const ref = getDb()
+    .collection('squads').doc(squadId)
+    .collection('missions').doc(missionId)
+    .collection('participants').doc(userId);
+  await ref.set({
+    userId,
+    squadId,
+    missionId,
+    joinedAt: new Date().toISOString(),
+  }, { merge: true }); // merge so rejoining is idempotent
 }
 
 // ─── Events ──────────────────────────────────────────────
@@ -246,4 +288,51 @@ export async function getUserNotifications(userId: string): Promise<any[]> {
     .limit(50)
     .get();
   return snap.docs.map(d => d.data());
+}
+
+export async function markNotificationRead(userId: string, notificationId: string): Promise<void> {
+  const snap = await getDb().collection('notifications')
+    .where('userId', '==', userId)
+    .where('id', '==', notificationId)
+    .limit(1)
+    .get();
+  if (snap.empty) return;
+  await snap.docs[0].ref.update({
+    read: true,
+    readAt: new Date().toISOString(),
+  });
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  const snap = await getDb().collection('notifications')
+    .where('userId', '==', userId)
+    .where('read', '==', false)
+    .limit(100)
+    .get();
+  if (snap.empty) return;
+
+  const batch = getDb().batch();
+  for (const doc of snap.docs) {
+    batch.update(doc.ref, {
+      read: true,
+      readAt: new Date().toISOString(),
+    });
+  }
+  await batch.commit();
+}
+
+// ─── Feedback ────────────────────────────────────────────
+
+export async function createFeedback(
+  userId: string,
+  feedback: FeedbackSubmission,
+): Promise<string> {
+  const id = `fb_${randomUUID()}`;
+  await getDb().collection('feedback').doc(id).set({
+    id,
+    userId,
+    ...feedback,
+    createdAt: new Date().toISOString(),
+  });
+  return id;
 }

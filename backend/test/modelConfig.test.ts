@@ -10,7 +10,7 @@ describe('Model Configuration Registry', () => {
     
     // Check that env overrides are prioritized over fallbacks
     // (In test env, these might be undefined or set to specific defaults)
-    const expectedLive = process.env.GEMINI_LIVE_MODEL || 'gemini-2.0-flash-live-001';
+    const expectedLive = process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
     expect(LIVE_MODEL).toBe(expectedLive);
   });
 
@@ -42,9 +42,8 @@ describe('Model Configuration Registry', () => {
     }
   });
 
-  it('getModelWithFallback should throw on unknown role', () => {
-    // @ts-expect-error - testing invalid JS call
-    expect(() => getModelWithFallback('UNKNOWN_ROLE')).toThrow('Unknown model role: UNKNOWN_ROLE');
+  it('should throw on unknown role', () => {
+    expect(() => getModelWithFallback('UNKNOWN_ROLE' as any)).toThrow('Unknown model role: UNKNOWN_ROLE');
   });
 
 });

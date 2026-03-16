@@ -1,19 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../design_system/components/waveform_visualizer.dart';
+import '../../../services/haptics_service.dart';
 import '../providers/onboarding_provider.dart';
 
 /// Screen 6 — Microphone permission
-class MicrophonePermissionScreen extends ConsumerWidget {
+class MicrophonePermissionScreen extends ConsumerStatefulWidget {
   const MicrophonePermissionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MicrophonePermissionScreen> createState() => _MicrophonePermissionScreenState();
+}
+
+class _MicrophonePermissionScreenState extends ConsumerState<MicrophonePermissionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAndPop();
+  }
+
+  void _checkAndPop() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted) return;
+      if (ref.read(permissionsProvider).microphone) {
+        context.go('/permissions');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen for changes and pop if granted
+    ref.listen(permissionsProvider, (prev, next) {
+      if (next.microphone) {
+        context.go('/permissions');
+      }
+    });
+
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
@@ -29,9 +56,10 @@ class MicrophonePermissionScreen extends ConsumerWidget {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(MimzSpacing.xl),
-        child: Column(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(MimzSpacing.xl),
+          child: Column(
           children: [
             const Spacer(),
             RichText(
@@ -159,10 +187,34 @@ class MicrophonePermissionScreen extends ConsumerWidget {
               label: 'Enable Microphone',
               variant: MimzButtonVariant.accent,
               onPressed: () async {
-                HapticFeedback.mediumImpact();
+                ref.read(hapticsServiceProvider).mediumImpact();
                 final status = await Permission.microphone.request();
+                if (status.isPermanentlyDenied) {
+                  ref.read(hapticsServiceProvider).error();
+                  await openAppSettings();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Microphone is permanently denied. Enable it in Settings.',
+                        ),
+                      ),
+                    );
+                  }
+                  return;
+                }
                 if (status.isGranted || status.isLimited) {
-                  ref.read(permissionsProvider.notifier).grantMicrophone();
+                  ref.read(hapticsServiceProvider).success();
+                  await ref.read(permissionsProvider.notifier).grantMicrophone();
+                } else if (mounted) {
+                  ref.read(hapticsServiceProvider).error();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Microphone permission denied. Live mode needs mic access.',
+                      ),
+                    ),
+                  );
                 }
                 if (context.mounted) context.go('/permissions');
               },
@@ -175,6 +227,7 @@ class MicrophonePermissionScreen extends ConsumerWidget {
             ),
             const SizedBox(height: MimzSpacing.base),
           ],
+          ),
         ),
       ),
     );

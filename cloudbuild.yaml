@@ -45,15 +45,15 @@ steps:
       - 'deploy'
       - 'mimz-backend'
       - '--image=gcr.io/$PROJECT_ID/mimz-backend:$SHORT_SHA'
-      - '--region=us-central1'
+      - '--region=europe-west1'
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--memory=512Mi'
       - '--cpu=1'
       - '--min-instances=0'
       - '--max-instances=10'
-      - '--set-env-vars=NODE_ENV=production,GCP_PROJECT_ID=$PROJECT_ID,LOG_LEVEL=info,GEMINI_LIVE_MODEL=gemini-2.0-flash-live-001,GEMINI_MODEL=gemini-2.5-flash'
-      - '--set-secrets=GEMINI_API_KEY=gemini-api-key:latest'
+      - '--set-env-vars=NODE_ENV=production,GCP_PROJECT_ID=$PROJECT_ID,LOG_LEVEL=info,GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025,GEMINI_MODEL=gemini-2.5-flash'
+      - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest'
 
   # Step 5: Verify deployment
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -62,10 +62,10 @@ steps:
       - '-c'
       - |
         SERVICE_URL=$(gcloud run services describe mimz-backend \
-          --region=us-central1 \
+          --region=europe-west1 \
           --format='value(status.url)')
         echo "Service URL: $SERVICE_URL"
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/healthz")
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/readyz")
         if [ "$HTTP_CODE" = "200" ]; then
           echo "✅ Health check passed"
         else

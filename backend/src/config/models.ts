@@ -11,7 +11,7 @@
  *
  * Migration notes:
  *   - gemini-2.0-flash-exp was a preview model, shut down in early 2025
- *   - gemini-2.0-flash-live-001 remains the stable Live API model
+ *   - gemini-2.5-flash-native-audio-preview-12-2025 is the current advanced Live audio model
  *   - gemini-2.5-flash is the current recommended async model (GA)
  *   - gemini-2.5-flash-lite is available for low-cost tasks
  */
@@ -28,7 +28,7 @@ export interface ModelConfig {
 
 export const MODEL_REGISTRY: Record<string, ModelConfig> = {
   LIVE_REALTIME: {
-    id: process.env.GEMINI_LIVE_MODEL || 'gemini-2.0-flash-live-001',
+    id: process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025',
     role: 'Live voice+vision sessions',
     description: 'Native audio model for real-time voice interaction via Gemini Live API',
     fallback: 'gemini-2.0-flash-live-001',
@@ -45,7 +45,7 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     id: process.env.GEMINI_UTILITY_MODEL || 'gemini-2.5-flash-lite',
     role: 'Summaries, categorization, copy variants',
     description: 'Cheapest model for lightweight tasks that do not require deep reasoning',
-    fallback: 'gemini-2.0-flash-lite',
+    fallback: 'gemini-2.5-flash-lite',
     costTier: 'low',
   },
 };

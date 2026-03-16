@@ -5,7 +5,7 @@
 
 | Setting | Value | Assessment |
 |---|---|---|
-| Live/Realtime model | gemini-2.0-flash-live-001 | ✅ Correct — This is the Live API model |
+| Live/Realtime model | gemini-2.5-flash-native-audio-preview-12-2025 | ✅ Correct — This is the advanced native audio Live API model |
 | Async/Challenge model | gemini-2.5-flash | ✅ Good — Best async capacity |
 | Utility model | gemini-2.5-flash-lite | ✅ Good — Low cost for utility |
 | Voice | Aoede | ✅ Good engagement voice |

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../tokens.dart';
+import '../../services/haptics_service.dart';
 
 enum MimzButtonVariant { primary, secondary, accent, ghost }
 
-class MimzButton extends StatelessWidget {
+class MimzButton extends ConsumerWidget {
   final String label;
   final VoidCallback? onPressed;
   final MimzButtonVariant variant;
@@ -23,20 +24,20 @@ class MimzButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SizedBox(
       width: isExpanded ? double.infinity : null,
       height: 56,
-      child: _buildButton(),
+      child: _buildButton(ref),
     );
   }
 
-  Widget _buildButton() {
+  Widget _buildButton(WidgetRef ref) {
     switch (variant) {
       case MimzButtonVariant.primary:
         return ElevatedButton(
           onPressed: (isLoading || onPressed == null) ? null : () {
-            HapticFeedback.mediumImpact();
+            ref.read(hapticsServiceProvider).mediumImpact();
             onPressed?.call();
           },
           style: ElevatedButton.styleFrom(
@@ -51,8 +52,8 @@ class MimzButton extends StatelessWidget {
         );
       case MimzButtonVariant.secondary:
         return OutlinedButton(
-          onPressed: isLoading ? null : () {
-            HapticFeedback.selectionClick();
+          onPressed: (isLoading || onPressed == null) ? null : () {
+            ref.read(hapticsServiceProvider).selection();
             onPressed?.call();
           },
           style: OutlinedButton.styleFrom(
@@ -66,7 +67,10 @@ class MimzButton extends StatelessWidget {
         );
       case MimzButtonVariant.accent:
         return ElevatedButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: (isLoading || onPressed == null) ? null : () {
+            ref.read(hapticsServiceProvider).mediumImpact();
+            onPressed?.call();
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: MimzColors.persimmonHit,
             foregroundColor: MimzColors.white,
@@ -79,7 +83,10 @@ class MimzButton extends StatelessWidget {
         );
       case MimzButtonVariant.ghost:
         return TextButton(
-          onPressed: isLoading ? null : onPressed,
+          onPressed: (isLoading || onPressed == null) ? null : () {
+            ref.read(hapticsServiceProvider).selection();
+            onPressed?.call();
+          },
           style: TextButton.styleFrom(
             foregroundColor: MimzColors.mossCore,
           ),

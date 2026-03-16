@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../tokens.dart';
 
-/// Animated audio waveform visualizer — used in live onboarding and quiz screens
+/// Animated audio waveform visualizer — used in live onboarding and quiz screens.
+///
+/// When [amplitude] is provided (0.0–1.0 RMS from real PCM capture), the bars
+/// reflect genuine voice energy. When not provided, a sine-wave animation is
+/// used as a graceful fallback (e.g. model speaking without local playback level).
 class WaveformVisualizer extends StatefulWidget {
   final bool isActive;
   final Color color;
   final int barCount;
   final double height;
+
+  /// Real-time mic/playback amplitude (0.0–1.0 RMS). When provided, the bars
+  /// respond to actual audio energy instead of a synthetic sine wave.
+  final double? amplitude;
 
   const WaveformVisualizer({
     super.key,
@@ -15,6 +23,7 @@ class WaveformVisualizer extends StatefulWidget {
     this.color = MimzColors.persimmonHit,
     this.barCount = 7,
     this.height = 80,
+    this.amplitude,
   });
 
   @override
@@ -63,16 +72,30 @@ class _WaveformVisualizerState extends State<WaveformVisualizer>
             crossAxisAlignment: CrossAxisAlignment.center,
             children: List.generate(widget.barCount, (index) {
               final phase = index / widget.barCount;
-              final animValue = widget.isActive
-                  ? (math.sin((_controller.value + phase) * math.pi * 2) + 1) / 2
-                  : 0.15;
-              final barHeight = widget.height * 0.2 +
-                  (widget.height * 0.8 * animValue);
+
+              double animValue;
+              if (!widget.isActive) {
+                // Inactive: flat minimal bars
+                animValue = 0.08;
+              } else if (widget.amplitude != null) {
+                // Real amplitude: blend real energy with a small sine offset
+                // so adjacent bars look distinct even at the same amplitude.
+                final sineOffset =
+                    (math.sin((_controller.value + phase) * math.pi * 2) + 1) / 2 * 0.25;
+                final realPart = (widget.amplitude! * 0.75).clamp(0.0, 0.75);
+                animValue = realPart + sineOffset;
+              } else {
+                // Fallback: pure sine wave (model speaking, no local amplitude)
+                animValue =
+                    (math.sin((_controller.value + phase) * math.pi * 2) + 1) / 2;
+              }
+
+              final barHeight = widget.height * 0.15 + (widget.height * 0.85 * animValue);
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
+                  duration: const Duration(milliseconds: 60),
                   width: 5,
                   height: barHeight,
                   decoration: BoxDecoration(

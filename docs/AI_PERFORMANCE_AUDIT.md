@@ -6,7 +6,7 @@ Full audit of the Mimz AI stack conducted 2026-03-12.
 
 | Layer | Tech | Files |
 |-------|------|-------|
-| Live voice/vision | Gemini 2.0 Flash Live WebSocket | `live_websocket_client.dart`, `live_message_codec.dart` |
+| Live voice/vision | Gemini 2.5 Flash Native Audio WebSocket | `live_websocket_client.dart`, `live_message_codec.dart` |
 | Session orchestration | `LiveSessionController` | `live_session_controller.dart` (540+ lines) |
 | Token management | Backend-minted ephemeral tokens | `live_token_client.dart`, `liveService.ts` |
 | Tool execution | 15 Zod-validated tools via backend HTTP | `executeLiveTool.ts`, `toolSchemas.ts` |

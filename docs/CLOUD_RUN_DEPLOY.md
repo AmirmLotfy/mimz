@@ -49,7 +49,7 @@ gcloud run deploy mimz-backend \
     NODE_ENV=production,\
     GCP_PROJECT_ID=YOUR_PROJECT_ID,\
     GEMINI_API_KEY=YOUR_GEMINI_KEY,\
-    GEMINI_LIVE_MODEL=gemini-2.0-flash-live-001,\
+    GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025,\
     LOG_LEVEL=info"
 ```
 

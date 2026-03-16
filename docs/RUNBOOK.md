@@ -1,44 +1,76 @@
-# Mimz Runbook
+# Runbook — Mimz
 
-This document serves as the guide for team members performing operational actions on the Mimz deployed infrastructure.
-
-## Application Architecture Checklist
-- **Project Configuration:** All Flutter dependencies point to `mimzapp` Firebase setup.
-- **Backend Access:** `mimz-backend` endpoints in Cloud Run.
-
-## 1. How to deploy changes
-If you update any logic in `backend/` or `app/`, follow these processes.
-
-**To re-deploy the entire backend stack:**
+## Redeploy Backend to Cloud Run
 ```bash
 ./scripts/deploy_backend.sh
 ```
-
-**To re-deploy security rules to Firebase:**
+Or manually:
 ```bash
-./scripts/deploy_firebase.sh
+gcloud run deploy mimz-backend \
+  --source ./backend \
+  --project=mimzapp \
+  --region=europe-west1 \
+  --allow-unauthenticated \
+  --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest" \
+  --quiet
 ```
 
-**To seamlessly kick off both deployments together:**
+## Rerun FlutterFire Config (after Firebase changes)
+```bash
+./scripts/configure_flutterfire.sh
+```
+This regenerates `firebase_options.dart`, `google-services.json`, and `GoogleService-Info.plist`.
+
+## Reapply Firebase Rules + Indexes
+```bash
+./scripts/apply_firebase_rules.sh
+```
+Or manually:
+```bash
+firebase deploy --only firestore:rules,storage --project=mimzapp
+firebase deploy --only firestore:indexes --project=mimzapp  # if indexes file exists
+```
+
+## Update GEMINI_API_KEY Secret
+```bash
+echo -n "NEW_KEY_HERE" | gcloud secrets versions add GEMINI_API_KEY \
+  --project=mimzapp --data-file=-
+```
+Then redeploy backend so Cloud Run picks up the new version.
+
+## Update Cloud Run Env Vars
+```bash
+gcloud run services update mimz-backend \
+  --project=mimzapp \
+  --region=europe-west1 \
+  --set-env-vars="KEY=VALUE"
+```
+
+## Check Backend Health
+```bash
+curl https://mimz-backend-[hash]-ew.a.run.app/readyz
+```
+
+## View Live Backend Logs
+```bash
+gcloud logging read \
+  "resource.type=cloud_run_revision AND resource.labels.service_name=mimz-backend" \
+  --project=mimzapp \
+  --limit=50 \
+  --format="value(textPayload)"
+```
+
+## Run Full Redeploy (all steps)
 ```bash
 ./scripts/deploy_all.sh
 ```
 
-## 2. How to re-run FlutterFire configuration
-If you change the Application Bundle ID, or attach a new web landing page target, configure the client flutter app again:
+## Enable APIs (if new project)
 ```bash
-cd app
-flutterfire configure --project=mimzapp
+gcloud services enable \
+  firebase.googleapis.com firestore.googleapis.com run.googleapis.com \
+  artifactregistry.googleapis.com cloudbuild.googleapis.com \
+  secretmanager.googleapis.com generativelanguage.googleapis.com \
+  identitytoolkit.googleapis.com storage-component.googleapis.com \
+  --project=mimzapp
 ```
-(Be careful to commit `lib/firebase_options.dart` post-generation)
-
-## 3. How to Rotate Application Secrets
-Cloud Run is attached to Secret Manager. To change the Gemini API Key or apply other sensitive configuration, apply the new value to Secret Manager:
-
-```bash
-echo -n "NEW_API_KEY" | gcloud secrets versions add GEMINI_API_KEY --data-file=-
-```
-New Revisions to Cloud Run automatically fetch `:latest`. No restart necessary unless changing environment variable static maps entirely. 
-
-## 4. Validating Deployment Health
-After applying an update to Cloud Run or Firebase, ping the base endpoint mapping to verify 200 responses. Check Cloud Logging interface connected to `mimz-backend`.

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Config for Mimz (Release)
+    - All production traffic must use HTTPS (enforced by default on API 28+).
+    - Cleartext (HTTP) is explicitly blocked.
+    - Trust only system CAs (no pinning needed for Cloud Run TLS rotation flexibility).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

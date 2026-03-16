@@ -2,7 +2,12 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getDb } from '../lib/firebase.js';
 
 export async function healthRoutes(server: FastifyInstance) {
-  // GET /healthz — Liveness probe
+  // GET /health — Liveness probe (using cleaner path)
+  server.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  });
+
+  // GET /healthz — Legacy probe
   server.get('/healthz', async (request: FastifyRequest, reply: FastifyReply) => {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });

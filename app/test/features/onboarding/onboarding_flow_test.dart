@@ -8,16 +8,21 @@ import '../../test_helpers/test_app_wrapper.dart';
 import '../../test_helpers/provider_overrides.dart';
 import '../../test_helpers/mocks.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mimz_app/data/models/user.dart';
+
 void main() {
   late MockApiClient mockApiClient;
   late MockAuthService mockAuthService;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockApiClient = MockApiClient();
     mockAuthService = MockAuthService();
     
-    // Stub API patch
+    // Stub API calls
     when(() => mockApiClient.patch(any(), any())).thenAnswer((_) async => {'success': true});
+    when(() => mockApiClient.getProfile()).thenAnswer((_) async => MimzUser.demo.toJson());
   });
 
   testWidgets('DistrictNamingScreen renders and allows text input', (WidgetTester tester) async {
@@ -58,6 +63,10 @@ void main() {
     expect(find.byType(GridView), findsOneWidget);
 
     // Verify next button exists
-    expect(find.text('CONTINUE  →'), findsOneWidget);
+    expect(find.text('Set Emblem  →'), findsOneWidget);
+
+    // Cleanup to prevent pending timers from animations
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 }
