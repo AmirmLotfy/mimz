@@ -1,393 +1,205 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1080" width="2000" height="1080">
-<defs>
-  <style>
-    text { font-family: 'SF Pro Display','Helvetica Neue',Helvetica,Arial,sans-serif; }
-  </style>
-
-  <!-- Background -->
-  <linearGradient id="BG" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#050A14"/>
-    <stop offset="100%" stop-color="#080E1C"/>
-  </linearGradient>
-
-  <!-- Column tints -->
-  <linearGradient id="COL1" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#0C1728" stop-opacity="0.98"/>
-    <stop offset="100%" stop-color="#060E1C" stop-opacity="0.98"/>
-  </linearGradient>
-  <linearGradient id="COL2" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#070D1E" stop-opacity="0.98"/>
-    <stop offset="100%" stop-color="#040A17" stop-opacity="0.98"/>
-  </linearGradient>
-  <linearGradient id="COL3" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#061210" stop-opacity="0.98"/>
-    <stop offset="100%" stop-color="#030C09" stop-opacity="0.98"/>
-  </linearGradient>
-
-  <!-- Node fills -->
-  <linearGradient id="N-blue" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#101D38"/>
-    <stop offset="100%" stop-color="#0A1428"/>
-  </linearGradient>
-  <linearGradient id="N-mid" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#131B2C"/>
-    <stop offset="100%" stop-color="#0B1220"/>
-  </linearGradient>
-  <linearGradient id="N-gemini" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#062016"/>
-    <stop offset="100%" stop-color="#03130D"/>
-  </linearGradient>
-  <linearGradient id="N-fb" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#1A1200"/>
-    <stop offset="100%" stop-color="#100C00"/>
-  </linearGradient>
-  <linearGradient id="N-auth" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="#1A0C00"/>
-    <stop offset="100%" stop-color="#100700"/>
-  </linearGradient>
-
-  <!-- Glow filters -->
-  <filter id="G-line" x="-50%" y="-50%" width="200%" height="200%">
-    <feGaussianBlur stdDeviation="5" result="b"/>
-    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-  </filter>
-  <filter id="G-node" x="-10%" y="-10%" width="120%" height="120%">
-    <feDropShadow dx="0" dy="4" stdDeviation="14" flood-color="#000" flood-opacity="0.65"/>
-  </filter>
-  <filter id="G-col" x="-4%" y="-2%" width="108%" height="104%">
-    <feDropShadow dx="0" dy="8" stdDeviation="24" flood-color="#000" flood-opacity="0.8"/>
-  </filter>
-  <filter id="G-hdr" x="-5%" y="-20%" width="110%" height="140%">
-    <feGaussianBlur stdDeviation="3" result="b"/>
-    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-  </filter>
-
-  <!-- Arrowheads -->
-  <marker id="A-cyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-    <path d="M0,1.5 L8.5,5 L0,8.5Z" fill="#22D3EE"/>
-  </marker>
-  <marker id="A-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-    <path d="M0,1.5 L8.5,5 L0,8.5Z" fill="#60A5FA"/>
-  </marker>
-  <marker id="A-blueL" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-    <path d="M10,1.5 L1.5,5 L10,8.5Z" fill="#60A5FA"/>
-  </marker>
-  <marker id="A-cyanL" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-    <path d="M10,1.5 L1.5,5 L10,8.5Z" fill="#22D3EE"/>
-  </marker>
-  <marker id="A-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-    <path d="M0,1.5 L8.5,5 L0,8.5Z" fill="#34D399"/>
-  </marker>
-  <marker id="A-greenL" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-    <path d="M10,1.5 L1.5,5 L10,8.5Z" fill="#34D399"/>
-  </marker>
-  <marker id="A-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-    <path d="M0,1.5 L8.5,5 L0,8.5Z" fill="#4B5563"/>
-  </marker>
-  <marker id="A-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-    <path d="M0,1.5 L8.5,5 L0,8.5Z" fill="#F59E0B"/>
-  </marker>
-</defs>
-
-<!-- ════════════════ BACKGROUND ════════════════ -->
-<rect width="2000" height="1080" fill="url(#BG)"/>
-<!-- subtle dot matrix -->
-<pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse">
-  <circle cx="0.8" cy="0.8" r="0.8" fill="#1E293B" opacity="0.5"/>
-</pattern>
-<rect width="2000" height="1080" fill="url(#dots)"/>
-
-<!-- ════════════════ HEADER ════════════════ -->
-<text x="1000" y="52" font-size="11" font-weight="700" letter-spacing="6" fill="#334155" text-anchor="middle">GEMINI LIVE AGENT CHALLENGE  ·  2026</text>
-<text x="1000" y="96" font-size="46" font-weight="800" letter-spacing="1" fill="#F1F5F9" text-anchor="middle" filter="url(#G-hdr)">MIMZ — SYSTEM ARCHITECTURE</text>
-<text x="1000" y="128" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">Real-time Multimodal Live Agent · Flutter → Cloud Run (europe-west1) → Gemini 2.5 Flash Live</text>
-<line x1="60" y1="148" x2="1940" y2="148" stroke="#1E293B" stroke-width="1"/>
-
-<!-- ════════════════ COLUMN 1 — FLUTTER ════════════════ -->
-<rect x="42" y="160" width="556" height="874" rx="16" fill="url(#COL1)" stroke="#1D3461" stroke-width="1.5" filter="url(#G-col)"/>
-<rect x="42" y="160" width="556" height="5" rx="2" fill="#3B82F6"/>
-<!-- col header -->
-<text x="320" y="198" font-size="20" font-weight="700" fill="#93C5FD" text-anchor="middle" letter-spacing="1">Flutter Mobile App</text>
-<text x="320" y="218" font-size="12" fill="#374151" text-anchor="middle">iOS &amp; Android  ·  Dart 3  ·  Riverpod State  ·  GoRouter</text>
-<line x1="72" y1="232" x2="568" y2="232" stroke="#1D3461" stroke-width="1"/>
-
-<!-- ── NODE: LiveSessionController (the brain) ── -->
-<rect x="70" y="244" width="500" height="106" rx="11" fill="url(#N-blue)" stroke="#3B82F6" stroke-width="2" filter="url(#G-node)"/>
-<rect x="70" y="244" width="5" height="106" rx="2" fill="#3B82F6"/>
-<text x="94" y="272" font-size="14" font-weight="700" fill="#60A5FA">LiveSessionController  ·  application/live_session_controller.dart</text>
-<text x="94" y="296" font-size="11.5" fill="#4B5563">Orchestrates: permissions → token fetch → WS connect → mic → playback → camera → tool bridge</text>
-<text x="94" y="314" font-size="11.5" fill="#4B5563">Feature-agnostic via LiveSessionConfig presets (onboarding / quiz / vision_quest)</text>
-<text x="94" y="332" font-size="11.5" fill="#4B5563">Emits LiveSessionState stream → Riverpod watches → UI rebuilds reactively</text>
-
-<!-- ── NODE: Audio Capture ── -->
-<rect x="70" y="364" width="238" height="90" rx="11" fill="url(#N-mid)" stroke="#2563EB" stroke-width="1.5" filter="url(#G-node)"/>
-<rect x="70" y="364" width="5" height="90" rx="2" fill="#2563EB"/>
-<text x="94" y="389" font-size="13" font-weight="700" fill="#93C5FD">AudioCaptureService</text>
-<text x="94" y="407" font-size="11" fill="#4B5563">PCM 16-bit · 16kHz mono</text>
-<text x="94" y="422" font-size="11" fill="#4B5563">RMS amplitude → waveform bars</text>
-<text x="94" y="437" font-size="11" fill="#4B5563">Silence gating per chunk</text>
-
-<!-- ── NODE: Camera Stream ── -->
-<rect x="332" y="364" width="238" height="90" rx="11" fill="url(#N-mid)" stroke="#2563EB" stroke-width="1.5" filter="url(#G-node)"/>
-<rect x="332" y="364" width="5" height="90" rx="2" fill="#2563EB"/>
-<text x="356" y="389" font-size="13" font-weight="700" fill="#93C5FD">LiveCameraStreamService</text>
-<text x="356" y="407" font-size="11" fill="#4B5563">ImageStreamFrame capture</text>
-<text x="356" y="422" font-size="11" fill="#4B5563">JPEG encode → Base64</text>
-<text x="356" y="437" font-size="11" fill="#4B5563">Vision Quest payloads</text>
-
-<!-- ── NODE: WebSocket Client ── -->
-<rect x="70" y="468" width="238" height="104" rx="11" fill="url(#N-blue)" stroke="#3B82F6" stroke-width="2" filter="url(#G-node)"/>
-<rect x="70" y="468" width="5" height="104" rx="2" fill="#60A5FA"/>
-<text x="94" y="494" font-size="13" font-weight="700" fill="#60A5FA">LiveWebSocketClient</text>
-<text x="94" y="512" font-size="11" fill="#4B5563">dart:io WebSocket binary</text>
-<text x="94" y="527" font-size="11" fill="#4B5563">Sends: PCM audio chunks</text>
-<text x="94" y="542" font-size="11" fill="#4B5563">Sends: JPEG image frames</text>
-<text x="94" y="557" font-size="11" fill="#4B5563">Sends: tool_response JSON</text>
-
-<!-- ── NODE: LiveTokenClient ── -->
-<rect x="332" y="468" width="238" height="104" rx="11" fill="url(#N-mid)" stroke="#2563EB" stroke-width="1.5" filter="url(#G-node)"/>
-<rect x="332" y="468" width="5" height="104" rx="2" fill="#2563EB"/>
-<text x="356" y="494" font-size="13" font-weight="700" fill="#93C5FD">LiveTokenClient</text>
-<text x="356" y="512" font-size="11" fill="#4B5563">POST /live/ephemeral-token</text>
-<text x="356" y="527" font-size="11" fill="#4B5563">Cache keyed by sessionType</text>
-<text x="356" y="542" font-size="11" fill="#4B5563">Validates TTL before reuse</text>
-<text x="356" y="557" font-size="11" fill="#4B5563">Gets: token + systemInstruction</text>
-
-<!-- ── NODE: Audio Playback ── -->
-<rect x="70" y="586" width="238" height="76" rx="11" fill="url(#N-mid)" stroke="#334155" stroke-width="1.2" filter="url(#G-node)"/>
-<rect x="70" y="586" width="5" height="76" rx="2" fill="#475569"/>
-<text x="94" y="609" font-size="13" font-weight="700" fill="#CBD5E1">AudioPlaybackService</text>
-<text x="94" y="627" font-size="11" fill="#4B5563">Receives AI audio chunks</text>
-<text x="94" y="642" font-size="11" fill="#4B5563">Streams to device speaker</text>
-
-
-<!-- ── NODE: ToolBridgeClient ── -->
-<rect x="332" y="586" width="238" height="76" rx="11" fill="url(#N-mid)" stroke="#334155" stroke-width="1.2" filter="url(#G-node)"/>
-<rect x="332" y="586" width="5" height="76" rx="2" fill="#475569"/>
-<text x="356" y="609" font-size="13" font-weight="700" fill="#CBD5E1">LiveToolBridgeClient</text>
-<text x="356" y="627" font-size="11" fill="#4B5563">Forwards tool_call to backend</text>
-<text x="356" y="642" font-size="11" fill="#4B5563">POST /live/tool-execute</text>
-
-
-<!-- ── NODE: Firebase Auth Client ── -->
-<rect x="70" y="676" width="238" height="76" rx="11" fill="url(#N-auth)" stroke="#EA580C" stroke-width="1.2" filter="url(#G-node)"/>
-<rect x="70" y="676" width="5" height="76" rx="2" fill="#F97316"/>
-<text x="94" y="699" font-size="13" font-weight="700" fill="#FED7AA">Firebase Auth SDK</text>
-<text x="94" y="717" font-size="11" fill="#4B5563">Google Sign-In + Email auth</text>
-<text x="94" y="733" font-size="11" fill="#4B5563">JWT ID token → HTTPS header</text>
-
-
-<!-- ── NODE: Screens / UI ── -->
-<rect x="332" y="676" width="238" height="76" rx="11" fill="url(#N-mid)" stroke="#334155" stroke-width="1.2" filter="url(#G-node)"/>
-<rect x="332" y="676" width="5" height="76" rx="2" fill="#475569"/>
-<text x="356" y="699" font-size="13" font-weight="700" fill="#CBD5E1">20+ Screens</text>
-<text x="356" y="717" font-size="11" fill="#4B5563">World Map · Live Quiz</text>
-<text x="356" y="733" font-size="11" fill="#4B5563">Vision Quest · Rewards Vault</text>
-<text x="356" y="748" font-size="11" fill="#4B5563"/>
-
-<!-- ── NODE: LiveReconnectPolicy ── -->
-<rect x="70" y="766" width="500" height="60" rx="11" fill="url(#N-mid)" stroke="#1E293B" stroke-width="1" filter="url(#G-node)"/>
-<rect x="70" y="766" width="5" height="60" rx="2" fill="#334155"/>
-<text x="94" y="791" font-size="12" font-weight="700" fill="#94A3B8">ReconnectPolicy  ·  TurnDetector  ·  PermissionGuard  ·  SessionLogger</text>
-<text x="94" y="809" font-size="11" fill="#374151">Exponential backoff · barge-in VAD detection · mic/camera guard · structured session audit log</text>
-
-<!-- col 1 label -->
-<text x="320" y="1010" font-size="11" font-weight="700" fill="#1D4ED8" text-anchor="middle" letter-spacing="4">PRESENTATION  ·  STATE  ·  DATA LAYER</text>
-
-
-<!-- ════════════════ CONNECTIONS: Flutter → Backend ════════════════ -->
-
-<!-- Token fetch: TokenClient → POST /live/ephemeral-token -->
-<path d="M 598 512 L 680 512" fill="none" stroke="#4B5563" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#A-gray)"/>
-<text x="638" y="502" font-size="10" fill="#4B5563" text-anchor="middle">POST</text>
-<text x="638" y="532" font-size="10" fill="#4B5563" text-anchor="middle">/live/ephemeral-token</text>
-
-<!-- Token response back -->
-<path d="M 680 534 L 598 534" fill="none" stroke="#60A5FA" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#A-blueL)"/>
-<text x="638" y="548" font-size="9" fill="#1E40AF" text-anchor="middle">token + systemInstruction</text>
-
-<!-- WSS BIDI: WS Client → backend -->
-<path d="M 598 502 C 630 502, 650 460, 680 460" fill="none" stroke="#22D3EE" stroke-width="3" marker-end="url(#A-cyan)" filter="url(#G-line)"/>
-<path d="M 680 480 C 650 480, 630 522, 598 522" fill="none" stroke="#3B82F6" stroke-width="3" marker-end="url(#A-blueL)" filter="url(#G-line)"/>
-<text x="635" y="444" font-size="10" font-weight="700" fill="#22D3EE" text-anchor="middle">WSS BIDI</text>
-<text x="635" y="456" font-size="9" fill="#374151" text-anchor="middle">PCM + image + tool_response</text>
-
-<!-- Tool bridge: ToolBridgeClient → /live/tool-execute -->
-<path d="M 598 614 L 680 640" fill="none" stroke="#4B5563" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#A-gray)"/>
-<text x="637" y="630" font-size="9" fill="#4B5563" text-anchor="middle">POST tool-execute</text>
-
-<!-- Auth JWT: Firebase SDK → backend middleware -->
-<path d="M 308 714 C 308 840, 570 860, 680 860" fill="none" stroke="#F97316" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#A-amber)" opacity="0.8"/>
-<text x="460" y="856" font-size="10" fill="#92400E" text-anchor="middle">JWT Bearer header on every request</text>
-
-
-<!-- ════════════════ COLUMN 2 — BACKEND ════════════════ -->
-<rect x="628" y="160" width="620" height="874" rx="16" fill="url(#COL2)" stroke="#0C3460" stroke-width="1.5" filter="url(#G-col)"/>
-<rect x="628" y="160" width="620" height="5" rx="2" fill="#06B6D4"/>
-
-<text x="938" y="198" font-size="20" font-weight="700" fill="#67E8F9" text-anchor="middle" letter-spacing="1">Node.js Backend</text>
-<text x="938" y="218" font-size="12" fill="#374151" text-anchor="middle">Cloud Run (europe-west1)  ·  TypeScript  ·  Fastify 5  ·  Firebase Admin SDK</text>
-<line x1="658" y1="232" x2="1218" y2="232" stroke="#0C3460" stroke-width="1"/>
-
-<!-- ── NODE: /live/ws WSS ── -->
-<rect x="656" y="244" width="564" height="88" rx="11" fill="url(#N-blue)" stroke="#0EA5E9" stroke-width="2" filter="url(#G-node)"/>
-<rect x="656" y="244" width="5" height="88" rx="2" fill="#06B6D4"/>
-<text x="680" y="270" font-size="14" font-weight="700" fill="#67E8F9">WebSocket Endpoint  ·  /live/ws</text>
-<text x="680" y="290" font-size="11.5" fill="#4B5563">HTTP → WebSocket upgrade  ·  Event codec &amp; binary chunk multiplexer</text>
-<text x="680" y="308" font-size="11.5" fill="#4B5563">Routes: PCM audio, JPEG frames, tool_response JSON, session lifecycle events</text>
-
-<!-- ── NODE: mintEphemeralToken / liveService ── -->
-<rect x="656" y="346" width="564" height="116" rx="11" fill="url(#N-blue)" stroke="#0EA5E9" stroke-width="1.5" filter="url(#G-node)"/>
-<rect x="656" y="346" width="5" height="116" rx="2" fill="#06B6D4"/>
-<text x="680" y="372" font-size="14" font-weight="700" fill="#67E8F9">liveService.ts  ·  mintEphemeralToken()</text>
-<text x="680" y="392" font-size="11.5" fill="#4B5563">Reads user profile from Firestore → buildPersonalizedInstruction()</text>
-<text x="680" y="410" font-size="11.5" fill="#4B5563">Injects: displayName · interests (up to 5) · difficultyPreference</text>
-<text x="680" y="428" font-size="11.5" fill="#4B5563">Returns: token · sessionId · model · expiresAt · systemInstruction · tool declarations</text>
-<text x="680" y="446" font-size="11.5" fill="#4B5563">Active session registry (in-memory Map with TTL)</text>
-
-<!-- ── NODE: Tool Execution ── -->
-<rect x="656" y="476" width="564" height="130" rx="11" fill="url(#N-blue)" stroke="#0EA5E9" stroke-width="1.5" filter="url(#G-node)"/>
-<rect x="656" y="476" width="5" height="130" rx="2" fill="#06B6D4"/>
-<text x="680" y="502" font-size="14" font-weight="700" fill="#67E8F9">Tool Execution Bridge  ·  executeLiveTool.ts</text>
-<text x="680" y="522" font-size="11.5" fill="#4B5563">toolSchemas.ts: 15 Zod-validated schemas enforce arg bounds</text>
-<text x="680" y="540" font-size="11.5" fill="#4B5563">QUIZ:  start_live_round · grade_answer · award_territory · apply_combo_bonus · grant_materials · end_round</text>
-<text x="680" y="558" font-size="11.5" fill="#4B5563">ONBOARD:  start_onboarding · save_user_profile · get_current_district</text>
-<text x="680" y="576" font-size="11.5" fill="#4B5563">VISION:  start_vision_quest · validate_vision_result · unlock_structure</text>
-<text x="680" y="594" font-size="11.5" fill="#4B5563">SQUAD:  join_squad_mission · complete_event_challenge</text>
-
-<!-- ── NODE: Idempotency / Rate guard ── -->
-<rect x="656" y="620" width="564" height="84" rx="11" fill="url(#N-mid)" stroke="#334155" stroke-width="1.2" filter="url(#G-node)"/>
-<rect x="656" y="620" width="5" height="84" rx="2" fill="#475569"/>
-<text x="680" y="646" font-size="13" font-weight="700" fill="#94A3B8">Idempotency Guard  ·  gameService.ts</text>
-<text x="680" y="664" font-size="11.5" fill="#4B5563">Correlation ID per tool call — blocks double-grant in same session</text>
-<text x="680" y="682" font-size="11.5" fill="#4B5563">MAX_REWARD_PER_HOUR · MAX_SECTORS_PER_ROUND · MAX_STREAK_BONUS caps</text>
-
-<!-- ── NODE: REST API Routes ── -->
-<rect x="656" y="718" width="564" height="88" rx="11" fill="url(#N-mid)" stroke="#334155" stroke-width="1.2" filter="url(#G-node)"/>
-<rect x="656" y="718" width="5" height="88" rx="2" fill="#475569"/>
-<text x="680" y="744" font-size="13" font-weight="700" fill="#94A3B8">REST API  ·  25+ Endpoints  ·  src/routes/</text>
-<text x="680" y="762" font-size="11.5" fill="#4B5563">/district · /squads · /events · /leaderboard · /rewards · /questions · /profile</text>
-<text x="680" y="780" font-size="11.5" fill="#4B5563">Auth middleware: Firebase ID token verification on every protected route</text>
-<text x="680" y="798" font-size="11.5" fill="#4B5563"/>
-
-<!-- ── NODE: Auth middleware ── -->
-<rect x="656" y="820" width="564" height="60" rx="11" fill="url(#N-mid)" stroke="#1E293B" stroke-width="1" filter="url(#G-node)"/>
-<rect x="656" y="820" width="5" height="60" rx="2" fill="#374151"/>
-<text x="680" y="844" font-size="12" font-weight="700" fill="#64748B">Fastify Auth Middleware  ·  middleware/auth.ts</text>
-<text x="680" y="862" font-size="11" fill="#374151">getAuth().verifyIdToken(bearerToken) → uid injected into request context</text>
-
-<!-- col 2 label -->
-<text x="938" y="1010" font-size="11" font-weight="700" fill="#0284C7" text-anchor="middle" letter-spacing="4">SERVICE  ·  AI ORCHESTRATION  ·  TOOL LAYER</text>
-
-
-<!-- ════════════════ CONNECTIONS: Backend → GCP ════════════════ -->
-
-<!-- WS endpoint directly connects to Gemini via WSS -->
-<path d="M 1220 280 L 1308 418" fill="none" stroke="#22D3EE" stroke-width="3" marker-end="url(#A-cyan)" filter="url(#G-line)"/>
-<path d="M 1308 440 L 1220 298" fill="none" stroke="#34D399" stroke-width="3" marker-end="url(#A-greenL)" filter="url(#G-line)"/>
-<text x="1258" y="344" font-size="10" font-weight="700" fill="#22D3EE" text-anchor="middle">WSS  generativelanguage</text>
-<text x="1258" y="358" font-size="10" fill="#374151" text-anchor="middle">BidiGenerateContent</text>
-<text x="1258" y="372" font-size="10" fill="#374151" text-anchor="middle">?key=token</text>
-
-<!-- liveService → Firestore (reads user profile) -->
-<path d="M 1220 400 C 1264 400, 1284 490, 1308 498" fill="none" stroke="#4B5563" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#A-gray)"/>
-<text x="1260" y="447" font-size="10" fill="#4B5563" text-anchor="middle">getUser() profile</text>
-
-<!-- Tool Bridge → Firestore (writes game state) -->
-<path d="M 1220 545 C 1264 545, 1284 505, 1308 502" fill="none" stroke="#4B5563" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#A-gray)"/>
-<text x="1264" y="535" font-size="10" fill="#4B5563" text-anchor="middle">Admin SDK write</text>
-
-<!-- REST → Firestore -->
-<path d="M 1220 755 C 1260 755, 1280 520, 1308 518" fill="none" stroke="#4B5563" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#A-gray)" opacity="0.7"/>
-
-<!-- Auth middleware → Firebase Auth -->
-<path d="M 1220 848 C 1264 848, 1290 698, 1308 692" fill="none" stroke="#F59E0B" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#A-amber)"/>
-<text x="1264" y="762" font-size="10" fill="#92400E" text-anchor="middle">verifyIdToken()</text>
-
-
-<!-- ════════════════ COLUMN 3 — GCP ════════════════ -->
-<rect x="1278" y="160" width="682" height="874" rx="16" fill="url(#COL3)" stroke="#064E3B" stroke-width="1.5" filter="url(#G-col)"/>
-<rect x="1278" y="160" width="682" height="5" rx="2" fill="#10B981"/>
-
-<text x="1619" y="198" font-size="20" font-weight="700" fill="#6EE7B7" text-anchor="middle" letter-spacing="1">Google Cloud Platform</text>
-<text x="1619" y="218" font-size="12" fill="#374151" text-anchor="middle">Firebase  ·  Gemini AI API  ·  Secret Manager  ·  Cloud Build  ·  Artifact Registry</text>
-<line x1="1308" y1="232" x2="1930" y2="232" stroke="#064E3B" stroke-width="1"/>
-
-<!-- ── NODE: Gemini 2.5 Flash Live ── -->
-<rect x="1308" y="244" width="622" height="166" rx="11" fill="url(#N-gemini)" stroke="#10B981" stroke-width="2.5" filter="url(#G-node)"/>
-<rect x="1308" y="244" width="5" height="166" rx="2" fill="#34D399"/>
-<rect x="1308" y="244" width="622" height="3" rx="1" fill="#34D399" opacity="0.5"/>
-<text x="1332" y="274" font-size="15" font-weight="700" fill="#34D399">Gemini 2.5 Flash Live Multimodal</text>
-<text x="1332" y="292" font-size="11" font-weight="500" fill="#059669">Model: gemini-2.5-flash-native-audio-preview-12-2025</text>
-<text x="1332" y="315" font-size="11.5" fill="#374151">Endpoint: wss://generativelanguage.googleapis.com/ws/</text>
-<text x="1332" y="333" font-size="11.5" fill="#374151">→ google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent</text>
-<text x="1332" y="354" font-size="11.5" fill="#374151">Native Speech-to-Speech · Voice Activity Detection (VAD) · Barge-in support</text>
-<text x="1332" y="372" font-size="11.5" fill="#374151">Receives 15 function declarations → emits tool_call → backend executes → receives tool_response</text>
-<text x="1332" y="390" font-size="11.5" fill="#374151">Responds with audio PCM chunks → Flutter AudioPlaybackService streams to speaker</text>
-
-<!-- ── NODE: Firestore ── -->
-<rect x="1308" y="426" width="622" height="130" rx="11" fill="url(#N-fb)" stroke="#D97706" stroke-width="1.5" filter="url(#G-node)"/>
-<rect x="1308" y="426" width="5" height="130" rx="2" fill="#F59E0B"/>
-<text x="1332" y="454" font-size="14" font-weight="700" fill="#FCD34D">Cloud Firestore  ·  Realtime NoSQL</text>
-<text x="1332" y="476" font-size="11.5" fill="#4B5563">Collections: users · districts · sectors · squads · events · leaderboards · missions · rewards</text>
-<text x="1332" y="494" font-size="11.5" fill="#4B5563">Stores: hex map sector ownership · XP · streaks · structures · blueprints · materials</text>
-<text x="1332" y="512" font-size="11.5" fill="#4B5563">Written by: Admin SDK in tool handlers (award_territory, unlock_structure, grant_materials)</text>
-<text x="1332" y="530" font-size="11.5" fill="#4B5563">Read by: Flutter client SDK → reactive district / leaderboard updates</text>
-<text x="1332" y="548" font-size="11.5" fill="#4B5563"/>
-
-<!-- ── NODE: Firebase Auth ── -->
-<rect x="1308" y="572" width="622" height="108" rx="11" fill="url(#N-auth)" stroke="#EA580C" stroke-width="1.5" filter="url(#G-node)"/>
-<rect x="1308" y="572" width="5" height="108" rx="2" fill="#F97316"/>
-<text x="1332" y="600" font-size="14" font-weight="700" fill="#FED7AA">Firebase Authentication</text>
-<text x="1332" y="622" font-size="11.5" fill="#4B5563">Providers: Google Sign-In (OAuth 2.0) · Email/Password</text>
-<text x="1332" y="640" font-size="11.5" fill="#4B5563">androidClientId: 1012962167727-0p0dn1t5...  ·  iosBundleId: com.mimz.mimzApp</text>
-<text x="1332" y="658" font-size="11.5" fill="#4B5563">Issues JWT ID tokens → verified by getAuth().verifyIdToken() on every API request</text>
-
-<!-- ── NODE: Firebase Storage ── -->
-<rect x="1308" y="696" width="298" height="88" rx="11" fill="url(#N-fb)" stroke="#B45309" stroke-width="1.2" filter="url(#G-node)"/>
-<rect x="1308" y="696" width="5" height="88" rx="2" fill="#F59E0B" opacity="0.8"/>
-<text x="1332" y="722" font-size="13" font-weight="700" fill="#FDE68A">Firebase Storage</text>
-<text x="1332" y="742" font-size="11" fill="#4B5563">User avatars · blueprint images</text>
-<text x="1332" y="758" font-size="11" fill="#4B5563">Rules: uid-scoped write-only</text>
-<text x="1332" y="774" font-size="11" fill="#4B5563">Bucket: mimzapp.firebasestorage.app</text>
-
-<!-- ── NODE: Secret Manager ── -->
-<rect x="1632" y="696" width="298" height="88" rx="11" fill="url(#N-mid)" stroke="#4F46E5" stroke-width="1.5" filter="url(#G-node)"/>
-<rect x="1632" y="696" width="5" height="88" rx="2" fill="#6366F1"/>
-<text x="1656" y="722" font-size="13" font-weight="700" fill="#A5B4FC">Secret Manager</text>
-<text x="1656" y="742" font-size="11" fill="#4B5563">GEMINI_API_KEY v3 (latest)</text>
-<text x="1656" y="758" font-size="11" fill="#4B5563">Mounted at Cloud Run startup</text>
-<text x="1656" y="774" font-size="11" fill="#4B5563">No env file committed to git</text>
-
-<!-- ── NODE: Firebase Security Rules ── -->
-<rect x="1308" y="800" width="622" height="64" rx="11" fill="url(#N-mid)" stroke="#1E293B" stroke-width="1" filter="url(#G-node)"/>
-<rect x="1308" y="800" width="5" height="64" rx="2" fill="#374151"/>
-<text x="1332" y="824" font-size="12" font-weight="700" fill="#64748B">Security Rules  ·  Deployed via Firebase CLI</text>
-<text x="1332" y="844" font-size="11" fill="#374151">firestore.rules: users can only read/write own uid paths  ·  storage.rules: content-type + uid guard</text>
-
-<!-- col 3 label -->
-<text x="1619" y="1010" font-size="11" font-weight="700" fill="#059669" text-anchor="middle" letter-spacing="4">AI ENGINE  ·  DATA  ·  IDENTITY  ·  SECRETS</text>
-
-
-<!-- ════════════════ LEGEND ════════════════ -->
-<line x1="60" y1="1028" x2="1940" y2="1028" stroke="#1E293B" stroke-width="1"/>
-
-<!-- legend entries -->
-<line x1="140" y1="1051" x2="190" y2="1051" stroke="#22D3EE" stroke-width="3" filter="url(#G-line)"/>
-<text x="198" y="1055" font-size="11" fill="#4B5563">Full-Duplex WebSocket Stream (Audio + Images)</text>
-
-<line x1="470" y1="1051" x2="520" y2="1051" stroke="#3B82F6" stroke-width="3" filter="url(#G-line)"/>
-<text x="528" y="1055" font-size="11" fill="#4B5563">WebSocket Response (AI Audio + Tool Calls)</text>
-
-<line x1="800" y1="1051" x2="840" y2="1051" stroke="#4B5563" stroke-width="2" stroke-dasharray="5,3"/>
-<text x="848" y="1055" font-size="11" fill="#4B5563">HTTPS REST / Admin SDK (Auth + Data)</text>
-
-<line x1="1100" y1="1051" x2="1140" y2="1051" stroke="#F59E0B" stroke-width="2" stroke-dasharray="5,3"/>
-<text x="1148" y="1055" font-size="11" fill="#4B5563">Firebase JWT Token Verification</text>
-
-<line x1="1380" y1="1051" x2="1420" y2="1051" stroke="#34D399" stroke-width="3" filter="url(#G-line)"/>
-<text x="1428" y="1055" font-size="11" fill="#4B5563">Gemini Live API Stream (WSS BidiGenerateContent)</text>
-
-<text x="1940" y="1055" font-size="10" fill="#1E293B" text-anchor="end">mimzapp · europe-west1 · v1.0.0</text>
-
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="leftCol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f1d36"/>
+      <stop offset="100%" stop-color="#0b162a"/>
+    </linearGradient>
+    <linearGradient id="midCol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f2230"/>
+      <stop offset="100%" stop-color="#0b1a26"/>
+    </linearGradient>
+    <linearGradient id="rightCol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#10231f"/>
+      <stop offset="100%" stop-color="#0a1b18"/>
+    </linearGradient>
+    <style>
+      text { font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif; }
+      .title { fill: #f8fafc; font-size: 46px; font-weight: 800; letter-spacing: 0.5px; }
+      .subtitle { fill: #94a3b8; font-size: 18px; font-weight: 500; }
+      .colTitle { font-size: 24px; font-weight: 700; }
+      .cardTitle { fill: #e2e8f0; font-size: 18px; font-weight: 700; }
+      .cardText { fill: #94a3b8; font-size: 14px; }
+      .small { fill: #64748b; font-size: 12px; }
+    </style>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowCyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#34d399"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/>
+    </marker>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#1e293b" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect width="1920" height="1080" fill="url(#grid)" opacity="0.22"/>
+
+  <text x="960" y="70" text-anchor="middle" class="title">MIMZ - SYSTEM ARCHITECTURE</text>
+  <text x="960" y="102" text-anchor="middle" class="subtitle">Flutter Mobile App -> Cloud Run Fastify Backend -> Gemini Live + Firebase</text>
+
+  <!-- Columns -->
+  <rect x="40" y="130" rx="20" ry="20" width="560" height="860" fill="url(#leftCol)" stroke="#2563eb" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="680" y="130" rx="20" ry="20" width="560" height="860" fill="url(#midCol)" stroke="#0891b2" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1320" y="130" rx="20" ry="20" width="560" height="860" fill="url(#rightCol)" stroke="#10b981" stroke-width="2" filter="url(#shadow)"/>
+
+  <text x="320" y="180" text-anchor="middle" class="colTitle" fill="#93c5fd">Flutter Mobile App</text>
+  <text x="320" y="205" text-anchor="middle" class="small">iOS + Android | Riverpod | go_router</text>
+
+  <text x="960" y="180" text-anchor="middle" class="colTitle" fill="#67e8f9">Backend on Cloud Run</text>
+  <text x="960" y="205" text-anchor="middle" class="small">Node.js + TypeScript | Fastify | Zod validation</text>
+
+  <text x="1600" y="180" text-anchor="middle" class="colTitle" fill="#6ee7b7">Google Cloud Services</text>
+  <text x="1600" y="205" text-anchor="middle" class="small">Gemini Live API | Firestore | Firebase Auth | Secret Manager</text>
+
+  <!-- Left cards -->
+  <rect x="70" y="240" rx="14" ry="14" width="500" height="110" fill="#132b52" stroke="#3b82f6"/>
+  <text x="95" y="275" class="cardTitle">UI Layer (World, Play, Squad, Events, Profile)</text>
+  <text x="95" y="302" class="cardText">20+ screens with map growth, rewards, onboarding and live modes</text>
+  <text x="95" y="325" class="cardText">State updates stream from session + backend providers</text>
+
+  <rect x="70" y="370" rx="14" ry="14" width="500" height="145" fill="#123057" stroke="#60a5fa"/>
+  <text x="95" y="403" class="cardTitle">LiveSessionController (orchestration core)</text>
+  <text x="95" y="430" class="cardText">Permissions -> token fetch -> websocket connect -> mic/camera</text>
+  <text x="95" y="453" class="cardText">Handles barge-in, reconnect policy, turn detection, session caps</text>
+  <text x="95" y="476" class="cardText">Bridges tool_call responses via backend tool bridge endpoint</text>
+
+  <rect x="70" y="535" rx="14" ry="14" width="240" height="120" fill="#1f2937" stroke="#334155"/>
+  <text x="92" y="570" class="cardTitle">Audio Capture</text>
+  <text x="92" y="595" class="cardText">PCM 16kHz mono</text>
+  <text x="92" y="618" class="cardText">Waveform + silence gate</text>
+
+  <rect x="330" y="535" rx="14" ry="14" width="240" height="120" fill="#1f2937" stroke="#334155"/>
+  <text x="352" y="570" class="cardTitle">Camera Stream</text>
+  <text x="352" y="595" class="cardText">Frames -> JPEG -> Base64</text>
+  <text x="352" y="618" class="cardText">Vision Quest input</text>
+
+  <rect x="70" y="675" rx="14" ry="14" width="240" height="120" fill="#1f2937" stroke="#334155"/>
+  <text x="92" y="710" class="cardTitle">LiveWebSocketClient</text>
+  <text x="92" y="735" class="cardText">Bidi audio + image stream</text>
+  <text x="92" y="758" class="cardText">Receives model events</text>
+
+  <rect x="330" y="675" rx="14" ry="14" width="240" height="120" fill="#1f2937" stroke="#334155"/>
+  <text x="352" y="710" class="cardTitle">LiveTokenClient + ToolBridge</text>
+  <text x="352" y="735" class="cardText">POST /live/ephemeral-token</text>
+  <text x="352" y="758" class="cardText">POST /live/tool-execute</text>
+
+  <rect x="70" y="815" rx="14" ry="14" width="500" height="120" fill="#2b1b0e" stroke="#ea580c"/>
+  <text x="95" y="850" class="cardTitle">Firebase Auth SDK + API Client</text>
+  <text x="95" y="875" class="cardText">Bearer JWT on requests to Cloud Run backend</text>
+  <text x="95" y="898" class="cardText">Production base URL points to Cloud Run service</text>
+
+  <!-- Middle cards -->
+  <rect x="710" y="240" rx="14" ry="14" width="500" height="110" fill="#12344a" stroke="#06b6d4"/>
+  <text x="735" y="275" class="cardTitle">/live/ephemeral-token</text>
+  <text x="735" y="302" class="cardText">Mints short-lived session token + model + systemInstruction</text>
+  <text x="735" y="325" class="cardText">Personalizes from user profile (interests, difficulty, name)</text>
+
+  <rect x="710" y="370" rx="14" ry="14" width="500" height="130" fill="#12344a" stroke="#06b6d4"/>
+  <text x="735" y="403" class="cardTitle">/live/tool-execute + executeLiveTool.ts</text>
+  <text x="735" y="430" class="cardText">Validates tool args via Zod schemas (15 typed tools)</text>
+  <text x="735" y="453" class="cardText">Runs handlers: quiz, onboarding, vision, rewards, district</text>
+  <text x="735" y="476" class="cardText">Returns structured tool response back to live session</text>
+
+  <rect x="710" y="520" rx="14" ry="14" width="500" height="130" fill="#1f2937" stroke="#334155"/>
+  <text x="735" y="553" class="cardTitle">Game service + Idempotency guard</text>
+  <text x="735" y="580" class="cardText">Correlation ID cache prevents duplicate grant/reward writes</text>
+  <text x="735" y="603" class="cardText">Enforces reward, territory and streak safety caps</text>
+  <text x="735" y="626" class="cardText">Audit logs for tool actions and session lifecycle events</text>
+
+  <rect x="710" y="670" rx="14" ry="14" width="500" height="125" fill="#1f2937" stroke="#334155"/>
+  <text x="735" y="703" class="cardTitle">REST API routes + middleware/auth.ts</text>
+  <text x="735" y="730" class="cardText">health, auth, profile, district, squad, events, rewards, notifications</text>
+  <text x="735" y="753" class="cardText">verifyIdToken in production; dev fallback in non-production</text>
+  <text x="735" y="776" class="cardText">Rate limit + structured logging + hardened error handling</text>
+
+  <rect x="710" y="815" rx="14" ry="14" width="500" height="120" fill="#172630" stroke="#0ea5e9"/>
+  <text x="735" y="850" class="cardTitle">Cloud-native deployment</text>
+  <text x="735" y="875" class="cardText">Cloud Build pipeline -> image -> Cloud Run deploy -> health check</text>
+  <text x="735" y="898" class="cardText">Config from env + Secret Manager, no keys in source control</text>
+
+  <!-- Right cards -->
+  <rect x="1350" y="240" rx="14" ry="14" width="500" height="150" fill="#0f2b24" stroke="#10b981" stroke-width="2"/>
+  <text x="1375" y="275" class="cardTitle">Gemini 2.5 Flash Native Audio</text>
+  <text x="1375" y="302" class="cardText">Bidi WebSocket session for real-time voice + vision interaction</text>
+  <text x="1375" y="325" class="cardText">Model sends audio responses and tool_call events</text>
+  <text x="1375" y="348" class="cardText">App sends audio chunks, camera frames, and tool_response payloads</text>
+  <text x="1375" y="371" class="cardText">Live model: gemini-2.5-flash-native-audio-preview-12-2025</text>
+
+  <rect x="1350" y="410" rx="14" ry="14" width="500" height="145" fill="#2a2008" stroke="#f59e0b"/>
+  <text x="1375" y="445" class="cardTitle">Cloud Firestore</text>
+  <text x="1375" y="472" class="cardText">Persistent game state: users, districts, rounds, rewards, notifications</text>
+  <text x="1375" y="495" class="cardText">Reads for personalization, writes from validated tool execution</text>
+  <text x="1375" y="518" class="cardText">Realtime-friendly data model for map growth and progression</text>
+  <text x="1375" y="541" class="cardText">Accessed through Firebase Admin SDK on backend</text>
+
+  <rect x="1350" y="575" rx="14" ry="14" width="500" height="105" fill="#2b1b0e" stroke="#ea580c"/>
+  <text x="1375" y="610" class="cardTitle">Firebase Authentication</text>
+  <text x="1375" y="637" class="cardText">Issues user JWTs; backend verifies on protected requests</text>
+  <text x="1375" y="660" class="cardText">Google and Email sign-in paths in app</text>
+
+  <rect x="1350" y="700" rx="14" ry="14" width="240" height="115" fill="#1f2937" stroke="#6366f1"/>
+  <text x="1372" y="735" class="cardTitle">Secret Manager</text>
+  <text x="1372" y="760" class="cardText">GEMINI_API_KEY</text>
+  <text x="1372" y="783" class="cardText">injected at deploy/runtime</text>
+
+  <rect x="1610" y="700" rx="14" ry="14" width="240" height="115" fill="#1f2937" stroke="#22c55e"/>
+  <text x="1632" y="735" class="cardTitle">Cloud Build + Registry</text>
+  <text x="1632" y="760" class="cardText">test -> build -> push</text>
+  <text x="1632" y="783" class="cardText">deploy to Cloud Run</text>
+
+  <rect x="1350" y="835" rx="14" ry="14" width="500" height="100" fill="#162229" stroke="#334155"/>
+  <text x="1375" y="870" class="cardTitle">Security boundary</text>
+  <text x="1375" y="895" class="cardText">Model suggestions never write directly; backend validation is authoritative</text>
+  <text x="1375" y="918" class="cardText">Critical game mutations are guarded, audited, and idempotent</text>
+
+  <!-- Inter-column flow arrows -->
+  <line x1="575" y1="730" x2="705" y2="430" stroke="#22d3ee" stroke-width="4" marker-end="url(#arrowCyan)"/>
+  <text x="600" y="570" class="small" fill="#22d3ee">WSS setup + session config</text>
+
+  <line x1="575" y1="735" x2="705" y2="735" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <text x="605" y="722" class="small" fill="#38bdf8">POST /live/tool-execute</text>
+
+  <line x1="575" y1="874" x2="705" y2="755" stroke="#f59e0b" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrowAmber)"/>
+  <text x="585" y="845" class="small" fill="#f59e0b">JWT bearer auth</text>
+
+  <line x1="1215" y1="300" x2="1345" y2="300" stroke="#34d399" stroke-width="4" marker-end="url(#arrowGreen)"/>
+  <text x="1240" y="286" class="small" fill="#34d399">Live websocket traffic</text>
+
+  <line x1="1345" y1="335" x2="1215" y2="355" stroke="#22d3ee" stroke-width="4" marker-end="url(#arrowCyan)"/>
+  <text x="1238" y="346" class="small" fill="#22d3ee">Audio + tool_call back</text>
+
+  <line x1="1215" y1="435" x2="1345" y2="485" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <text x="1238" y="472" class="small" fill="#38bdf8">Firestore reads/writes</text>
+
+  <line x1="1215" y1="760" x2="1345" y2="625" stroke="#f59e0b" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrowAmber)"/>
+  <text x="1235" y="706" class="small" fill="#f59e0b">verifyIdToken</text>
+
+  <line x1="1215" y1="870" x2="1345" y2="750" stroke="#a78bfa" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <text x="1228" y="848" class="small" fill="#a78bfa">Secret + deploy config</text>
+
+  <!-- Footer legend -->
+  <line x1="40" y1="1015" x2="1880" y2="1015" stroke="#334155"/>
+  <line x1="60" y1="1040" x2="115" y2="1040" stroke="#38bdf8" stroke-width="3"/>
+  <text x="125" y="1045" class="small">HTTPS / API calls</text>
+  <line x1="330" y1="1040" x2="385" y2="1040" stroke="#22d3ee" stroke-width="4"/>
+  <text x="395" y="1045" class="small">WebSocket real-time stream</text>
+  <line x1="670" y1="1040" x2="725" y2="1040" stroke="#f59e0b" stroke-width="3" stroke-dasharray="8 6"/>
+  <text x="735" y="1045" class="small">Auth / token verification</text>
+  <line x1="1030" y1="1040" x2="1085" y2="1040" stroke="#34d399" stroke-width="4"/>
+  <text x="1095" y="1045" class="small">Gemini Live model stream</text>
+  <text x="1880" y="1045" text-anchor="end" class="small">Mimz | Hackathon Architecture | 16:9</text>
 </svg>

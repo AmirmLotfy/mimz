@@ -7,6 +7,7 @@ import 'package:mimz_app/features/settings/presentation/settings_screen.dart';
 import 'package:mimz_app/features/district/presentation/district_detail_screen.dart';
 import 'package:mimz_app/services/settings_service.dart';
 import 'package:mimz_app/services/api_client.dart';
+import 'package:mimz_app/services/auth_service.dart';
 import 'package:mimz_app/core/providers.dart';
 import 'package:mimz_app/data/models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,6 +44,8 @@ class FakeApiClient extends Fake implements ApiClient {
   Future<Map<String, dynamic>> getProfile() async => MimzUser.demo.toJson();
   @override
   Future<Map<String, dynamic>> getEvents() async => {'events': []};
+  @override
+  Future<Map<String, dynamic>> bootstrap() async => {'user': MimzUser.demo.toJson()};
 }
 
 void main() {
@@ -51,6 +54,8 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockAuthService = MockAuthService();
+    when(() => mockAuthService.currentStatus).thenReturn(AuthStatus.authenticated);
+    when(() => mockAuthService.statusStream).thenAnswer((_) => Stream.value(AuthStatus.authenticated));
   });
 
   testWidgets('SettingsScreen renders standard preference fields', (WidgetTester tester) async {
@@ -74,10 +79,6 @@ void main() {
     
     // Toggles exist
     expect(find.byType(Switch), findsWidgets);
-    
-    // Cleanup
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 500));
   });
 
   testWidgets('DistrictDetailScreen renders HUD and resources', (WidgetTester tester) async {

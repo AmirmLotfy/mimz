@@ -93,3 +93,7 @@ Our roadmap includes:
 - a companion web layer for public profiles, leaderboards, and event pages
 
 Long term, we want Mimz to become a new kind of daily habit: a live social world where learning and curiosity build something people genuinely care about.
+
+## Required Submission Field (Architecture Diagram Upload)
+
+We uploaded our architecture diagram in the **Image Gallery** as `docs/assets/mimz_architecture.png` (16:9), showing the full system flow between Flutter frontend, Fastify backend on Cloud Run, Gemini Live API, Firestore, and Firebase Auth.

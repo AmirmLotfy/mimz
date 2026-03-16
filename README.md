@@ -47,11 +47,11 @@ Mimz is a **Live Agent** — not a chatbot wrapper. Here's why:
 
 ## Architecture
 
-![Mimz System Architecture](docs/assets/mimz_architecture.svg)
+![Mimz System Architecture](docs/assets/mimz_architecture.png)
 
 **Flow**: App gets ephemeral token from backend → opens WebSocket to Gemini → bidirectional audio + tool calls → tool results executed authoritatively on backend → state persisted to Firestore → UI updates reactively.
 
-> 📎 **Devpost**: Upload `docs/assets/mimz_architecture.svg` to the Image Gallery.
+> 📎 **Devpost (required field answer)**: Uploaded in **Image Gallery** as `docs/assets/mimz_architecture.png` (16:9 system architecture diagram).
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full Mermaid diagrams and sequence flows.
 
@@ -433,7 +433,6 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for details.
 | [CLOUD_PROOF.md](docs/CLOUD_PROOF.md) | How to prove GCP usage (screen recording, console, logs) |
 | [HACKATHON_SUBMISSION.md](docs/HACKATHON_SUBMISSION.md) | Devpost-ready submission content |
 | [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | 4-minute demo walkthrough with failure recovery |
-| [CLOUD_PROOF.md](docs/CLOUD_PROOF.md) | How to prove GCP usage to judges |
 | [SETUP.md](docs/SETUP.md) | Full developer setup guide |
 | [ENVIRONMENT.md](docs/ENVIRONMENT.md) | All environment variables |
 | [API_REFERENCE.md](docs/API_REFERENCE.md) | Complete 25-endpoint API docs |

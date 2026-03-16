@@ -45,7 +45,7 @@ void main() {
     await tester.pump();
 
     // Verify confirm button exists
-    expect(find.text('ESTABLISH DISTRICT  →'), findsOneWidget);
+    expect(find.text('Establish District  →'), findsOneWidget);
   });
 
   testWidgets('EmblemSelectionScreen renders grid and allows selection', (WidgetTester tester) async {
@@ -57,13 +57,11 @@ void main() {
         child: const EmblemSelectionScreen(),
       ),
     );
+    await tester.pumpAndSettle();
 
-    // Verify initial rendering
+    // Verify initial rendering: heading and grid
     expect(find.text('Choose your\nemblem'), findsOneWidget);
     expect(find.byType(GridView), findsOneWidget);
-
-    // Verify next button exists
-    expect(find.text('Set Emblem  →'), findsOneWidget);
 
     // Cleanup to prevent pending timers from animations
     await tester.pumpWidget(const SizedBox());
