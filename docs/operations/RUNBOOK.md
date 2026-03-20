@@ -8,10 +8,9 @@ Or manually:
 ```bash
 gcloud run deploy mimz-backend \
   --source ./backend \
-  --project=mimzapp \
+  --project=mimz-490520 \
   --region=europe-west1 \
-  --allow-unauthenticated \
-  --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest" \
+  --set-env-vars="GEMINI_AUTH_MODE=vertex,GEMINI_VERTEX_LOCATION=europe-west1" \
   --quiet
 ```
 
@@ -27,21 +26,21 @@ This regenerates `firebase_options.dart`, `google-services.json`, and `GoogleSer
 ```
 Or manually:
 ```bash
-firebase deploy --only firestore:rules,storage --project=mimzapp
-firebase deploy --only firestore:indexes --project=mimzapp  # if indexes file exists
+firebase deploy --only firestore:rules,storage --project=mimz-490520
+firebase deploy --only firestore:indexes --project=mimz-490520  # if indexes file exists
 ```
 
 ## Update GEMINI_API_KEY Secret
 ```bash
 echo -n "NEW_KEY_HERE" | gcloud secrets versions add GEMINI_API_KEY \
-  --project=mimzapp --data-file=-
+  --project=mimz-490520 --data-file=-
 ```
 Then redeploy backend so Cloud Run picks up the new version.
 
 ## Update Cloud Run Env Vars
 ```bash
 gcloud run services update mimz-backend \
-  --project=mimzapp \
+  --project=mimz-490520 \
   --region=europe-west1 \
   --set-env-vars="KEY=VALUE"
 ```
@@ -55,7 +54,7 @@ curl https://mimz-backend-[hash]-ew.a.run.app/readyz
 ```bash
 gcloud logging read \
   "resource.type=cloud_run_revision AND resource.labels.service_name=mimz-backend" \
-  --project=mimzapp \
+  --project=mimz-490520 \
   --limit=50 \
   --format="value(textPayload)"
 ```
@@ -69,8 +68,9 @@ gcloud logging read \
 ```bash
 gcloud services enable \
   firebase.googleapis.com firestore.googleapis.com run.googleapis.com \
+  aiplatform.googleapis.com \
   artifactregistry.googleapis.com cloudbuild.googleapis.com \
   secretmanager.googleapis.com generativelanguage.googleapis.com \
   identitytoolkit.googleapis.com storage-component.googleapis.com \
-  --project=mimzapp
+  --project=mimz-490520
 ```

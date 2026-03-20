@@ -26,12 +26,11 @@ class DistrictDetailScreen extends ConsumerWidget {
         ),
         title: const Text('Your District'),
         actions: [
-          // Share district
+          // Share district — only when loaded
           IconButton(
-            onPressed: () {
-              final district = districtAsync.valueOrNull ?? District.demo;
-              showDistrictShareSheet(context, district);
-            },
+            onPressed: districtAsync.valueOrNull != null
+                ? () => showDistrictShareSheet(context, districtAsync.valueOrNull!)
+                : null,
             icon: const Icon(Icons.ios_share_outlined),
             tooltip: 'Share district',
           ),
@@ -569,9 +568,37 @@ class _EmptyStructures extends StatelessWidget {
           Text('No structures yet', style: MimzTypography.headlineSmall),
           const SizedBox(height: MimzSpacing.sm),
           Text(
-            'Complete rounds and quests to unlock structures for your district.',
+            'Use Vision Quest to discover and unlock unique structures for your district.',
             style: MimzTypography.bodySmall.copyWith(color: MimzColors.textSecondary),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: MimzSpacing.lg),
+          GestureDetector(
+            onTap: () => context.go('/play/vision'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: MimzSpacing.xl,
+                vertical: MimzSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: MimzColors.mistBlue,
+                borderRadius: BorderRadius.circular(MimzRadius.pill),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.camera_alt, color: MimzColors.white, size: 16),
+                  const SizedBox(width: MimzSpacing.sm),
+                  Text(
+                    'START VISION QUEST',
+                    style: MimzTypography.buttonText.copyWith(
+                      color: MimzColors.white,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

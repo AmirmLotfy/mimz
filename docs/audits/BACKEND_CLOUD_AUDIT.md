@@ -126,7 +126,7 @@
 - **Service:** mimz-backend  
 - **Region:** europe-west1  
 - **Port:** 8080  
-- **Auth:** --allow-unauthenticated  
+- **Auth:** --no-invoker-iam-check  
 - **Secrets:** GEMINI_API_KEY=GEMINI_API_KEY:latest  
 - **Env:** NODE_ENV, GCP_PROJECT_ID, FIREBASE_PROJECT_ID, FIRESTORE_DATABASE, STORAGE_BUCKET, GEMINI_*, EPHEMERAL_TOKEN_TTL_MS, MAX_*, LOG_LEVEL, RATE_LIMIT_MAX
 

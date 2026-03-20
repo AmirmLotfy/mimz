@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../../../services/sound_service.dart';
 import '../providers/live_session_provider.dart';
 
 import '../../../features/world/providers/world_provider.dart';
@@ -19,6 +20,12 @@ class RoundResultScreen extends ConsumerStatefulWidget {
 
 class _RoundResultScreenState extends ConsumerState<RoundResultScreen> {
   bool _claiming = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SoundService.instance.playXpAward();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -183,9 +190,8 @@ class _RoundResultScreenState extends ConsumerState<RoundResultScreen> {
                 ),
               ).animate(delay: 600.ms).fadeIn(duration: 400.ms),
               const SizedBox(height: MimzSpacing.xxl),
-              // CLAIM button — actually calls backend
               MimzButton(
-                label: _claiming ? 'CLAIMING...' : 'CLAIM REWARDS  →',
+                label: _claiming ? 'SYNCING...' : 'CONTINUE  →',
                 onPressed: _claiming ? null : () => _claimRewards(context, ref, rewards),
               ).animate(delay: 700.ms).fadeIn(duration: 400.ms),
               const SizedBox(height: MimzSpacing.xl),
@@ -199,6 +205,7 @@ class _RoundResultScreenState extends ConsumerState<RoundResultScreen> {
   Future<void> _claimRewards(BuildContext context, WidgetRef ref, RoundRewards rewards) async {
     setState(() => _claiming = true);
     HapticFeedback.heavyImpact();
+    SoundService.instance.playXpAward();
 
     try {
       final quiz = ref.read(quizStateProvider);
@@ -212,7 +219,12 @@ class _RoundResultScreenState extends ConsumerState<RoundResultScreen> {
       // bypassing the 30s debounce.
       await ref.read(districtProvider.notifier).refresh();
     } catch (e) {
-      // Continue to world even if backend fails — local state already updated
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))),
+      );
+      setState(() => _claiming = false);
+      return;
     }
 
     ref.read(quizStateProvider.notifier).reset();

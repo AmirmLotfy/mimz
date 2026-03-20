@@ -30,9 +30,62 @@ service cloud.firestore {
     // Squads collection
     match /squads/{squadId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated(); // More granular rules needed for prod
+      // Only backend service account creates squads (via Admin SDK)
+      allow create: if false;
+      // Only squad members can update the squad document
+      allow update: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/squads/$(squadId)/members/$(request.auth.uid));
       allow delete: if false;
+
+      // Squad members subcollection
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        // Members are added by the backend (Admin SDK); users cannot self-write
+        allow create: if false;
+        // Only the member themselves or squad leader can delete their own membership
+        allow delete: if isAuthenticated() && request.auth.uid == memberId;
+        allow update: if false;
+      }
+
+      // Squad missions subcollection
+      match /missions/{missionId} {
+        allow read: if isAuthenticated() &&
+          exists(/databases/$(database)/documents/squads/$(squadId)/members/$(request.auth.uid));
+        // Missions created and managed by backend
+        allow create, update, delete: if false;
+      }
+    }
+
+    // Leaderboard entries — readable by all, written only by backend
+    match /leaderboards/{scope}/entries/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // Notifications — only the owner can read their own
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if false;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if false;
+    }
+
+    // Rewards — owner read only, backend writes
+    match /rewards/{rewardId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Audit logs — backend only
+    match /auditLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    // Feedback — users can create, backend reads
+    match /feedback/{feedbackId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
     }
 
     // Default deny for everything else

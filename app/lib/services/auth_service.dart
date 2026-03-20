@@ -47,7 +47,11 @@ class AuthResult {
 class AuthService {
   // Enabled real Firebase Auth
   final fb.FirebaseAuth _auth = fb.FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  late final GoogleSignIn _googleSignIn;
+  static const String _googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '392547013333-51rid4rl2li0v5qf0kv6hhclb4umvgch.apps.googleusercontent.com',
+  );
 
   static const _androidOptions = AndroidOptions(
     encryptedSharedPreferences: true,
@@ -76,6 +80,10 @@ class AuthService {
   List<String> get linkedProviders => _linkedProviders;
 
   AuthService() {
+    _googleSignIn = GoogleSignIn(
+      // Explicitly pin the web OAuth client used to mint idToken/accessToken.
+      serverClientId: _googleServerClientId,
+    );
     _init();
   }
 
@@ -105,7 +113,20 @@ class AuthService {
   /// - Same email exists with email/password → links providers
   Future<AuthResult> signInWithGoogle() async {
     try {
-      final googleUser = await _googleSignIn.signIn();
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await _googleSignIn.signIn();
+      } on PlatformException catch (e) {
+        // Recover from stale Google Play Services state on some devices.
+        if (e.code == 'sign_in_failed') {
+          try {
+            await _googleSignIn.disconnect();
+          } catch (_) {}
+          googleUser = await _googleSignIn.signIn();
+        } else {
+          rethrow;
+        }
+      }
       if (googleUser == null) return AuthResult.fail(AuthErrorType.cancelled);
 
       final googleAuth = await googleUser.authentication;
@@ -132,9 +153,15 @@ class AuthService {
       if (e.code == 'network_error' || e.code == 'network-request-failed') {
         return AuthResult.fail(AuthErrorType.networkError, 'Network error');
       }
+      if (e.code == 'sign_in_failed') {
+        return AuthResult.fail(
+          AuthErrorType.unknown,
+          'Google sign-in failed (${e.code}). ${e.message ?? 'Please retry.'}',
+        );
+      }
       return AuthResult.fail(
         AuthErrorType.unknown,
-        'Google sign-in failed. Please try again.',
+        'Google sign-in failed (${e.code}). ${e.message ?? 'Please try again.'}',
       );
     } catch (_) {
       return AuthResult.fail(
@@ -167,17 +194,22 @@ class AuthService {
       );
 
       // Auto-link pending Google credential if present in memory
+      String? linkWarning;
       if (_pendingLinkCredential != null) {
         try {
           await userCredential.user!.linkWithCredential(_pendingLinkCredential!);
-        } catch (_) {}
-        _pendingLinkCredential = null;
-        await _storage.delete(key: 'pending_link_email');
-        await _storage.delete(key: 'pending_link_provider');
+          _pendingLinkCredential = null;
+          await _storage.delete(key: 'pending_link_email');
+          await _storage.delete(key: 'pending_link_provider');
+        } on fb.FirebaseAuthException catch (e) {
+          linkWarning = 'Signed in, but account linking could not be completed (${e.code}).';
+        }
       }
 
       await _onAuthSuccess(userCredential.user!);
-      return AuthResult.ok();
+      return linkWarning == null
+          ? AuthResult.ok()
+          : AuthResult(success: true, message: linkWarning);
     } on fb.FirebaseAuthException catch (e) {
       return _mapFirebaseError(e);
     }
@@ -244,6 +276,10 @@ class AuthService {
     await _auth.signOut();
     await _googleSignIn.signOut();
     await _storage.delete(key: 'firebase_id_token');
+    await _storage.delete(key: 'firebase_id_token_expiry');
+    await _storage.delete(key: 'pending_link_email');
+    await _storage.delete(key: 'pending_link_provider');
+    _pendingLinkCredential = null;
     _userId = null;
     _userEmail = null;
     _linkedProviders = [];
@@ -252,11 +288,12 @@ class AuthService {
   }
 
   /// Get current ID token for API calls. Caches for efficiency.
+  /// Retries on network failure so transient blips don't leave requests without a token.
   Future<String?> getIdToken() async {
     final user = _auth.currentUser;
     if (user == null) return null;
 
-    // Check cached token
+    // Check cached token first
     final cached = await _storage.read(key: 'firebase_id_token');
     final expiry = await _storage.read(key: 'firebase_id_token_expiry');
     if (cached != null && expiry != null) {
@@ -266,15 +303,24 @@ class AuthService {
       }
     }
 
-    // Fetch fresh token and cache it
-    final token = await user.getIdToken();
-    if (token != null) {
-      await _storage.write(key: 'firebase_id_token', value: token);
-      // Firebase tokens expire in 1 hour
-      final newExpiry = DateTime.now().millisecondsSinceEpoch + 3600000;
-      await _storage.write(key: 'firebase_id_token_expiry', value: newExpiry.toString());
+    // Fetch fresh token with retry on network error
+    for (var attempt = 0; attempt < _tokenRetryAttempts; attempt++) {
+      try {
+        final token = await user.getIdToken(attempt > 0);
+        if (token != null) {
+          await _storage.write(key: 'firebase_id_token', value: token);
+          final newExpiry = DateTime.now().millisecondsSinceEpoch + 3600000;
+          await _storage.write(key: 'firebase_id_token_expiry', value: newExpiry.toString());
+          return token;
+        }
+        break;
+      } on fb.FirebaseAuthException catch (e) {
+        if (e.code != 'network-request-failed') rethrow;
+        if (attempt == _tokenRetryAttempts - 1) return cached; // Fall back to stale if still valid for a bit
+        await Future<void>.delayed(_tokenRetryDelay);
+      }
     }
-    return token;
+    return cached;
   }
 
   // ─── Helpers ─────────────────────────────────────────
@@ -288,12 +334,24 @@ class AuthService {
     await _cacheToken(user);
   }
 
+  static const _tokenRetryAttempts = 3;
+  static const _tokenRetryDelay = Duration(seconds: 1);
+
   Future<void> _cacheToken(fb.User user) async {
-    final token = await user.getIdToken();
-    if (token != null) {
-      await _storage.write(key: 'firebase_id_token', value: token);
-      final expiry = DateTime.now().millisecondsSinceEpoch + 3600000;
-      await _storage.write(key: 'firebase_id_token_expiry', value: expiry.toString());
+    for (var attempt = 0; attempt < _tokenRetryAttempts; attempt++) {
+      try {
+        final token = await user.getIdToken(attempt > 0);
+        if (token != null) {
+          await _storage.write(key: 'firebase_id_token', value: token);
+          final expiry = DateTime.now().millisecondsSinceEpoch + 3600000;
+          await _storage.write(key: 'firebase_id_token_expiry', value: expiry.toString());
+        }
+        return;
+      } on fb.FirebaseAuthException catch (e) {
+        if (e.code != 'network-request-failed') rethrow;
+        if (attempt == _tokenRetryAttempts - 1) return; // Don't crash; use stale token if any
+        await Future<void>.delayed(_tokenRetryDelay);
+      }
     }
   }
 

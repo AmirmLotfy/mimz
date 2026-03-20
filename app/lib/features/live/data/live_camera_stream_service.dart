@@ -116,11 +116,15 @@ class LiveCameraStreamService {
     return rawBytes;
   }
 
-  /// Release camera resources.
+  /// Release camera resources in order to avoid BufferQueue/ImageReader warnings.
+  /// Call this when leaving the camera screen so no new frames are requested,
+  /// then release the controller.
   void dispose() {
     _isDisposed = true;
     stopPeriodicCapture();
     _frameController.close();
-    _controller?.dispose();
+    final c = _controller;
+    _controller = null;
+    c?.dispose();
   }
 }

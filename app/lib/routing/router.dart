@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/splash_screen.dart';
@@ -13,6 +14,7 @@ import '../features/onboarding/presentation/live_onboarding_screen.dart';
 import '../features/onboarding/presentation/onboarding_summary_screen.dart';
 import '../features/onboarding/presentation/emblem_selection_screen.dart';
 import '../features/onboarding/presentation/district_naming_screen.dart';
+import '../features/onboarding/presentation/district_reveal_screen.dart';
 import '../features/onboarding/presentation/basic_profile_setup_screen.dart';
 import '../features/onboarding/presentation/interest_selection_screen.dart';
 import '../features/onboarding/presentation/gameplay_preferences_screen.dart';
@@ -40,6 +42,7 @@ import '../features/settings/presentation/help_support_screen.dart';
 import '../features/settings/presentation/feedback_screen.dart';
 import '../features/notifications/presentation/notification_inbox_screen.dart';
 import '../features/district/presentation/district_detail_screen.dart';
+import '../features/profile/presentation/player_search_screen.dart';
 import 'app_shell.dart';
 
 // Protected routes that require authentication
@@ -53,7 +56,6 @@ const _protectedRoutePrefixes = [
   '/settings',
   '/leaderboard',
   '/district/detail',
-  '/district/share',
 ];
 
 // Public routes that don't require authentication
@@ -65,6 +67,7 @@ const _publicRoutePrefixes = [
   '/onboarding',
   '/district/emblem',
   '/district/name',
+  '/district/reveal',
 ];
 
 /// Holds a reference to the app's ProviderContainer so the router's
@@ -75,14 +78,19 @@ void setRouterRef(ProviderContainer container) => _routerRef = container;
 
 
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouter = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/splash',
   redirect: (context, state) {
     final container = _routerRef;
     if (container == null) return null;
 
     final isAuthenticated = container.read(isAuthenticatedProvider);
-    final isOnboarded = container.read(isOnboardedProvider).valueOrNull ?? false;
+    final currentUser = container.read(currentUserProvider);
+    final onboardedAsync = container.read(isOnboardedProvider);
+    final isOnboarded = onboardedAsync.valueOrNull;
     final location = state.matchedLocation;
 
     final isProtected = _protectedRoutePrefixes.any((p) => location.startsWith(p));
@@ -98,15 +106,27 @@ final appRouter = GoRouter(
       return null;
     }
 
-    // 2. Authenticated but NOT onboarded
-    if (!isOnboarded) {
-      // If trying to access the main app before onboarding, force them to permissions
-      if (isProtected) return '/permissions';
+    // 2. Authenticated but bootstrap unresolved/error:
+    // always route through splash, which owns deterministic retry/signout decisions.
+    if (!currentUser.hasValue) {
+      if (!isSplash) return '/splash';
       return null;
     }
 
-    // 3. Authenticated AND onboarded
-    if (isOnboarded) {
+    // 3. Authenticated but onboarding gate unresolved — keep in splash until known.
+    if (isOnboarded == null) {
+      if (!isSplash) return '/splash';
+      return null;
+    }
+
+    // 4. Authenticated but NOT onboarded
+    if (isOnboarded == false) {
+      if (isProtected) return '/onboarding/profile-setup';
+      return null;
+    }
+
+    // 5. Authenticated AND onboarded
+    if (isOnboarded == true) {
       // If fully onboarded, do not allow re-entry into auth or onboarding screens
       if (isPublic) return '/world';
     }
@@ -166,6 +186,10 @@ final appRouter = GoRouter(
       builder: (context, state) => const DistrictNamingScreen(),
     ),
     GoRoute(
+      path: '/district/reveal',
+      builder: (context, state) => const DistrictRevealScreen(),
+    ),
+    GoRoute(
       path: '/onboarding/profile-setup',
       builder: (context, state) => const BasicProfileSetupScreen(),
     ),
@@ -215,6 +239,23 @@ final appRouter = GoRouter(
       builder: (context, state) => const RoundResultScreen(),
     ),
     GoRoute(
+      path: '/play/sprint',
+      builder: (context, state) => const LiveQuizScreen(sprintMode: true),
+    ),
+    GoRoute(
+      path: '/play/sprint/result',
+      builder: (context, state) => const RoundResultScreen(),
+    ),
+    GoRoute(
+      path: '/play/event/:eventId',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        final eventTitle =
+            state.uri.queryParameters['title'] ?? 'Event Challenge';
+        return LiveQuizScreen(eventId: eventId, eventTitle: eventTitle);
+      },
+    ),
+    GoRoute(
       path: '/play/vision',
       builder: (context, state) => const VisionQuestCameraScreen(),
     ),
@@ -259,6 +300,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationInboxScreen(),
+    ),
+    GoRoute(
+      path: '/social/discover',
+      builder: (context, state) => const PlayerSearchScreen(),
     ),
     GoRoute(
       path: '/leaderboard',

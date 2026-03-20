@@ -1,7 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../core/providers.dart';
-import '../../../services/api_client.dart';
+import '../../auth/providers/auth_provider.dart';
 
 import '../domain/live_session_state.dart';
 import '../domain/live_event.dart';
@@ -66,13 +67,31 @@ final liveMockAdapterProvider = Provider<LiveMockAdapter>((ref) {
 });
 
 final liveSessionLoggerProvider = Provider<LiveSessionLogger>((ref) {
-  return LiveSessionLogger();
+  return LiveSessionLogger(
+    apiClient: ref.watch(apiClientProvider),
+  );
 });
 
 // ─── Session Controller ───────────────────────────
 
 final liveSessionControllerProvider = Provider<LiveSessionController>((ref) {
-  const useMock = bool.fromEnvironment('USE_MOCK_LIVE', defaultValue: false);
+  const fromEnv = bool.fromEnvironment('USE_MOCK_LIVE', defaultValue: false);
+  // Release builds must never use mock live; ignore dart-define in release.
+  final useMock = kReleaseMode ? false : fromEnv;
+
+  String? authPreconditionError() {
+    if (!ref.read(isAuthenticatedProvider)) {
+      return 'Sign in to use Live.';
+    }
+    final userAsync = ref.read(currentUserProvider);
+    if (userAsync.hasError) {
+      return 'Could not load your profile. Sign in again or check your connection.';
+    }
+    if (userAsync.isLoading || userAsync.valueOrNull == null) {
+      return 'Loading your profile…';
+    }
+    return null;
+  }
 
   final controller = LiveSessionController(
     ws: ref.watch(liveWsClientProvider),
@@ -84,6 +103,7 @@ final liveSessionControllerProvider = Provider<LiveSessionController>((ref) {
     logger: ref.watch(liveSessionLoggerProvider),
     mockAdapter: ref.watch(liveMockAdapterProvider),
     useMock: useMock,
+    authPreconditionError: authPreconditionError,
   );
 
   ref.onDispose(controller.disposeSession);

@@ -89,7 +89,7 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
                 ),
                 const SizedBox(height: MimzSpacing.sm),
                 DropdownButtonFormField<String>(
-                  initialValue: _category,
+                  value: _category,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                   ),

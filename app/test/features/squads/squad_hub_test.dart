@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mocktail/mocktail.dart';
 
 import 'package:mimz_app/features/squads/presentation/squad_hub_screen.dart';
 import 'package:mimz_app/features/events/presentation/events_screen.dart';
@@ -9,9 +7,7 @@ import 'package:mimz_app/features/squads/providers/squad_provider.dart';
 import 'package:mimz_app/features/events/providers/events_provider.dart';
 import 'package:mimz_app/services/settings_service.dart';
 import 'package:mimz_app/services/api_client.dart';
-import 'package:mimz_app/core/providers.dart';
 import 'package:mimz_app/data/models/user.dart';
-import 'package:mimz_app/services/auth_service.dart';
 
 import '../../test_helpers/test_app_wrapper.dart';
 import '../../test_helpers/provider_overrides.dart';
@@ -31,6 +27,33 @@ class FakeSettingsService extends Fake implements SettingsService {
 
 // Use a Fake for ApiClient to avoid flaky mocktail stubs for concrete classes
 class FakeApiClient extends Fake implements ApiClient {
+  @override
+  Future<Map<String, dynamic>> getGameState() async => {
+        'user': MimzUser.demo.toJson(),
+        'district': {
+          'id': 'district_demo',
+          'ownerId': MimzUser.demo.id,
+          'name': 'Verdant Reach',
+          'sectors': 7,
+          'area': '7.7 sq km',
+          'structures': const [],
+          'resources': {'stone': 50, 'glass': 20, 'wood': 40},
+          'prestigeLevel': 2,
+          'influence': 120,
+          'influenceThreshold': 500,
+          'cells': const [],
+          'createdAt': DateTime.now().toIso8601String(),
+        },
+        'currentMission': 'Build your district',
+        'eventZones': const [],
+        'streakState': const {'liveStreak': 0, 'dailyStreak': 0, 'bestStreak': 0},
+        'structureEffects': const {},
+        'structureProgress': const {'unlockedCount': 0, 'totalAvailable': 5, 'readyToBuild': false},
+        'notifications': const [],
+        'leaderboardSnippets': const [],
+        'activeConflicts': const [],
+      };
+
   @override
   Future<Map<String, dynamic>> getEvents() async => {'events': []};
   @override
@@ -57,7 +80,7 @@ void main() {
           ),
           squadMissionsProvider.overrideWithValue([]),
           squadMembersProvider.overrideWithValue([]),
-          eventsProvider.overrideWithValue([]),
+          eventsProvider.overrideWith((ref) async => []),
         ],
         child: const SquadHubScreen(),
       ),
@@ -66,8 +89,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Initial buttons
-    expect(find.text('CREATE SQUAD'), findsOneWidget);
-    expect(find.text('JOIN SQUAD'), findsOneWidget);
+    expect(find.text('CREATE'), findsOneWidget);
+    expect(find.text('JOIN'), findsOneWidget);
 
     // Empty state text
     expect(find.text('No active missions'), findsOneWidget);
@@ -87,7 +110,7 @@ void main() {
             authService: mockAuthService,
             settingsService: FakeSettingsService(),
           ),
-          eventsProvider.overrideWithValue([]),
+          eventsProvider.overrideWith((ref) async => []),
         ],
         child: const EventsScreen(),
       ),

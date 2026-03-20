@@ -30,22 +30,30 @@ class LiveWebSocketClient {
   /// Open a WebSocket connection to the Gemini Live API.
   Future<void> connect({
     required String token,
+    required String authType,
     required String model,
     required String systemInstruction,
     required String voiceName,
     required List<String> responseModalities,
     required List<Map<String, dynamic>> tools,
-    Duration connectTimeout = const Duration(seconds: 10),
+    String? websocketUrl,
+    Duration connectTimeout = const Duration(seconds: 15),
   }) async {
     await disconnect(); // Clean up any existing connection
 
-    final url =
+    const defaultUrl =
         'wss://generativelanguage.googleapis.com/ws/'
-        'google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent'
-        '?key=$token';
+        'google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+    final baseUrl = websocketUrl ?? defaultUrl;
+    final url = authType == 'api_key' ? '$baseUrl?key=$token' : baseUrl;
 
     try {
-      _socket = await WebSocket.connect(url).timeout(
+      _socket = await WebSocket.connect(
+        url,
+        headers: authType == 'bearer'
+            ? <String, dynamic>{'Authorization': 'Bearer $token'}
+            : null,
+      ).timeout(
         connectTimeout,
         onTimeout: () {
           throw TimeoutException('WebSocket connect timeout', connectTimeout);
@@ -80,9 +88,33 @@ class LiveWebSocketClient {
       )));
       rethrow;
     } on WebSocketException catch (e) {
+      final lowered = e.message.toLowerCase();
+      final isConfigOrAuthError =
+          lowered.contains('http status code: 400') ||
+          lowered.contains('http status code: 401') ||
+          lowered.contains('http status code: 403') ||
+          lowered.contains('http status code: 404') ||
+          lowered.contains('permission') ||
+          lowered.contains('unauth') ||
+          lowered.contains('model') ||
+          lowered.contains('not found');
+      _eventController.add(SessionError(LiveError(
+        code: isConfigOrAuthError
+            ? LiveErrorCode.modelUnavailable
+            : LiveErrorCode.wsConnectFailed,
+        message: isConfigOrAuthError
+            ? 'Live service configuration is unavailable right now. Please try again shortly.'
+            : 'WebSocket connection failed',
+        detail: e.message,
+        recovery: isConfigOrAuthError
+            ? LiveErrorRecovery.fatal
+            : LiveErrorRecovery.retry,
+      )));
+      rethrow;
+    } on SocketException catch (e) {
       _eventController.add(SessionError(LiveError(
         code: LiveErrorCode.wsConnectFailed,
-        message: 'WebSocket connection failed',
+        message: 'Network connection error',
         detail: e.message,
         recovery: LiveErrorRecovery.retry,
       )));
@@ -117,28 +149,52 @@ class LiveWebSocketClient {
     _socket!.add(_codec.encodeToolResponse(callId, toolName, result));
   }
 
-  /// Set inactivity timeout. Fires [SessionWarning] when exceeded.
+  /// Send an empty turn to kickstart the model.
+  ///
+  /// The Gemini Live native-audio model won't speak unprompted after setupComplete.
+  /// Sending a client_content with turn_complete: true (but no parts) acts as a
+  /// "user is ready, please start" signal that satisfies the model's turn-taking
+  /// requirement so it generates its opening response.
+  void sendKickstart() {
+    if (!_isConnected || _socket == null) return;
+    _socket!.add(_codec.encodeKickstart());
+  }
+
+  static const _inactivityGracePeriod = Duration(seconds: 30);
+
+  /// Set inactivity timeout. Fires [SessionWarning] first, then
+  /// [SessionClosed] after a 30s grace period if no activity resumes.
   void setInactivityTimeout(Duration timeout) {
     _inactivityTimeout = timeout;
     _inactivityTimer?.cancel();
+    _inactivityCloseTimer?.cancel();
     _inactivityTimer = Timer(timeout, () {
-      _eventController.add(const SessionWarning('Session inactive — will close soon'));
+      _eventController.add(const SessionWarning('Session inactive — closing in 30s'));
+      _inactivityCloseTimer = Timer(_inactivityGracePeriod, () {
+        _eventController.add(const SessionClosed(reason: 'Inactivity timeout'));
+      });
     });
   }
 
   Duration? _inactivityTimeout;
+  Timer? _inactivityCloseTimer;
 
   void _resetInactivityTimer() {
     if (_inactivityTimeout == null) return;
     _inactivityTimer?.cancel();
+    _inactivityCloseTimer?.cancel();
     _inactivityTimer = Timer(_inactivityTimeout!, () {
-      _eventController.add(const SessionWarning('Session inactive — will close soon'));
+      _eventController.add(const SessionWarning('Session inactive — closing in 30s'));
+      _inactivityCloseTimer = Timer(_inactivityGracePeriod, () {
+        _eventController.add(const SessionClosed(reason: 'Inactivity timeout'));
+      });
     });
   }
 
   /// Close the WebSocket connection.
   Future<void> disconnect() async {
     _inactivityTimer?.cancel();
+    _inactivityCloseTimer?.cancel();
     _isConnected = false;
     await _subscription?.cancel();
     _subscription = null;
@@ -156,11 +212,16 @@ class LiveWebSocketClient {
   }
 
   void _onError(dynamic error) {
+    final message = error.toString();
+    final isAuthOrPolicy = message.contains('401') ||
+        message.contains('403') ||
+        message.toLowerCase().contains('policy') ||
+        message.toLowerCase().contains('authentication');
     _eventController.add(SessionError(LiveError(
       code: LiveErrorCode.wsUnexpectedClose,
-      message: 'WebSocket error',
-      detail: error.toString(),
-      recovery: LiveErrorRecovery.reconnect,
+      message: isAuthOrPolicy ? 'Connection was rejected by server' : 'WebSocket error',
+      detail: message,
+      recovery: isAuthOrPolicy ? LiveErrorRecovery.fatal : LiveErrorRecovery.reconnect,
     )));
   }
 
@@ -172,11 +233,13 @@ class LiveWebSocketClient {
     if (code == WebSocketStatus.normalClosure) {
       _eventController.add(SessionClosed(closeCode: code, reason: reason));
     } else {
+      // Don't reconnect on auth/policy errors — would loop. Reconnect only for transient drops.
+      final isPolicyOrAuth = code == 1008 /* policy */ || code == 1002 /* protocol */ || code == 1003 /* unsupported */;
       _eventController.add(SessionError(LiveError(
         code: LiveErrorCode.wsUnexpectedClose,
-        message: 'Connection closed unexpectedly',
+        message: isPolicyOrAuth ? 'Connection was rejected. Check your session and try again.' : 'Connection closed unexpectedly',
         detail: 'Code: $code, Reason: $reason',
-        recovery: LiveErrorRecovery.reconnect,
+        recovery: isPolicyOrAuth ? LiveErrorRecovery.fatal : LiveErrorRecovery.reconnect,
       )));
     }
   }

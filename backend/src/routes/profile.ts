@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import * as game from '../services/gameService.js';
-import { ProfilePatchSchema } from '../models/types.js';
+import { ProfilePatchSchema, ACHIEVEMENT_CATALOG } from '../models/types.js';
+import * as db from '../lib/db.js';
 
 export async function profileRoutes(server: FastifyInstance) {
   // GET /profile — Get current user profile
@@ -13,6 +14,26 @@ export async function profileRoutes(server: FastifyInstance) {
     }
 
     return { user };
+  });
+
+  // GET /profile/search — Search players by display name
+  server.get('/search', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { q } = request.query as { q?: string };
+    if (!q || q.trim().length < 2) {
+      return { results: [] };
+    }
+    const results = await db.searchUsers(q.trim());
+    return { results };
+  });
+
+  // GET /profile/badges — Get user's achievements
+  server.get('/badges', async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.userId!;
+    const badges = await db.getUserBadges(userId);
+    return {
+      badges,
+      catalog: ACHIEVEMENT_CATALOG,
+    };
   });
 
   // PATCH /profile — Update profile fields

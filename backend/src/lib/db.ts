@@ -8,6 +8,11 @@ import type { User, District, RewardGrant, RoundSession, AuditLog, Squad, MimzEv
  * All database reads/writes go through this module.
  */
 
+function isFailedPreconditionError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes('FAILED_PRECONDITION');
+}
+
 // ─── Users ───────────────────────────────────────────────
 
 export async function getUser(userId: string): Promise<User | null> {
@@ -27,6 +32,29 @@ export async function updateUser(userId: string, updates: Partial<User>): Promis
   });
 }
 
+export async function searchUsers(query: string, limit = 15): Promise<Partial<User>[]> {
+  const q = query.toLowerCase();
+  const snap = await getDb().collection('users')
+    .orderBy('displayNameLower')
+    .startAt(q)
+    .endAt(q + '\uf8ff')
+    .limit(limit)
+    .get();
+
+  return snap.docs.map(d => {
+    const u = d.data() as User;
+    return {
+      id: u.id,
+      displayName: u.displayName,
+      xp: u.xp,
+      emblemId: u.emblemId,
+      districtName: u.districtName,
+      streak: u.streak,
+      bestStreak: u.bestStreak,
+    };
+  });
+}
+
 export async function incrementUserXp(userId: string, amount: number): Promise<void> {
   await getDb().collection('users').doc(userId).update({
     xp: FieldValue.increment(amount),
@@ -42,9 +70,56 @@ export async function updateUserStreak(userId: string, streak: number, bestStrea
   });
 }
 
+/** Today in YYYY-MM-DD (UTC). */
+function todayUtc(): string {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+/** Yesterday in YYYY-MM-DD (UTC). */
+function yesterdayUtc(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Update daily streak when user has meaningful activity (e.g. round completed, territory gained).
+ * Call once per "play session" (e.g. after expandTerritory or end_round).
+ */
+export async function updateDailyStreak(userId: string): Promise<void> {
+  const today = todayUtc();
+  const yesterday = yesterdayUtc();
+  const user = await getUser(userId);
+  if (!user) return;
+  const last = (user as any).lastActivityDate as string | undefined;
+  const current = ((user as any).dailyStreak as number) ?? 0;
+  if (last === today) return; // Already counted today
+  const nextStreak = last === yesterday ? current + 1 : 1;
+  await getDb().collection('users').doc(userId).update({
+    lastActivityDate: today,
+    dailyStreak: nextStreak,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 export async function incrementUserSectors(userId: string, sectors: number): Promise<void> {
   await getDb().collection('users').doc(userId).update({
     sectors: FieldValue.increment(sectors),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function incrementUserInfluence(userId: string, amount: number): Promise<void> {
+  await getDb().collection('users').doc(userId).update({
+    influence: FieldValue.increment(amount),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function incrementDistrictInfluence(districtId: string, amount: number): Promise<void> {
+  await getDb().collection('districts').doc(districtId).update({
+    influence: FieldValue.increment(amount),
     updatedAt: new Date().toISOString(),
   });
 }
@@ -114,18 +189,29 @@ export async function createRound(round: RoundSession): Promise<RoundSession> {
   return round;
 }
 
+export async function getRound(roundId: string): Promise<RoundSession | null> {
+  const doc = await getDb().collection('liveSessions').doc(roundId).get();
+  return doc.exists ? (doc.data() as RoundSession) : null;
+}
+
 export async function updateRound(roundId: string, updates: Partial<RoundSession>): Promise<void> {
   await getDb().collection('liveSessions').doc(roundId).update(updates);
 }
 
 export async function getActiveRound(userId: string): Promise<RoundSession | null> {
+  // Avoid composite-index dependencies in the hot live grading path.
+  // We fetch a small recent window for the user, sort client-side, then
+  // return the newest active round so grading can proceed immediately even
+  // if Firestore indexes are still building.
   const snap = await getDb().collection('liveSessions')
     .where('userId', '==', userId)
-    .where('status', '==', 'active')
-    .orderBy('startedAt', 'desc')
-    .limit(1)
+    .limit(20)
     .get();
-  return snap.empty ? null : (snap.docs[0].data() as RoundSession);
+  if (snap.empty) return null;
+  const rounds = snap.docs
+    .map((doc) => doc.data() as RoundSession)
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  return rounds.find((round) => round.status === 'active') ?? null;
 }
 
 // ─── Vision Quests ───────────────────────────────────────
@@ -153,6 +239,15 @@ export async function updateVisionQuest(
   });
 }
 
+export async function getUserVisionQuests(userId: string, limit = 20): Promise<any[]> {
+  const snap = await getDb().collection('visionQuests')
+    .where('userId', '==', userId)
+    .orderBy('startedAt', 'desc')
+    .limit(limit)
+    .get();
+  return snap.docs.map(d => d.data());
+}
+
 // ─── Squads ──────────────────────────────────────────────
 
 export async function getSquad(squadId: string): Promise<Squad | null> {
@@ -173,24 +268,52 @@ export async function createSquad(squad: Squad): Promise<Squad> {
   return squad;
 }
 
-export async function addSquadMember(squadId: string, member: any): Promise<void> {
-  await getDb().collection('squads').doc(squadId).collection('members').doc(member.userId).set(member);
-  await getDb().collection('squads').doc(squadId).update({
-    memberCount: FieldValue.increment(1),
+export async function addSquadMember(squadId: string, member: any): Promise<boolean> {
+  const squadRef = getDb().collection('squads').doc(squadId);
+  const memberRef = squadRef.collection('members').doc(member.userId);
+  return getDb().runTransaction(async (tx) => {
+    const existing = await tx.get(memberRef);
+    if (existing.exists) {
+      tx.set(memberRef, member, { merge: true });
+      return false;
+    }
+    tx.set(memberRef, member);
+    tx.update(squadRef, {
+      memberCount: FieldValue.increment(1),
+    });
+    return true;
   });
 }
 
 export async function getSquadIdForUser(userId: string): Promise<string | null> {
-  const snap = await getDb().collectionGroup('members')
-    .where('userId', '==', userId)
-    .limit(1)
-    .get();
-  if (snap.empty) return null;
-  return snap.docs[0].ref.parent.parent?.id || null;
+  const user = await getUser(userId);
+  const directSquadId = (user as any)?.squadId as string | undefined;
+  if (directSquadId) return directSquadId;
+
+  try {
+    const snap = await getDb().collectionGroup('members')
+      .where('userId', '==', userId)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    return snap.docs[0].ref.parent.parent?.id || null;
+  } catch (error) {
+    if (isFailedPreconditionError(error)) {
+      // Return null until the collection-group index is deployed, rather than
+      // failing unrelated app surfaces with a 500.
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function updateSquadMissionProgress(squadId: string, missionId: string, amount: number): Promise<void> {
-  await getDb().collection('squads').doc(squadId).collection('missions').doc(missionId).update({
+  const missionRef = getDb().collection('squads').doc(squadId).collection('missions').doc(missionId);
+  const mission = await missionRef.get();
+  if (!mission.exists) {
+    throw new Error('Mission not found');
+  }
+  await missionRef.update({
     currentProgress: FieldValue.increment(amount),
   });
 }
@@ -212,6 +335,33 @@ export async function addSquadMissionParticipant(
   }, { merge: true }); // merge so rejoining is idempotent
 }
 
+export async function getSquadMembers(squadId: string): Promise<any[]> {
+  const snap = await getDb().collection('squads').doc(squadId).collection('members')
+    .orderBy('rank', 'asc')
+    .get();
+  return snap.docs.map(d => d.data());
+}
+
+export async function getSquadMissions(squadId: string): Promise<any[]> {
+  const snap = await getDb().collection('squads').doc(squadId).collection('missions')
+    .orderBy('createdAt', 'desc')
+    .limit(20)
+    .get();
+  return snap.docs.map(d => d.data());
+}
+
+export async function createSquadMission(squadId: string, mission: {
+  id: string;
+  title: string;
+  description?: string;
+  goalProgress: number;
+  currentProgress: number;
+  createdAt: string;
+  deadline?: string;
+}): Promise<void> {
+  await getDb().collection('squads').doc(squadId).collection('missions').doc(mission.id).set(mission);
+}
+
 // ─── Events ──────────────────────────────────────────────
 
 export async function listEvents(): Promise<MimzEvent[]> {
@@ -227,15 +377,25 @@ export async function getEvent(eventId: string): Promise<MimzEvent | null> {
   return doc.exists ? (doc.data() as MimzEvent) : null;
 }
 
-export async function joinEvent(eventId: string, userId: string): Promise<void> {
-  await getDb().collection('events').doc(eventId).collection('participants').doc(userId).set({
-    userId,
-    eventId,
-    score: 0,
-    joinedAt: new Date().toISOString(),
-  });
-  await getDb().collection('events').doc(eventId).update({
-    participantCount: FieldValue.increment(1),
+export async function joinEvent(eventId: string, userId: string): Promise<boolean> {
+  const eventRef = getDb().collection('events').doc(eventId);
+  const participantRef = eventRef.collection('participants').doc(userId);
+  return getDb().runTransaction(async (tx) => {
+    const existing = await tx.get(participantRef);
+    if (existing.exists) {
+      tx.set(participantRef, { joinedAt: existing.data()?.joinedAt ?? new Date().toISOString() }, { merge: true });
+      return false;
+    }
+    tx.set(participantRef, {
+      userId,
+      eventId,
+      score: 0,
+      joinedAt: new Date().toISOString(),
+    });
+    tx.update(eventRef, {
+      participantCount: FieldValue.increment(1),
+    });
+    return true;
   });
 }
 
@@ -273,6 +433,15 @@ export async function getRewardsSince(userId: string, since: Date): Promise<Rewa
   return snap.docs.map(d => d.data() as RewardGrant);
 }
 
+export async function getUserRewards(userId: string, limit = 20): Promise<RewardGrant[]> {
+  const snap = await getDb().collection('rewards')
+    .where('userId', '==', userId)
+    .orderBy('grantedAt', 'desc')
+    .limit(limit)
+    .get();
+  return snap.docs.map(d => d.data() as RewardGrant);
+}
+
 // ─── Audit ───────────────────────────────────────────────
 
 export async function logAudit(entry: AuditLog): Promise<void> {
@@ -280,6 +449,38 @@ export async function logAudit(entry: AuditLog): Promise<void> {
 }
 
 // ─── Notifications ───────────────────────────────────────
+
+export async function createNotification(notification: {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  type: string;
+  createdAt: string;
+  read: boolean;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  await getDb().collection('notifications').doc(notification.id).set(notification);
+
+  try {
+    const tokens = await getDb().collection('deviceTokens')
+      .where('userId', '==', notification.userId)
+      .get();
+    if (!tokens.empty) {
+      const { getMessaging } = await import('firebase-admin/messaging');
+      const messaging = getMessaging();
+      const fcmTokens = tokens.docs.map(d => d.data().fcmToken);
+      await messaging.sendEachForMulticast({
+        tokens: fcmTokens,
+        notification: {
+          title: notification.title,
+          body: notification.body,
+        },
+        data: { type: notification.type, notificationId: notification.id },
+      }).catch(() => {});
+    }
+  } catch {}
+}
 
 export async function getUserNotifications(userId: string): Promise<any[]> {
   const snap = await getDb().collection('notifications')
@@ -319,6 +520,49 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
     });
   }
   await batch.commit();
+}
+
+// ─── Badges / Achievements ───────────────────────────
+
+export async function getUserBadges(userId: string): Promise<Array<{ achievementId: string; unlockedAt: string }>> {
+  const snap = await getDb().collection('users').doc(userId).collection('badges')
+    .orderBy('unlockedAt', 'desc')
+    .get();
+  return snap.docs.map(d => d.data() as { achievementId: string; unlockedAt: string });
+}
+
+export async function grantBadge(userId: string, achievementId: string): Promise<void> {
+  await getDb().collection('users').doc(userId).collection('badges').doc(achievementId).set({
+    achievementId,
+    unlockedAt: new Date().toISOString(),
+  });
+}
+
+// ─── Conflicts ───────────────────────────────────────
+
+export async function createConflict(conflict: Record<string, unknown>): Promise<void> {
+  await getDb().collection('conflicts').doc(conflict.id as string).set(conflict);
+}
+
+export async function updateConflict(conflictId: string, updates: Record<string, unknown>): Promise<void> {
+  await getDb().collection('conflicts').doc(conflictId).update({
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function getActiveConflicts(userId: string): Promise<any[]> {
+  const snap = await getDb().collection('conflicts')
+    .where('defenderId', '==', userId)
+    .where('status', '==', 'active')
+    .limit(10)
+    .get();
+  return snap.docs.map(d => d.data());
+}
+
+export async function getConflict(conflictId: string): Promise<Record<string, unknown> | null> {
+  const doc = await getDb().collection('conflicts').doc(conflictId).get();
+  return doc.exists ? (doc.data() as Record<string, unknown>) : null;
 }
 
 // ─── Feedback ────────────────────────────────────────────

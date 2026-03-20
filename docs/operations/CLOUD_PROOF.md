@@ -32,7 +32,7 @@ gcloud run deploy mimz-backend \
   --image gcr.io/$PROJECT_ID/mimz-backend \
   --region us-central1 \
   --platform managed \
-  --allow-unauthenticated \
+  --no-invoker-iam-check \
   --memory 512Mi \
   --set-env-vars="NODE_ENV=production,GCP_PROJECT_ID=$PROJECT_ID,GEMINI_API_KEY=YOUR_KEY"
 ```

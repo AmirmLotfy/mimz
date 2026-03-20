@@ -6,7 +6,12 @@ class MimzUser {
   final String handle;
   final String? email;
   final int xp;
+  final int influence;
   final int streak;
+  /// Consecutive days with at least one round/activity.
+  final int dailyStreak;
+  /// Last date (YYYY-MM-DD) the user had activity; used for streak nudge.
+  final String? lastActivityDate;
   final int sectors;
   final String districtName;
   final List<String> interests;
@@ -34,7 +39,10 @@ class MimzUser {
     required this.handle,
     this.email,
     this.xp = 0,
+    this.influence = 0,
     this.streak = 0,
+    this.dailyStreak = 0,
+    this.lastActivityDate,
     this.sectors = 0,
     this.districtName = '',
     this.interests = const [],
@@ -56,7 +64,10 @@ class MimzUser {
         handle: json['handle'] as String? ?? '@explorer',
         email: json['email'] as String?,
         xp: json['xp'] as int? ?? 0,
+        influence: json['influence'] as int? ?? 0,
         streak: json['streak'] as int? ?? 0,
+        dailyStreak: json['dailyStreak'] as int? ?? 0,
+        lastActivityDate: json['lastActivityDate'] as String?,
         sectors: json['sectors'] as int? ?? 0,
         districtName: json['districtName'] as String? ?? '',
         interests: (json['interests'] as List?)?.cast<String>() ?? [],
@@ -78,7 +89,10 @@ class MimzUser {
         'handle': handle,
         'email': email,
         'xp': xp,
+        'influence': influence,
         'streak': streak,
+        'dailyStreak': dailyStreak,
+        'lastActivityDate': lastActivityDate,
         'sectors': sectors,
         'districtName': districtName,
         'interests': interests,
@@ -99,7 +113,10 @@ class MimzUser {
     String? handle,
     Object? email = _unset,
     int? xp,
+    int? influence,
     int? streak,
+    int? dailyStreak,
+    Object? lastActivityDate = _unset,
     int? sectors,
     String? districtName,
     List<String>? interests,
@@ -119,7 +136,12 @@ class MimzUser {
         handle: handle ?? this.handle,
         email: identical(email, _unset) ? this.email : email as String?,
         xp: xp ?? this.xp,
+        influence: influence ?? this.influence,
         streak: streak ?? this.streak,
+        dailyStreak: dailyStreak ?? this.dailyStreak,
+        lastActivityDate: identical(lastActivityDate, _unset)
+            ? this.lastActivityDate
+            : lastActivityDate as String?,
         sectors: sectors ?? this.sectors,
         districtName: districtName ?? this.districtName,
         interests: interests ?? this.interests,
@@ -152,9 +174,11 @@ class MimzUser {
         id: 'demo_001',
         displayName: 'Explorer',
         handle: '@mimz_explorer',
-        email: 'user@mimz.app',
+        email: null,
         xp: 12450,
+        influence: 340,
         streak: 7,
+        dailyStreak: 3,
         sectors: 3,
         districtName: 'Verdant Reach',
         interests: ['Technology', 'Science', 'History', 'Architecture', 'Music', 'Design'],

@@ -7,6 +7,7 @@ import { authMiddleware } from './middleware/auth.js';
 import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './routes/auth.js';
 import { liveRoutes } from './routes/live.js';
+import { validateVertexLiveConfig } from './modules/live/liveService.js';
 import { profileRoutes } from './routes/profile.js';
 import { districtRoutes } from './routes/district.js';
 import { squadsRoutes } from './routes/squads.js';
@@ -17,6 +18,9 @@ import { notificationsRoutes } from './routes/notifications.js';
 import { interestsRoutes } from './routes/interests.js';
 import { questionsRoutes } from './routes/questions.js';
 import { feedbackRoutes } from './routes/feedback.js';
+import { missionsRoutes } from './routes/missions.js';
+import { gameStateRoutes } from './routes/gameState.js';
+import { roundsRoutes } from './routes/rounds.js';
 
 // ─── Initialize Firebase ──────────────────────────
 initFirebase();
@@ -61,12 +65,14 @@ export async function buildApp() {
 
   // ─── Request logging ─────────────────────────────
   server.addHook('onResponse', (request, reply, done) => {
+    const traceId = (request.headers['x-correlation-id'] as string | undefined)?.trim() || request.id;
     request.log.info({
       method: request.method,
       url: request.url,
       statusCode: reply.statusCode,
       responseTime: reply.elapsedTime,
       userId: request.userId,
+      traceId,
     }, 'request completed');
     done();
   });
@@ -103,6 +109,10 @@ export async function buildApp() {
   await server.register(feedbackRoutes, { prefix: '/feedback' });
   await server.register(interestsRoutes, { prefix: '/interests' });
   await server.register(questionsRoutes, { prefix: '' });
+  await server.register(missionsRoutes, { prefix: '/missions' });
+  await server.register(gameStateRoutes, { prefix: '' });
+  await server.register(roundsRoutes, { prefix: '' });
+  await server.register(leaderboardRoutes, { prefix: '/leaderboards' });
 
   return server;
 }
@@ -110,6 +120,15 @@ export async function buildApp() {
 // ─── Start ─────────────────────────────────────────
 async function start() {
   const server = await buildApp();
+  if (config.nodeEnv === 'production') {
+    try {
+      await validateVertexLiveConfig();
+      server.log.info('Vertex Live API config validated');
+    } catch (err) {
+      server.log.error({ err }, 'Vertex Live API config invalid; live sessions will fail');
+      process.exit(1);
+    }
+  }
   try {
     await server.listen({ port: config.port, host: '0.0.0.0' });
     server.log.info(`🚀 Mimz backend v1.0.0 listening on port ${config.port} [${config.nodeEnv}]`);

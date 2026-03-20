@@ -13,7 +13,8 @@ const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore, Timestamp } = require('firebase-admin/firestore');
 
 // Use Application Default Credentials (gcloud auth ADC)
-initializeApp({ projectId: 'mimzapp' });
+// Targets the new Mimz production project by default.
+initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID || 'mimz-490520' });
 
 const db = getFirestore();
 
@@ -27,49 +28,40 @@ async function seedEvents() {
 
   const events = [
     {
-      id: 'event_city_builders_cup',
-      title: 'City Builders Cup',
-      description: 'Compete to expand your district the most in 24 hours. Top 3 districts win bonus prestige.',
-      status: 'active',
-      category: 'competition',
-      participantCount: 247,
-      maxParticipants: 500,
-      startTime: Timestamp.fromDate(now),
-      endTime: Timestamp.fromDate(tomorrow),
-      rewardXp: 5000,
-      rewardMaterials: { stone: 200, glass: 100, wood: 150 },
-      coverImageUrl: null,
-      createdAt: Timestamp.fromDate(now),
-    },
-    {
-      id: 'event_urban_trivia_blitz',
-      title: 'Urban Trivia Blitz',
+      id: 'event_knowledge_rush',
+      title: 'Knowledge Rush',
       description: 'Live voice quiz on architecture, cities, and design. Answer 20 questions to win territory.',
-      status: 'active',
-      category: 'quiz',
+      type: 'quiz_challenge',
+      status: 'live',
+      startsAt: now.toISOString(),
+      endsAt: inOneHour.toISOString(),
       participantCount: 89,
       maxParticipants: 200,
-      startTime: Timestamp.fromDate(now),
-      endTime: Timestamp.fromDate(inOneHour),
-      rewardXp: 2500,
-      rewardMaterials: { stone: 100, glass: 50, wood: 75 },
-      coverImageUrl: null,
-      createdAt: Timestamp.fromDate(now),
+      createdAt: now.toISOString(),
     },
     {
-      id: 'event_vision_explorer_challenge',
-      title: 'Vision Explorer Challenge',
+      id: 'event_vision_masters',
+      title: 'Vision Masters',
       description: 'Point your camera at 5 different types of structures. Best capturer wins a Landmark unlock.',
+      type: 'vision_quest',
       status: 'upcoming',
-      category: 'vision',
+      startsAt: tomorrow.toISOString(),
+      endsAt: nextWeek.toISOString(),
       participantCount: 0,
       maxParticipants: 100,
-      startTime: Timestamp.fromDate(tomorrow),
-      endTime: Timestamp.fromDate(nextWeek),
-      rewardXp: 3500,
-      rewardMaterials: { stone: 150, glass: 80, wood: 120 },
-      coverImageUrl: null,
-      createdAt: Timestamp.fromDate(now),
+      createdAt: now.toISOString(),
+    },
+    {
+      id: 'event_squad_showdown',
+      title: 'Squad Showdown',
+      description: 'Compete squad-vs-squad to expand your district the most in 24 hours. Top 3 squads win bonus prestige.',
+      type: 'squad_battle',
+      status: 'upcoming',
+      startsAt: tomorrow.toISOString(),
+      endsAt: nextWeek.toISOString(),
+      participantCount: 0,
+      maxParticipants: 500,
+      createdAt: now.toISOString(),
     },
   ];
 
@@ -87,35 +79,46 @@ async function seedSquad() {
   const squad = {
     id: 'squad_verdant_alliance',
     name: 'Verdant Alliance',
-    description: 'A coalition of builders dedicated to green urban design. Join us to grow together.',
-    emblemId: 'leaf_circle',
+    joinCode: 'VERDNT',
+    leaderId: 'demo_member_1',
     memberCount: 12,
-    maxMembers: 20,
     totalXp: 48750,
-    rank: 3,
-    isPublic: true,
-    createdAt: Timestamp.fromDate(now),
-    missions: [
-      {
-        id: 'mission_green_builders_push',
-        title: 'Green Builders Push',
-        description: 'Collectively unlock 50 sectors this week',
-        currentProgress: 34,
-        targetProgress: 50,
-        rewardXp: 10000,
-        status: 'active',
-        endsAt: Timestamp.fromDate(new Date(now.getTime() + 5 * 86400000)),
-      },
-    ],
-    topMembers: [
-      { userId: 'demo_member_1', displayName: 'ArcticFox', districtName: 'Frostgate', xp: 12000 },
-      { userId: 'demo_member_2', displayName: 'UrbanDrift', districtName: 'Neonharbor', xp: 9500 },
-      { userId: 'demo_member_3', displayName: 'GlassScape', districtName: 'Luminary', xp: 7800 },
-    ],
+    createdAt: now.toISOString(),
   };
 
   await db.collection('squads').doc(squad.id).set(squad, { merge: true });
   console.log(`  ✅ Squad: ${squad.name}`);
+
+  // Seed missions as subcollection
+  const missions = [
+    {
+      id: 'mission_green_builders_push',
+      title: 'Green Builders Push',
+      description: 'Collectively unlock 50 sectors this week',
+      currentProgress: 34,
+      goalProgress: 50,
+      rewardXp: 10000,
+      deadline: new Date(now.getTime() + 5 * 86400000).toISOString(),
+      createdAt: now.toISOString(),
+    },
+  ];
+
+  for (const mission of missions) {
+    await db.collection('squads').doc(squad.id).collection('missions').doc(mission.id).set(mission, { merge: true });
+    console.log(`  ✅ Mission: ${mission.title}`);
+  }
+
+  // Seed demo members subcollection
+  const members = [
+    { userId: 'demo_member_1', displayName: 'ArcticFox', rank: 1, xpContributed: 12000, joinedAt: now.toISOString() },
+    { userId: 'demo_member_2', displayName: 'UrbanDrift', rank: 2, xpContributed: 9500, joinedAt: now.toISOString() },
+    { userId: 'demo_member_3', displayName: 'GlassScape', rank: 3, xpContributed: 7800, joinedAt: now.toISOString() },
+  ];
+
+  for (const member of members) {
+    await db.collection('squads').doc(squad.id).collection('members').doc(member.userId).set(member, { merge: true });
+    console.log(`  ✅ Member: ${member.displayName}`);
+  }
 }
 
 async function main() {

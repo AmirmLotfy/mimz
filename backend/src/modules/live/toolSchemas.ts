@@ -17,6 +17,8 @@ export const GetCurrentDistrictArgs = z.object({}).default({});
 export const StartLiveRoundArgs = z.object({
   topic: z.string().default('General'),
   difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
+  mode: z.enum(['quiz', 'sprint', 'event']).default('quiz'),
+  eventId: z.string().optional(),
 });
 export const GradeAnswerArgs = z.object({
   answer: z.string().min(1),
@@ -25,6 +27,12 @@ export const GradeAnswerArgs = z.object({
   isCorrect: z.boolean().optional(),
   pointsAwarded: z.number().int().min(0).optional(),
 });
+export const RequestRoundHintArgs = z.object({
+  roundId: z.string().optional(),
+}).default({});
+export const RequestRoundRepeatArgs = z.object({
+  roundId: z.string().optional(),
+}).default({});
 export const AwardTerritoryArgs = z.object({
   sectors: z.number().int().min(1).max(5).default(1),
 });
@@ -38,6 +46,7 @@ export const GrantMaterialsArgs = z.object({
   wood: z.number().int().min(0).max(500).default(0),
 });
 export const EndRoundArgs = z.object({
+  roundId: z.string().optional(),
   totalScore: z.number().int().min(0).optional(),
   questionsAnswered: z.number().int().min(0).optional(),
 });
@@ -74,6 +83,8 @@ export const TOOL_SCHEMAS: Record<string, z.ZodType> = {
   get_current_district: GetCurrentDistrictArgs,
   start_live_round: StartLiveRoundArgs,
   grade_answer: GradeAnswerArgs,
+  request_round_hint: RequestRoundHintArgs,
+  request_round_repeat: RequestRoundRepeatArgs,
   award_territory: AwardTerritoryArgs,
   apply_combo_bonus: ApplyComboBonusArgs,
   grant_materials: GrantMaterialsArgs,

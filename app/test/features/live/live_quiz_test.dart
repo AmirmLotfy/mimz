@@ -4,7 +4,6 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:mimz_app/features/live/presentation/live_quiz_screen.dart';
 import 'package:mimz_app/features/live/providers/live_providers.dart';
-import 'package:mimz_app/features/live/domain/live_session_state.dart';
 import '../../test_helpers/test_app_wrapper.dart';
 import '../../test_helpers/provider_overrides.dart';
 import '../../test_helpers/mocks.dart';
@@ -33,6 +32,9 @@ void main() {
     when(() => mockLiveController.startQuizSession()).thenAnswer((_) async {});
     when(() => mockLiveController.endSession()).thenAnswer((_) async {});
     when(() => mockLiveController.stateStream).thenAnswer((_) => const Stream.empty());
+    // UI reads these getters synchronously; default unstubbed mocktail values can be null.
+    when(() => mockLiveController.hintCount).thenReturn(0);
+    when(() => mockLiveController.repeatCount).thenReturn(0);
   });
 
   testWidgets('LiveQuizScreen renders waiting state initially', (WidgetTester tester) async {
@@ -51,7 +53,7 @@ void main() {
     );
 
     // Verify it renders and tries to show connection phase
-    expect(find.text('WAITING...'), findsOneWidget);
+    expect(find.text('Starting...'), findsOneWidget);
     
     // Test the disconnect button existence
     expect(find.byIcon(Icons.close), findsOneWidget);

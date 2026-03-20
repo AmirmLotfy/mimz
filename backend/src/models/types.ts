@@ -21,16 +21,48 @@ export type Tier = z.infer<typeof TierSchema>;
 export const VisibilitySchema = z.enum(['public', 'private', 'coarse']);
 export type Visibility = z.infer<typeof VisibilitySchema>;
 
+export const LeaderboardScopeSchema = z.enum([
+  'global',
+  'weekly',
+  'region',
+  'topic',
+  'squad',
+  'event',
+]);
+export type LeaderboardScope = z.infer<typeof LeaderboardScopeSchema>;
+
+export const RegionAnchorSchema = z.object({
+  regionId: z.string().default('global_central'),
+  label: z.string().default('Global District Grid'),
+  privacy: z.enum(['coarse']).default('coarse'),
+});
+export type RegionAnchor = z.infer<typeof RegionAnchorSchema>;
+
+export const TopicAffinitySchema = z.object({
+  topic: z.string(),
+  answered: z.number().int().min(0).default(0),
+  correct: z.number().int().min(0).default(0),
+  streak: z.number().int().min(0).default(0),
+  masteryScore: z.number().min(0).default(0),
+  winRate: z.number().min(0).max(1).default(0),
+  lastPlayedAt: TimestampSchema.optional(),
+});
+export type TopicAffinity = z.infer<typeof TopicAffinitySchema>;
+
 // ─── User ────────────────────────────────────────────────
 
 export const UserSchema = z.object({
   id: z.string(),
   displayName: z.string().min(1).max(30).default('Explorer'),
+  displayNameLower: z.string().optional(),
   handle: z.string().min(1).max(30).default('@explorer'),
   email: z.string().email().optional(),
   xp: z.number().int().min(0).default(0),
+  influence: z.number().int().min(0).default(0),
   streak: z.number().int().min(0).default(0),
   bestStreak: z.number().int().min(0).default(0),
+  dailyStreak: z.number().int().min(0).default(0),
+  lastActivityDate: z.string().optional(), // ISO date YYYY-MM-DD
   sectors: z.number().int().min(0).default(1),
   districtId: z.string().optional(),
   districtName: z.string().default('My District'),
@@ -38,6 +70,7 @@ export const UserSchema = z.object({
   // Account/Profile Media
   profileImageUrl: z.string().nullable().optional(),
   storagePath: z.string().nullable().optional(),
+  emblemId: z.string().nullable().optional(),
 
   // Personalization
   preferredName: z.string().nullable().optional(),
@@ -50,6 +83,8 @@ export const UserSchema = z.object({
   difficultyPreference: z.enum(['easy', 'dynamic', 'hard']).default('dynamic'),
   squadPreference: z.enum(['solo', 'social']).default('social'),
   voicePreference: z.string().nullable().optional(),
+
+  topicStats: z.record(TopicAffinitySchema).default({}),
 
   visibility: VisibilitySchema.default('coarse'),
   createdAt: TimestampSchema,
@@ -94,14 +129,35 @@ export const StructureSchema = z.object({
 });
 export type Structure = z.infer<typeof StructureSchema>;
 
+export const DistrictCellSchema = z.object({
+  id: z.string(),
+  q: z.number().int(),
+  r: z.number().int(),
+  layer: z.enum(['core', 'inner', 'frontier']).default('frontier'),
+  stability: z.number().min(0).max(100).default(50),
+  contested: z.boolean().default(false),
+  protectedUntil: TimestampSchema.optional(),
+  addedAt: TimestampSchema.optional(),
+});
+export type DistrictCell = z.infer<typeof DistrictCellSchema>;
+
 export const DistrictSchema = z.object({
   id: z.string(),
   ownerId: z.string(),
   name: z.string().min(1).max(50),
   sectors: z.number().int().min(0).default(1),
+  influence: z.number().int().min(0).default(0),
+  influenceThreshold: z.number().int().min(1).default(500),
   area: z.string().default('1.0 sq km'),
-  cells: z.array(z.string()).default([]),  // H3 cell IDs
-  anchorCell: z.string().optional(),       // coarse public anchor
+  cells: z.array(DistrictCellSchema).default([]),
+  anchorCell: z.string().optional(),
+  regionAnchor: RegionAnchorSchema.default({
+    regionId: 'global_central',
+    label: 'Global District Grid',
+    privacy: 'coarse',
+  }),
+  topicAffinities: z.array(TopicAffinitySchema).default([]),
+  decayState: z.enum(['stable', 'cooling', 'vulnerable', 'reclaimable']).default('stable'),
   structures: z.array(StructureSchema).default([]),
   resources: ResourcesSchema.default({ stone: 0, glass: 0, wood: 0 }),
   visibility: VisibilitySchema.default('coarse'),
@@ -116,7 +172,7 @@ export type District = z.infer<typeof DistrictSchema>;
 export const RewardGrantSchema = z.object({
   id: z.string(),
   userId: z.string(),
-  type: z.enum(['xp', 'territory', 'materials', 'structure', 'combo']),
+  type: z.enum(['xp', 'territory', 'materials', 'structure', 'combo', 'influence']),
   amount: z.number().int().min(0).default(0),
   detail: z.record(z.unknown()).default({}),
   source: z.string(),          // tool name or event
@@ -130,12 +186,20 @@ export type RewardGrant = z.infer<typeof RewardGrantSchema>;
 export const RoundSessionSchema = z.object({
   id: z.string(),
   userId: z.string(),
+  mode: z.enum(['quiz', 'sprint', 'event']).default('quiz'),
   topic: z.string().default('General'),
   difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
+  eventId: z.string().optional(),
+  questionIds: z.array(z.string()).default([]),
+  questionCount: z.number().int().min(1).default(5),
+  currentQuestionIndex: z.number().int().min(0).default(0),
+  hintCount: z.number().int().min(0).default(0),
+  repeatCount: z.number().int().min(0).default(0),
   questionsAsked: z.number().int().default(0),
   correctAnswers: z.number().int().default(0),
   totalScore: z.number().int().default(0),
   maxStreak: z.number().int().default(0),
+  roundComplete: z.boolean().default(false),
   status: z.enum(['active', 'completed', 'abandoned']).default('active'),
   startedAt: TimestampSchema,
   endedAt: TimestampSchema.optional(),
@@ -223,8 +287,101 @@ export const LeaderboardEntrySchema = z.object({
   score: z.number().int().default(0),
   rank: z.number().int().default(0),
   districtName: z.string().optional(),
+  regionId: z.string().optional(),
+  topic: z.string().optional(),
+  scope: LeaderboardScopeSchema.optional(),
 });
 export type LeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>;
+
+export const LeaderboardSummarySchema = z.object({
+  scope: LeaderboardScopeSchema,
+  title: z.string(),
+  entries: z.array(LeaderboardEntrySchema).default([]),
+});
+export type LeaderboardSummary = z.infer<typeof LeaderboardSummarySchema>;
+
+// ─── Achievements / Badges ───────────────────────────────
+
+export const AchievementSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  icon: z.string().default('star'),
+  category: z.enum(['streak', 'rounds', 'xp', 'territory', 'social', 'event', 'vision', 'special']),
+  rarity: z.enum(['common', 'rare', 'legendary']).default('common'),
+  requirement: z.number().int().min(1),
+  field: z.string(),
+});
+export type Achievement = z.infer<typeof AchievementSchema>;
+
+export const UserBadgeSchema = z.object({
+  achievementId: z.string(),
+  unlockedAt: TimestampSchema,
+});
+export type UserBadge = z.infer<typeof UserBadgeSchema>;
+
+export const ACHIEVEMENT_CATALOG: Achievement[] = [
+  { id: 'first_round', name: 'First Steps', description: 'Complete your first round', icon: 'play_circle', category: 'rounds', rarity: 'common', requirement: 1, field: 'roundsCompleted' },
+  { id: 'streak_3', name: 'Hat Trick', description: 'Get a 3-question streak', icon: 'local_fire_department', category: 'streak', rarity: 'common', requirement: 3, field: 'bestStreak' },
+  { id: 'streak_10', name: 'On Fire', description: 'Get a 10-question streak', icon: 'whatshot', category: 'streak', rarity: 'rare', requirement: 10, field: 'bestStreak' },
+  { id: 'streak_25', name: 'Unstoppable', description: 'Get a 25-question streak', icon: 'bolt', category: 'streak', rarity: 'legendary', requirement: 25, field: 'bestStreak' },
+  { id: 'xp_1000', name: 'Rising Star', description: 'Earn 1,000 XP', icon: 'star', category: 'xp', rarity: 'common', requirement: 1000, field: 'xp' },
+  { id: 'xp_10000', name: 'Knowledge Seeker', description: 'Earn 10,000 XP', icon: 'school', category: 'xp', rarity: 'rare', requirement: 10000, field: 'xp' },
+  { id: 'xp_50000', name: 'Grand Scholar', description: 'Earn 50,000 XP', icon: 'emoji_events', category: 'xp', rarity: 'legendary', requirement: 50000, field: 'xp' },
+  { id: 'territory_5', name: 'Settler', description: 'Expand to 5 sectors', icon: 'map', category: 'territory', rarity: 'common', requirement: 5, field: 'sectors' },
+  { id: 'territory_20', name: 'Expansionist', description: 'Expand to 20 sectors', icon: 'public', category: 'territory', rarity: 'rare', requirement: 20, field: 'sectors' },
+  { id: 'territory_50', name: 'Empire Builder', description: 'Expand to 50 sectors', icon: 'castle', category: 'territory', rarity: 'legendary', requirement: 50, field: 'sectors' },
+  { id: 'daily_7', name: 'Weekly Warrior', description: 'Play 7 days in a row', icon: 'calendar_month', category: 'streak', rarity: 'rare', requirement: 7, field: 'dailyStreak' },
+  { id: 'daily_30', name: 'Monthly Master', description: 'Play 30 days in a row', icon: 'military_tech', category: 'streak', rarity: 'legendary', requirement: 30, field: 'dailyStreak' },
+  { id: 'vision_1', name: 'First Discovery', description: 'Complete a vision quest', icon: 'visibility', category: 'vision', rarity: 'common', requirement: 1, field: 'visionQuestsCompleted' },
+  { id: 'squad_join', name: 'Team Player', description: 'Join a squad', icon: 'groups', category: 'social', rarity: 'common', requirement: 1, field: 'squadJoined' },
+  { id: 'event_win', name: 'Event Champion', description: 'Win an event challenge', icon: 'trophy', category: 'event', rarity: 'legendary', requirement: 1, field: 'eventsWon' },
+];
+
+// ─── Territory Conflict ──────────────────────────────────
+
+export const TerritoryConflictSchema = z.object({
+  id: z.string(),
+  type: z.enum(['event_zone', 'rivalry', 'inactivity_takeover']),
+  status: z.enum(['active', 'resolved', 'expired']).default('active'),
+  attackerId: z.string().optional(),
+  defenderId: z.string(),
+  eventId: z.string().optional(),
+  cellsAtStake: z.number().int().min(0).default(0),
+  cellsWon: z.number().int().min(0).default(0),
+  startedAt: TimestampSchema,
+  resolvedAt: TimestampSchema.optional(),
+});
+export type TerritoryConflict = z.infer<typeof TerritoryConflictSchema>;
+
+export const ConflictStateSchema = TerritoryConflictSchema.extend({
+  headline: z.string().optional(),
+  summary: z.string().optional(),
+  districtName: z.string().optional(),
+});
+export type ConflictState = z.infer<typeof ConflictStateSchema>;
+
+export const StructureEffectSchema = z.object({
+  xpMultiplier: z.number().default(1),
+  materialMultiplier: z.number().default(1),
+  influenceMultiplier: z.number().default(1),
+  decayReduction: z.number().default(0),
+  streakProtection: z.number().int().default(0),
+  squadMultiplier: z.number().default(1),
+});
+export type StructureEffect = z.infer<typeof StructureEffectSchema>;
+
+export const EventZoneSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  title: z.string(),
+  status: z.enum(['live', 'upcoming', 'completed']).default('upcoming'),
+  regionId: z.string().default('global_central'),
+  regionLabel: z.string().default('Global District Grid'),
+  districtEffect: z.string().default('Boost district influence in this zone.'),
+  rewardMultiplier: z.number().default(1),
+});
+export type EventZone = z.infer<typeof EventZoneSchema>;
 
 // ─── Audit Log ───────────────────────────────────────────
 
@@ -244,7 +401,8 @@ export type AuditLog = z.infer<typeof AuditLogSchema>;
 // ─── Live Session ────────────────────────────────────────
 
 export const LiveSessionTokenRequestSchema = z.object({
-  sessionType: z.enum(['onboarding', 'quiz', 'vision_quest']).default('quiz'),
+  sessionType: z.enum(['onboarding', 'quiz', 'sprint', 'vision_quest', 'event']).default('quiz'),
+  eventId: z.string().optional(),
 });
 export type LiveSessionTokenRequest = z.infer<typeof LiveSessionTokenRequestSchema>;
 
@@ -454,3 +612,98 @@ export const QuestionGenerationRequestSchema = z.object({
 });
 export type QuestionGenerationRequest = z.infer<typeof QuestionGenerationRequestSchema>;
 
+export const RoundStartRequestSchema = z.object({
+  mode: z.enum(['quiz', 'sprint', 'event']).default('quiz'),
+  topic: z.string().optional(),
+  difficulty: QuestionDifficultySchema.optional(),
+  eventId: z.string().optional(),
+});
+export type RoundStartRequest = z.infer<typeof RoundStartRequestSchema>;
+
+export const RoundQuestionSchema = ClientQuestionSchema;
+export type RoundQuestion = z.infer<typeof RoundQuestionSchema>;
+
+export const RoundDefinitionSchema = z.object({
+  roundId: z.string(),
+  mode: z.enum(['quiz', 'sprint', 'event']).default('quiz'),
+  topic: z.string(),
+  difficulty: QuestionDifficultySchema,
+  eventId: z.string().optional(),
+  questionCount: z.number().int().min(1),
+  currentQuestionIndex: z.number().int().min(0).default(0),
+  currentQuestion: RoundQuestionSchema.optional(),
+  questions: z.array(RoundQuestionSchema).default([]),
+  hintCount: z.number().int().min(0).default(0),
+  repeatCount: z.number().int().min(0).default(0),
+  isComplete: z.boolean().default(false),
+});
+export type RoundDefinition = z.infer<typeof RoundDefinitionSchema>;
+
+export const AnswerResultSchema = AnswerValidationResultSchema.extend({
+  roundId: z.string(),
+  questionId: z.string(),
+  topic: z.string(),
+  xpAwarded: z.number().int().default(0),
+  influenceGranted: z.number().int().default(0),
+  sectorsGained: z.number().int().default(0),
+  materialsEarned: ResourcesSchema.default({ stone: 0, glass: 0, wood: 0 }),
+  comboXp: z.number().int().default(0),
+  territoryExpanded: z.boolean().default(false),
+  nextQuestion: RoundQuestionSchema.optional(),
+  questionCount: z.number().int().min(1).default(5),
+  currentQuestionIndex: z.number().int().min(0).default(0),
+  roundComplete: z.boolean().default(false),
+});
+export type AnswerResult = z.infer<typeof AnswerResultSchema>;
+
+export const VisionQuestResultSchema = z.object({
+  questId: z.string(),
+  objectIdentified: z.string(),
+  confidence: z.number().min(0).max(1).default(0),
+  isValid: z.boolean().default(false),
+  xpAwarded: z.number().int().default(0),
+  influenceGranted: z.number().int().default(0),
+  structureUnlocked: z.string().optional(),
+  message: z.string().optional(),
+});
+export type VisionQuestResult = z.infer<typeof VisionQuestResultSchema>;
+
+export const StreakStateSchema = z.object({
+  liveStreak: z.number().int().min(0).default(0),
+  dailyStreak: z.number().int().min(0).default(0),
+  bestStreak: z.number().int().min(0).default(0),
+  lastActivityDate: z.string().optional(),
+});
+export type StreakState = z.infer<typeof StreakStateSchema>;
+
+export const StructureProgressSchema = z.object({
+  nextStructureId: z.string().optional(),
+  nextStructureName: z.string().optional(),
+  unlockedCount: z.number().int().min(0).default(0),
+  totalAvailable: z.number().int().min(0).default(0),
+  readyToBuild: z.boolean().default(false),
+});
+export type StructureProgress = z.infer<typeof StructureProgressSchema>;
+
+export const SquadSummarySchema = z.object({
+  squad: SquadSchema.nullable().optional(),
+  members: z.array(SquadMemberSchema).default([]),
+  missions: z.array(SquadMissionSchema).default([]),
+});
+export type SquadSummary = z.infer<typeof SquadSummarySchema>;
+
+export const GameStateSchema = z.object({
+  user: UserSchema,
+  district: DistrictSchema,
+  currentMission: z.string(),
+  activeEvent: EventSchema.nullable().optional(),
+  eventZones: z.array(EventZoneSchema).default([]),
+  squadSummary: SquadSummarySchema.optional(),
+  streakState: StreakStateSchema,
+  structureEffects: StructureEffectSchema,
+  structureProgress: StructureProgressSchema,
+  notifications: z.array(NotificationSchema).default([]),
+  leaderboardSnippets: z.array(LeaderboardSummarySchema).default([]),
+  activeConflicts: z.array(ConflictStateSchema).default([]),
+});
+export type GameState = z.infer<typeof GameStateSchema>;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../design_system/components/mimz_chip.dart';
@@ -62,14 +63,21 @@ class _OnboardingSummaryScreenState
 
     // Persist to backend
     try {
-      await ref.read(apiClientProvider).patch('/profile', payload);
+      await ref.read(apiClientProvider).dio.patch(
+            '/profile',
+            data: payload,
+            options: Options(
+              sendTimeout: const Duration(seconds: 8),
+              receiveTimeout: const Duration(seconds: 8),
+            ),
+          );
     } catch (_) {
       // Non-fatal — local state already updated
     }
 
     if (mounted) {
       setState(() => _isSaving = false);
-      context.go('/district/emblem');
+      context.go('/permissions');
     }
   }
 
@@ -221,7 +229,9 @@ class _OnboardingSummaryScreenState
             _InfoRow(
               icon: Icons.mail_outline,
               label: 'EMAIL',
-              value: user?.email ?? 'user@mimz.app',
+              value: (user?.email != null && user!.email!.isNotEmpty)
+                  ? user.email!
+                  : 'Not provided',
             ),
             const SizedBox(height: MimzSpacing.xxl),
 

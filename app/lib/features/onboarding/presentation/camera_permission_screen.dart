@@ -25,7 +25,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
   void _checkAndAdvance() async {
     await ref.read(permissionsProvider.notifier).refresh();
     if (mounted && ref.read(permissionsProvider).camera) {
-      context.go('/onboarding/profile-setup');
+      context.go('/permissions');
     }
   }
 
@@ -34,7 +34,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
     // Listen for changes and advance if granted
     ref.listen(permissionsProvider, (prev, next) {
       if (next.camera) {
-        context.go('/onboarding/profile-setup');
+        context.go('/permissions');
       }
     });
 
@@ -211,14 +211,14 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
                     ),
                   );
                 }
-                if (context.mounted) context.go('/onboarding/profile-setup');
+                if (context.mounted) context.go('/permissions');
               },
             ),
             const SizedBox(height: MimzSpacing.md),
             MimzButton(
               label: 'Maybe later',
               variant: MimzButtonVariant.ghost,
-              onPressed: () => context.go('/onboarding/profile-setup'),
+              onPressed: () => context.go('/permissions'),
             ),
             const SizedBox(height: MimzSpacing.base),
           ],

@@ -20,6 +20,9 @@ val hasReleaseKeystore = keystorePropertiesFile.exists() &&
     keystoreProperties["keyAlias"] != null &&
     keystoreProperties["storePassword"] != null &&
     keystoreProperties["keyPassword"] != null
+val allowDebugSigningInRelease =
+    (project.findProperty("ALLOW_DEBUG_SIGNING_IN_RELEASE") as String?)?.toBooleanStrictOrNull()
+        ?: (System.getenv("ALLOW_DEBUG_SIGNING_IN_RELEASE")?.toBooleanStrictOrNull() ?: false)
 
 val mapsApiKey =
     (project.findProperty("MAPS_API_KEY") as String?) ?:
@@ -27,7 +30,7 @@ val mapsApiKey =
     ""
 
 android {
-    namespace = "com.mimz.mimz_app"
+    namespace = "com.mimz.mimz_mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -42,7 +45,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.mimz.mimz_app"
+        applicationId = "com.mimz.mimz_mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -75,6 +78,19 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    // Enforce keystore for release builds at task execution time (not configuration time),
+    // so debug builds are never blocked.
+    gradle.taskGraph.whenReady {
+        if (hasTask(":app:assembleRelease") || hasTask(":app:bundleRelease")) {
+            if (!hasReleaseKeystore && !allowDebugSigningInRelease) {
+                throw GradleException(
+                    "Release keystore is missing. Provide android/key.properties or set " +
+                        "ALLOW_DEBUG_SIGNING_IN_RELEASE=true for local-only testing."
+                )
+            }
         }
     }
 }

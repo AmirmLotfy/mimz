@@ -6,8 +6,20 @@ import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/world_provider.dart';
+import '../providers/game_state_provider.dart';
+import '../../../core/providers.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/squads/providers/squad_provider.dart';
+
+const _structureCatalog = [
+  (name: 'Library', sectorsNeeded: 5, xpNeeded: 500),
+  (name: 'Observatory', sectorsNeeded: 10, xpNeeded: 1500),
+  (name: 'Archive', sectorsNeeded: 15, xpNeeded: 3000),
+  (name: 'Market Hall', sectorsNeeded: 20, xpNeeded: 5000),
+  (name: 'Maker Hub', sectorsNeeded: 30, xpNeeded: 8000),
+  (name: 'Grand Arena', sectorsNeeded: 40, xpNeeded: 12000),
+  (name: 'Innovation Lab', sectorsNeeded: 50, xpNeeded: 20000),
+];
 
 /// Screen 14 — World Expanded Sheet (DraggableScrollableSheet overlay)
 /// Shows district stats, current mission, district evolution, squad progress, and claim CTA
@@ -19,11 +31,30 @@ class WorldExpandedSheet extends ConsumerStatefulWidget {
 }
 
 class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
+  Future<void> _reclaimFrontier() async {
+    try {
+      await ref.read(apiClientProvider).reclaimFrontier();
+      await ref.read(districtProvider.notifier).refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Frontier stabilized. Your district is warming back up.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not reclaim frontier right now. Try again in a moment.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final district = ref.watch(districtProvider).valueOrNull;
     final user = ref.watch(currentUserProvider).valueOrNull;
-    final mission = ref.watch(currentMissionProvider);
+    final mission = ref.watch(currentMissionProvider).valueOrNull ?? 'Build your district';
+    final structureProgress = ref.watch(structureProgressProvider);
+    final structureEffects = ref.watch(structureEffectsProvider);
+    final activeConflicts = ref.watch(activeConflictsProvider);
     final squadMissions = ref.watch(squadMissionsProvider);
 
     final districtName = district?.name ?? user?.districtName ?? 'Mimz District';
@@ -43,10 +74,10 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
-      minChildSize: 0.12,
+      minChildSize: 0.18,
       maxChildSize: 0.92,
       snap: true,
-      snapSizes: const [0.12, 0.55, 0.92],
+      snapSizes: const [0.18, 0.55, 0.92],
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
@@ -79,6 +110,38 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                   ),
                 ),
               ),
+              const SizedBox(height: MimzSpacing.sm),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        districtName,
+                        style: MimzTypography.headlineSmall.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.heavyImpact();
+                        context.push('/play');
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: MimzColors.mossCore,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.play_arrow, color: MimzColors.white, size: 22),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: MimzSpacing.lg),
               // PLAY Button integrated into the sheet
               Padding(
@@ -92,7 +155,18 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                   variant: MimzButtonVariant.primary,
                 ),
               ),
-              const SizedBox(height: MimzSpacing.xl),
+              const SizedBox(height: MimzSpacing.md),
+              // Daily streak nudge when they have a streak and haven't played today
+              if (user != null && user.dailyStreak > 0) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                  child: _StreakNudge(
+                    dailyStreak: user.dailyStreak,
+                    lastActivityDate: user.lastActivityDate,
+                  ),
+                ),
+                const SizedBox(height: MimzSpacing.md),
+              ],
               // District header
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
@@ -224,6 +298,191 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
                   ],
                 ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
               ),
+              const SizedBox(height: MimzSpacing.lg),
+              if (district != null) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                  child: Wrap(
+                    spacing: MimzSpacing.md,
+                    runSpacing: MimzSpacing.md,
+                    children: [
+                      _StatChip(
+                        icon: Icons.hexagon_outlined,
+                        value: '${district.coreCount}/${district.innerCount}/${district.frontierCount}',
+                        label: 'CORE/INNER/EDGE',
+                        color: MimzColors.deepInk,
+                      ),
+                      _StatChip(
+                        icon: Icons.public,
+                        value: district.regionLabel,
+                        label: 'REGION',
+                        color: MimzColors.mistBlue,
+                      ),
+                      _StatChip(
+                        icon: Icons.thermostat,
+                        value: district.decayState.toUpperCase(),
+                        label: 'DECAY',
+                        color: district.decayState == 'stable'
+                            ? MimzColors.mossCore
+                            : MimzColors.persimmonHit,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: MimzSpacing.lg),
+              ],
+              if (structureProgress != null || activeConflicts.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                  child: Container(
+                    padding: const EdgeInsets.all(MimzSpacing.base),
+                    decoration: BoxDecoration(
+                      color: MimzColors.white,
+                      borderRadius: BorderRadius.circular(MimzRadius.lg),
+                      border: Border.all(color: MimzColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('District Outlook', style: MimzTypography.headlineSmall),
+                        const SizedBox(height: MimzSpacing.sm),
+                        if (structureProgress != null)
+                          Text(
+                            structureProgress.readyToBuild
+                                ? '${structureProgress.nextStructureName ?? 'Structure'} is ready to build.'
+                                : structureProgress.nextStructureName != null
+                                    ? 'Next structure: ${structureProgress.nextStructureName}. ${structureProgress.unlockedCount}/${structureProgress.totalAvailable} unlocked.'
+                                    : '${structureProgress.unlockedCount}/${structureProgress.totalAvailable} structures unlocked.',
+                            style: MimzTypography.bodySmall.copyWith(
+                              color: MimzColors.textSecondary,
+                            ),
+                          ),
+                        if (structureEffects != null) ...[
+                          const SizedBox(height: MimzSpacing.sm),
+                          Text(
+                            'Bonuses: x${structureEffects.xpMultiplier.toStringAsFixed(2)} XP • x${structureEffects.materialMultiplier.toStringAsFixed(2)} materials • x${structureEffects.influenceMultiplier.toStringAsFixed(2)} influence',
+                            style: MimzTypography.caption.copyWith(
+                              color: MimzColors.mossCore,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                        if (activeConflicts.isNotEmpty) ...[
+                          const SizedBox(height: MimzSpacing.sm),
+                          Text(
+                            '${activeConflicts.length} active frontier conflict${activeConflicts.length > 1 ? 's' : ''}.',
+                            style: MimzTypography.bodySmall.copyWith(
+                              color: MimzColors.persimmonHit,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: MimzSpacing.lg),
+              ],
+              // Influence meter
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                child: Container(
+                  padding: const EdgeInsets.all(MimzSpacing.base),
+                  decoration: BoxDecoration(
+                    color: MimzColors.white,
+                    borderRadius: BorderRadius.circular(MimzRadius.lg),
+                    border: Border.all(color: MimzColors.borderLight),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.bolt, size: 18, color: MimzColors.mistBlue),
+                              const SizedBox(width: MimzSpacing.sm),
+                              Text('Influence', style: MimzTypography.headlineSmall),
+                            ],
+                          ),
+                          Text(
+                            '${district?.influence ?? 0} / ${district?.influenceThreshold ?? 500}',
+                            style: MimzTypography.bodySmall.copyWith(
+                              color: MimzColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: MimzSpacing.md),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(MimzRadius.sm),
+                        child: LinearProgressIndicator(
+                          value: district?.influenceProgress ?? 0.0,
+                          backgroundColor: MimzColors.borderLight,
+                          color: MimzColors.mistBlue,
+                          minHeight: 8,
+                        ),
+                      ),
+                      const SizedBox(height: MimzSpacing.sm),
+                      Text(
+                        district != null && district.influenceProgress >= 1.0
+                            ? 'Ready to expand!'
+                            : '${((district?.influenceThreshold ?? 500) - (district?.influence ?? 0)).clamp(0, 99999)} more to next expansion',
+                        style: MimzTypography.bodySmall.copyWith(
+                          color: district != null && district.influenceProgress >= 1.0
+                              ? MimzColors.mossCore
+                              : MimzColors.textTertiary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate(delay: 180.ms).fadeIn(duration: 400.ms),
+              ),
+              if (district != null && district.decayState != 'stable') ...[
+                const SizedBox(height: MimzSpacing.md),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                  child: Container(
+                    padding: const EdgeInsets.all(MimzSpacing.base),
+                    decoration: BoxDecoration(
+                      color: MimzColors.white,
+                      borderRadius: BorderRadius.circular(MimzRadius.lg),
+                      border: Border.all(color: MimzColors.persimmonHit.withValues(alpha: 0.18)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Frontier Status', style: MimzTypography.headlineSmall),
+                              const SizedBox(height: MimzSpacing.xs),
+                              Text(
+                                district.reclaimableFrontierCount > 0
+                                    ? '${district.reclaimableFrontierCount} frontier cells are reclaimable.'
+                                    : '${district.vulnerableFrontierCount} frontier cells are vulnerable.',
+                                style: MimzTypography.bodySmall.copyWith(
+                                  color: MimzColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: MimzSpacing.base),
+                        MimzButton(
+                          label: 'RECLAIM',
+                          onPressed: _reclaimFrontier,
+                          variant: MimzButtonVariant.secondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: MimzSpacing.lg),
               // Resources bar
               Padding(
@@ -400,28 +659,20 @@ class _WorldExpandedSheetState extends ConsumerState<WorldExpandedSheet> {
   }
 
   _NextStructureInfo _getNextStructure(int currentCount) {
-    const structures = [
-      _NextStructureInfo('Library', 5, 500, false, 0),
-      _NextStructureInfo('Observatory', 10, 1500, false, 0),
-      _NextStructureInfo('Archive', 15, 3000, false, 0),
-      _NextStructureInfo('Park Pavilion', 20, 5000, false, 0),
-      _NextStructureInfo('Maker Hub', 30, 8000, false, 0),
-    ];
-
-    if (currentCount >= structures.length) {
+    if (currentCount >= _structureCatalog.length) {
       return const _NextStructureInfo('All Structures Built', 0, 0, true, 1.0);
     }
 
-    final next = structures[currentCount];
+    final next = _structureCatalog[currentCount];
     final user = ref.read(currentUserProvider).valueOrNull;
     final userSectors = user?.sectors ?? 0;
-    final progress = (userSectors / next.requiredSectors).clamp(0.0, 1.0);
+    final progress = (userSectors / next.sectorsNeeded).clamp(0.0, 1.0);
     final unlocked = progress >= 1.0;
 
     return _NextStructureInfo(
       next.name,
-      next.requiredSectors,
-      next.requiredXp,
+      next.sectorsNeeded,
+      next.xpNeeded,
       unlocked,
       progress,
     );
@@ -486,6 +737,52 @@ class _StatChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shows daily streak and nudge to play 1 round to keep it when relevant.
+class _StreakNudge extends StatelessWidget {
+  final int dailyStreak;
+  final String? lastActivityDate;
+
+  const _StreakNudge({required this.dailyStreak, this.lastActivityDate});
+
+  static String _today() => DateTime.now().toIso8601String().substring(0, 10);
+
+  @override
+  Widget build(BuildContext context) {
+    final playedToday = lastActivityDate == _today();
+    return GestureDetector(
+      onTap: () => context.push('/play'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: MimzSpacing.base,
+          vertical: MimzSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: MimzColors.dustyGold.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(MimzRadius.md),
+          border: Border.all(color: MimzColors.dustyGold.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.local_fire_department, color: MimzColors.persimmonHit, size: 22),
+            const SizedBox(width: MimzSpacing.sm),
+            Expanded(
+              child: Text(
+                playedToday
+                    ? '$dailyStreak day streak'
+                    : 'Play 1 round to keep your $dailyStreak day streak',
+                style: MimzTypography.bodySmall.copyWith(
+                  color: MimzColors.deepInk,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

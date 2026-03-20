@@ -70,9 +70,9 @@ class _DistrictNamingScreenState extends ConsumerState<DistrictNamingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('STEP 3 OF 5', style: MimzTypography.caption),
+                Text('STEP 5 OF 5', style: MimzTypography.caption),
                 Text(
-                  '60% Complete',
+                  '100% Complete',
                   style: MimzTypography.caption.copyWith(
                     color: MimzColors.mossCore,
                   ),
@@ -83,7 +83,7 @@ class _DistrictNamingScreenState extends ConsumerState<DistrictNamingScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: const LinearProgressIndicator(
-                value: 0.6,
+                value: 1.0,
                 backgroundColor: MimzColors.borderLight,
                 valueColor: AlwaysStoppedAnimation(MimzColors.mossCore),
                 minHeight: 6,
@@ -169,7 +169,7 @@ class _DistrictNamingScreenState extends ConsumerState<DistrictNamingScreen> {
                     bottom: MimzSpacing.base,
                     right: MimzSpacing.base,
                     child: Text(
-                      '4.2 sq km',
+                      '1.0 sq km',
                       style: MimzTypography.bodySmall.copyWith(
                         color: MimzColors.white,
                       ),
@@ -251,11 +251,9 @@ class _DistrictNamingScreenState extends ConsumerState<DistrictNamingScreen> {
                     // Non-fatal — local state already updated
                   }
                 }
-                
-                // Mark onboarding as complete persistently
-                await ref.read(isOnboardedProvider.notifier).markOnboarded();
-                
-                if (context.mounted) context.go('/world');
+
+                // Go to first district reveal, then user taps "Enter your world" to mark onboarded and go to /world
+                if (context.mounted) context.go('/district/reveal');
               },
             ),
             const SizedBox(height: MimzSpacing.xxl),

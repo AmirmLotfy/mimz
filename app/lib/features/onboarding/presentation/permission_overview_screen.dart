@@ -64,7 +64,7 @@ class _PermissionOverviewScreenState extends ConsumerState<PermissionOverviewScr
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(
         leading: IconButton(
-          onPressed: () => context.go('/auth'),
+          onPressed: () => context.go('/onboarding/summary'),
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text('Permissions'),

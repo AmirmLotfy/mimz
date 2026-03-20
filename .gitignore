@@ -53,3 +53,14 @@ test_results.txt
 build_release.log
 Mimz-launcher.zip
 app/android/build/
+device-logs/
+app/device_e2e_logs/
+app/device_logs_*.txt
+app/lint_output.txt
+app/mimz_android_debug.log
+app/android/java_pid*.hprof
+
+# Local workspace artifacts
+artifacts/**
+!artifacts/
+!artifacts/README.md

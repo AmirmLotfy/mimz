@@ -8,6 +8,8 @@ set -euo pipefail
 # ─── Defaults ──────────────────────────────────────────────
 PROJECT_ID="${GCP_PROJECT_ID:-}"
 REGION="${CLOUD_RUN_REGION:-europe-west1}"
+GEMINI_AUTH_MODE="${GEMINI_AUTH_MODE:-vertex}"
+GEMINI_LIVE_VERTEX_LOCATION="${GEMINI_LIVE_VERTEX_LOCATION:-us-central1}"
 SERVICE_NAME="mimz-backend"
 IMAGE_TAG="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 MEMORY="512Mi"
@@ -53,6 +55,7 @@ gcloud services enable \
   run.googleapis.com \
   cloudbuild.googleapis.com \
   firestore.googleapis.com \
+  aiplatform.googleapis.com \
   artifactregistry.googleapis.com \
   --project="${PROJECT_ID}" \
   --quiet
@@ -70,16 +73,20 @@ gcloud builds submit \
 echo ""
 echo "🚀 Step 3/5: Deploying to Cloud Run..."
 
-# Check if GEMINI_API_KEY is available as a secret
+# Check if GEMINI_API_KEY is required/available as a secret
 GEMINI_SECRET_FLAG=""
-if gcloud secrets describe gemini-api-key --project="${PROJECT_ID}" &>/dev/null; then
-  echo "   Using Secret Manager for GEMINI_API_KEY"
-  GEMINI_SECRET_FLAG="--set-secrets=GEMINI_API_KEY=gemini-api-key:latest"
+if [[ "${GEMINI_AUTH_MODE}" == "api_key" ]]; then
+  if gcloud secrets describe GEMINI_API_KEY --project="${PROJECT_ID}" &>/dev/null; then
+    echo "   Using Secret Manager for GEMINI_API_KEY"
+    GEMINI_SECRET_FLAG="--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest"
+  else
+    echo "❌ Secret 'GEMINI_API_KEY' not found in project '${PROJECT_ID}'."
+    echo "   Create it before deployment:"
+    echo "   echo -n '<YOUR_GEMINI_API_KEY>' | gcloud secrets create GEMINI_API_KEY --data-file=- --project=${PROJECT_ID}"
+    exit 1
+  fi
 else
-  echo "❌ Secret 'gemini-api-key' not found in project '${PROJECT_ID}'."
-  echo "   Create it before deployment:"
-  echo "   echo -n '<YOUR_GEMINI_API_KEY>' | gcloud secrets create gemini-api-key --data-file=- --project=${PROJECT_ID}"
-  exit 1
+  echo "   Gemini auth mode: vertex (Cloud Run service account / ADC)"
 fi
 
 gcloud run deploy "${SERVICE_NAME}" \
@@ -87,7 +94,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --region "${REGION}" \
   --project="${PROJECT_ID}" \
   --platform managed \
-  --allow-unauthenticated \
+  --no-invoker-iam-check \
   --memory "${MEMORY}" \
   --cpu "${CPU}" \
   --min-instances "${MIN_INSTANCES}" \
@@ -96,9 +103,12 @@ gcloud run deploy "${SERVICE_NAME}" \
 NODE_ENV=production,\
 GCP_PROJECT_ID=${PROJECT_ID},\
 FIREBASE_PROJECT_ID=${PROJECT_ID},\
+GEMINI_AUTH_MODE=${GEMINI_AUTH_MODE},\
+GEMINI_VERTEX_LOCATION=${REGION},\
+GEMINI_LIVE_VERTEX_LOCATION=${GEMINI_LIVE_VERTEX_LOCATION},\
 LOG_LEVEL=info,\
 RATE_LIMIT_MAX=100,\
-GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025" \
+GEMINI_LIVE_MODEL=gemini-live-2.5-flash-native-audio" \
   ${GEMINI_SECRET_FLAG} \
   --quiet
 

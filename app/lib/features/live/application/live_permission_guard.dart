@@ -37,13 +37,13 @@ class LivePermissionGuard {
     if (status.isPermanentlyDenied) {
       return const LiveError(
         code: LiveErrorCode.permissionDenied,
-        message: 'Microphone permission permanently denied',
+        message: 'Voice is core to the experience. Enable microphone in Settings to play live rounds.',
         recovery: LiveErrorRecovery.openSettings,
       );
     }
     return const LiveError(
       code: LiveErrorCode.permissionDenied,
-      message: 'Microphone permission denied',
+      message: 'Microphone access is needed for live rounds. Tap Allow or open Settings to enable.',
       recovery: LiveErrorRecovery.retry,
     );
   }

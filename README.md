@@ -53,7 +53,7 @@ Mimz is a **Live Agent** — not a chatbot wrapper. Here's why:
 
 > 📎 **Devpost (required field answer)**: Uploaded in **Image Gallery** as `docs/assets/mimz_architecture.png` (16:9 system architecture diagram).
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full Mermaid diagrams and sequence flows.
+See [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) for full Mermaid diagrams and sequence flows.
 
 ---
 
@@ -105,8 +105,14 @@ Mimz-Final/
 │   ├── test/                    # 8 test files, 76 tests
 │   ├── Dockerfile               # Multi-stage Cloud Run build
 │   └── .env.example             # All required environment variables
-├── docs/                        # Comprehensive documentation
-└── Screens/                     # Design reference assets
+├── docs/                        # Documentation grouped into architecture/specs/operations/audits/hackathon
+├── reference/                   # Non-runtime design, launcher, and brand reference assets
+│   ├── screens/                 # Design reference screens
+│   ├── launcher/                # Launcher icon/source reference bundle
+│   └── brand/                   # Source logos and brand exports
+├── packages/                    # Shared packages
+├── scripts/                     # Deploy, build, verification, and setup scripts
+└── artifacts/                   # Ignored local logs and build artifacts (see artifacts/README.md)
 ```
 
 ## Testing Infrastructure
@@ -128,7 +134,7 @@ We've provided centralized bash runbooks at the project root:
 ./run_backend_tests.sh
 ```
 
-For more detailed information on test overrides, CI readiness, and test suite structures, please refer to the `docs/TEST_RUNBOOK.md`.
+For more detailed information on test overrides, CI readiness, and test suite structures, please refer to the `docs/operations/TEST_RUNBOOK.md`.
 
 ---
 
@@ -139,7 +145,7 @@ For more detailed information on test overrides, CI readiness, and test suite st
 - Flutter SDK 3.x+ with Dart
 - Node.js 20+
 - A Firebase project with Authentication + Firestore enabled
-- A Google Cloud project with Gemini API enabled
+- A Google Cloud project with Vertex AI API enabled
 - (Optional) Google Maps API key for real map rendering
 
 ### Backend
@@ -147,7 +153,7 @@ For more detailed information on test overrides, CI readiness, and test suite st
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env — at minimum set GEMINI_API_KEY and GCP_PROJECT_ID
+# Edit .env — at minimum set GCP_PROJECT_ID (default Gemini mode is Vertex)
 
 npm install
 npm run dev
@@ -255,7 +261,7 @@ flutter pub get
 # Option A: With mock live sessions (no API key needed)
 flutter run --dart-define=USE_MOCK_LIVE=true --dart-define=BACKEND_URL=http://localhost:8080
 
-# Option B: With real Gemini Live (requires GEMINI_API_KEY in backend .env)
+# Option B: With real Gemini Live on Google Cloud (Vertex auth mode)
 flutter run --dart-define=BACKEND_URL=http://localhost:8080
 ```
 
@@ -284,12 +290,14 @@ curl https://mimz-backend-XXXXX.run.app/healthz
 
 ## Environment Variables
 
-See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for full details.
+See [docs/operations/ENVIRONMENT.md](docs/operations/ENVIRONMENT.md) for full details.
 
 **Backend** (`.env`):
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes | Google AI API key for Gemini |
+| `GEMINI_AUTH_MODE` | No | `vertex` (default) or `api_key` |
+| `GEMINI_VERTEX_LOCATION` | No | Vertex region for live model (default: `europe-west1`) |
+| `GEMINI_API_KEY` | No | Required only when `GEMINI_AUTH_MODE=api_key` |
 | `GCP_PROJECT_ID` | Yes | Google Cloud project ID |
 | `NODE_ENV` | No | `development` (default) or `production` |
 | `PORT` | No | Server port (default: 8080) |
@@ -344,7 +352,7 @@ gcloud builds triggers create github \
 
 > 📎 **Judges**: See [`scripts/deploy_all.sh`](scripts/deploy_all.sh) and [`cloudbuild.yaml`](cloudbuild.yaml) for the full automation code.
 
-See [docs/RUNBOOK.md](docs/RUNBOOK.md) for manual instructions and [docs/DEPLOYMENT_SUMMARY.md](docs/DEPLOYMENT_SUMMARY.md) for full deployment output.
+See [docs/operations/RUNBOOK.md](docs/operations/RUNBOOK.md) for manual instructions and [docs/operations/DEPLOYMENT_SUMMARY.md](docs/operations/DEPLOYMENT_SUMMARY.md) for full deployment output.
 
 ---
 
@@ -354,11 +362,11 @@ See [docs/RUNBOOK.md](docs/RUNBOOK.md) for manual instructions and [docs/DEPLOYM
 
 ### Primary proof (single link)
 
-**[scripts/deploy_backend.sh](scripts/deploy_backend.sh)** — deploys the backend to **Cloud Run** (`gcloud run deploy`), sets Firestore/Firebase env vars, and wires **Gemini API** via Secret Manager (`GEMINI_API_KEY=GEMINI_API_KEY:latest`). Use this repo link in your submission (e.g. `https://github.com/OWNER/Mimz-Final/blob/main/scripts/deploy_backend.sh`).
+**[scripts/deploy_backend.sh](scripts/deploy_backend.sh)** — deploys the backend to **Cloud Run** (`gcloud run deploy`), sets Firestore/Firebase env vars, and runs Gemini Live in **Google Cloud Vertex auth mode** by default (`GEMINI_AUTH_MODE=vertex`).
 
 ### Optional: screen recording
 
-A short screen recording of the app on GCP (Cloud Run console, Firestore, logs) also qualifies. What to capture and how to redact: [docs/CLOUD_PROOF.md](docs/CLOUD_PROOF.md).
+A short screen recording of the app on GCP (Cloud Run console, Firestore, logs) also qualifies. What to capture and how to redact: [docs/operations/CLOUD_PROOF.md](docs/operations/CLOUD_PROOF.md).
 
 ### Optional: more code links
 
@@ -388,7 +396,7 @@ A short screen recording of the app on GCP (Cloud Run console, Firestore, logs) 
 | 4:20 | Backend proof | Cloud Run logs, Firestore console |
 | 4:30 | Closing | "Mimz makes learning live." |
 
-Full script: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+Full script: [docs/hackathon/DEMO_SCRIPT.md](docs/hackathon/DEMO_SCRIPT.md)
 
 ---
 
@@ -409,13 +417,14 @@ See [docs/assets/demo-checklist.md](docs/assets/demo-checklist.md) for the full 
 
 This is a hackathon build. The following is intentionally scoped:
 
-- **Auth Providers**: Google Sign-In and Email auth are fully implemented in the app, but explicitly enabling them in the Firebase Console is a required manual step.
+- **Auth Providers**: Google Sign-In and Email auth are fully implemented in the app, but enabling them in Firebase Console is still required.
+- **Cloud Run public access**: If your organization policy blocks `allUsers/allAuthenticatedUsers` invoker bindings, mobile clients cannot call Cloud Run directly until org policy is adjusted.
 - **Audio capture/playback** services have interfaces implemented; platform-specific package code needs uncommenting after iOS/Android permission setup
 - **Google Maps** renders as a stylized grid painter in demo; real map rendering requires API key configuration
 - **Real-time multiplayer** (squad missions, live events) is single-player demo
 - **No push notifications**, AR view, or offline mode
 
-See [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) for the full honest assessment.
+See [docs/audits/KNOWN_LIMITATIONS.md](docs/audits/KNOWN_LIMITATIONS.md) for the full honest assessment.
 
 ---
 
@@ -427,7 +436,7 @@ See [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) for the full honest a
 | **Beta** | Multi-player live quiz rooms, AR structure preview, FCM notifications |
 | **Launch** | App Store / Play Store release, accessibility audit, i18n |
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for details.
+See [docs/audits/ROADMAP.md](docs/audits/ROADMAP.md) for details.
 
 ---
 
@@ -435,20 +444,20 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for details.
 
 | Document | Purpose |
 |----------|---------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, diagrams, data flows |
-| [CLOUD_PROOF.md](docs/CLOUD_PROOF.md) | How to prove GCP usage (screen recording, console, logs) |
-| [HACKATHON_SUBMISSION.md](docs/HACKATHON_SUBMISSION.md) | Devpost-ready submission content |
-| [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | 4-minute demo walkthrough with failure recovery |
-| [SETUP.md](docs/SETUP.md) | Full developer setup guide |
-| [ENVIRONMENT.md](docs/ENVIRONMENT.md) | All environment variables |
-| [API_REFERENCE.md](docs/API_REFERENCE.md) | Complete 25-endpoint API docs |
-| [FIRESTORE_SCHEMA.md](docs/FIRESTORE_SCHEMA.md) | All 10 Firestore collections |
-| [LIVE_BACKEND_FLOW.md](docs/LIVE_BACKEND_FLOW.md) | Token + tool execution flows |
-| [LIVE_MESSAGE_FLOW.md](docs/LIVE_MESSAGE_FLOW.md) | WebSocket message formats |
-| [SECURITY_MODEL.md](docs/SECURITY_MODEL.md) | Auth, privacy, anti-abuse |
-| [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Honest scope assessment |
-| [JUDGING_NOTES.md](docs/JUDGING_NOTES.md) | What judges should notice |
-| [SCREEN_MAPPING.md](docs/SCREEN_MAPPING.md) | Design-to-code screen mapping |
+| [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) | System design, diagrams, data flows |
+| [CLOUD_PROOF.md](docs/operations/CLOUD_PROOF.md) | How to prove GCP usage (screen recording, console, logs) |
+| [HACKATHON_SUBMISSION.md](docs/hackathon/HACKATHON_SUBMISSION.md) | Devpost-ready submission content |
+| [DEMO_SCRIPT.md](docs/hackathon/DEMO_SCRIPT.md) | 4-minute demo walkthrough with failure recovery |
+| [SETUP.md](docs/operations/SETUP.md) | Full developer setup guide |
+| [ENVIRONMENT.md](docs/operations/ENVIRONMENT.md) | All environment variables |
+| [API_REFERENCE.md](docs/architecture/API_REFERENCE.md) | Complete 25-endpoint API docs |
+| [FIRESTORE_SCHEMA.md](docs/architecture/FIRESTORE_SCHEMA.md) | All 10 Firestore collections |
+| [LIVE_BACKEND_FLOW.md](docs/architecture/LIVE_BACKEND_FLOW.md) | Token + tool execution flows |
+| [LIVE_MESSAGE_FLOW.md](docs/architecture/LIVE_MESSAGE_FLOW.md) | WebSocket message formats |
+| [SECURITY_MODEL.md](docs/architecture/SECURITY_MODEL.md) | Auth, privacy, anti-abuse |
+| [KNOWN_LIMITATIONS.md](docs/audits/KNOWN_LIMITATIONS.md) | Honest scope assessment |
+| [JUDGING_NOTES.md](docs/hackathon/JUDGING_NOTES.md) | What judges should notice |
+| [SCREEN_MAPPING.md](docs/audits/SCREEN_MAPPING.md) | Design-to-code screen mapping |
 
 ---
 

@@ -21,7 +21,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: leaderboardScopes.length, vsync: this);
   }
 
   @override
@@ -30,9 +30,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
     super.dispose();
   }
 
+  AsyncValue<List<LeaderboardEntryModel>> _providerForTab(int tab) {
+    return ref.watch(leaderboardProvider(leaderboardScopes[tab]));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final leaderboardAsync = ref.watch(globalLeaderboardProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
@@ -43,21 +46,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
         ),
         title: const Text('Leaderboard'),
       ),
-      body: leaderboardAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: MimzColors.mossCore)),
-        error: (err, stack) => Center(child: Text('Error: $err')),
-        data: (entries) {
-          final players = entries.map((e) => _LeaderboardEntry(
-            rank: e.rank,
-            name: e.displayName,
-            xp: e.score,
-            district: e.districtName ?? 'Unknown District',
-            isCurrentUser: currentUser?.id == e.userId,
-          )).toList();
-
-          return Column(
+      body: Column(
         children: [
-          // Tab bar
           Container(
             margin: const EdgeInsets.symmetric(
               horizontal: MimzSpacing.base,
@@ -69,6 +59,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
             ),
             child: TabBar(
               controller: _tabController,
+              isScrollable: true,
               indicator: BoxDecoration(
                 color: MimzColors.white,
                 borderRadius: BorderRadius.circular(MimzRadius.md),
@@ -84,74 +75,98 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
               unselectedLabelColor: MimzColors.textSecondary,
               labelStyle: MimzTypography.labelLarge.copyWith(fontSize: 13),
               dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: 'GLOBAL'),
-                Tab(text: 'DISTRICT'),
-                Tab(text: 'SQUAD'),
-              ],
+              onTap: (_) => setState(() {}),
+              tabs: leaderboardScopes.map((scope) => Tab(text: scope.label)).toList(),
             ),
           ),
-          // Podium
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: MimzSpacing.xl,
-              vertical: MimzSpacing.base,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // 2nd place
-                Expanded(
-                  child: players.length > 1 ? _PodiumItem(
-                    entry: players[1],
-                    height: 80,
-                    color: MimzColors.textSecondary,
-                    medal: '🥈',
-                  ) : const SizedBox(),
-                ),
-                const SizedBox(width: MimzSpacing.md),
-                // 1st place
-                Expanded(
-                  child: players.isNotEmpty ? _PodiumItem(
-                    entry: players[0],
-                    height: 100,
-                    color: MimzColors.dustyGold,
-                    medal: '🥇',
-                  ) : const SizedBox(),
-                ),
-                const SizedBox(width: MimzSpacing.md),
-                // 3rd place
-                Expanded(
-                  child: players.length > 2 ? _PodiumItem(
-                    entry: players[2],
-                    height: 64,
-                    color: MimzColors.persimmonHit,
-                    medal: '🥉',
-                  ) : const SizedBox(),
-                ),
-              ],
-            ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
-          ),
-          const SizedBox(height: MimzSpacing.md),
-          // Rankings list
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.base),
-              itemCount: players.length > 3 ? players.length - 3 : 0,
-              itemBuilder: (context, index) {
-                final entry = players[index + 3];
-                return _RankingTile(entry: entry)
-                    .animate(delay: Duration(milliseconds: 100 * index))
-                    .fadeIn(duration: 300.ms);
-              },
-            ),
+            child: _buildTabContent(currentUser),
           ),
         ],
-      );
-    },
-   ),
-  );
- }
+      ),
+    );
+  }
+
+  Widget _buildTabContent(dynamic currentUser) {
+    final dataAsync = _providerForTab(_tabController.index);
+    return dataAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator(color: MimzColors.mossCore)),
+      error: (err, stack) => Center(child: Text('Error: $err')),
+      data: (entries) {
+        if (entries.isEmpty) {
+          final scope = leaderboardScopes[_tabController.index].scope;
+          final label = scope == 'weekly'
+              ? 'No activity this week yet'
+              : scope == 'squad'
+                  ? 'Join a squad to see rankings'
+                  : scope == 'event'
+                      ? 'No live event rankings yet'
+                      : scope == 'topic'
+                          ? 'No topic rankings yet'
+                          : 'No entries yet';
+          return Center(
+            child: Text(label, style: MimzTypography.bodySmall.copyWith(color: MimzColors.textSecondary)),
+          );
+        }
+        final players = entries.map((e) => _LeaderboardEntry(
+          rank: e.rank,
+          name: e.displayName,
+          xp: e.score,
+          district: e.districtName ?? '',
+          isCurrentUser: currentUser?.id == e.userId,
+        )).toList();
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: MimzSpacing.xl,
+                vertical: MimzSpacing.base,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: players.length > 1 ? _PodiumItem(
+                      entry: players[1], height: 80,
+                      color: MimzColors.textSecondary, medal: '🥈',
+                    ) : const SizedBox(),
+                  ),
+                  const SizedBox(width: MimzSpacing.md),
+                  Expanded(
+                    child: players.isNotEmpty ? _PodiumItem(
+                      entry: players[0], height: 100,
+                      color: MimzColors.dustyGold, medal: '🥇',
+                    ) : const SizedBox(),
+                  ),
+                  const SizedBox(width: MimzSpacing.md),
+                  Expanded(
+                    child: players.length > 2 ? _PodiumItem(
+                      entry: players[2], height: 64,
+                      color: MimzColors.persimmonHit, medal: '🥉',
+                    ) : const SizedBox(),
+                  ),
+                ],
+              ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
+            ),
+            const SizedBox(height: MimzSpacing.md),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.base),
+                itemCount: players.length > 3 ? players.length - 3 : 0,
+                itemBuilder: (context, index) {
+                  final entry = players[index + 3];
+                  return _RankingTile(entry: entry)
+                      .animate(delay: Duration(milliseconds: 100 * index))
+                      .fadeIn(duration: 300.ms);
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _LeaderboardEntry {

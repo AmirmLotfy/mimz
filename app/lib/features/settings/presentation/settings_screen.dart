@@ -60,7 +60,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _notifications ??= true;
+          _haptic ??= true;
+          _sound ??= true;
+          _locationSharing ??= false;
+          _loading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load settings: $e')),
         );

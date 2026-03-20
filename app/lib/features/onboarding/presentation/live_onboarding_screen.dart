@@ -78,7 +78,7 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
                       IconButton(
                         onPressed: () {
                           ref.read(liveSessionControllerProvider).endSession();
-                          context.go('/onboarding/summary');
+                          context.go('/district/emblem');
                         },
                         icon: const Icon(Icons.close, color: MimzColors.white),
                       ),
@@ -170,7 +170,7 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
                     child: GestureDetector(
                       onTap: () {
                         ref.read(liveSessionControllerProvider).endSession();
-                        context.go('/onboarding/summary');
+                        context.go('/district/emblem');
                       },
                       child: Container(
                         width: double.infinity,
@@ -193,6 +193,27 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
                       ),
                     ),
                   ).animate().fadeIn(delay: 5000.ms, duration: 500.ms),
+                const SizedBox(height: MimzSpacing.md),
+                // Manual fallback — always visible for users with mic/connection issues
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+                  child: GestureDetector(
+                    onTap: () {
+                      ref.read(liveSessionControllerProvider).endSession();
+                      context.go('/district/emblem');
+                    },
+                    child: Center(
+                      child: Text(
+                        'Skip intro',
+                        style: MimzTypography.bodySmall.copyWith(
+                          color: MimzColors.white.withValues(alpha: 0.45),
+                          decoration: TextDecoration.underline,
+                          decorationColor: MimzColors.white.withValues(alpha: 0.45),
+                        ),
+                      ),
+                    ),
+                  ),
+                ).animate().fadeIn(delay: 3000.ms, duration: 600.ms),
                 const SizedBox(height: MimzSpacing.xxl),
               ],
             ),

@@ -42,7 +42,7 @@ describe('Server & API Routes', () => {
       } else {
         expect(response.json()).toHaveProperty('status', 'not ready');
       }
-    });
+    }, 15000);
   });
 
   describe('Authentication & Middleware', () => {
@@ -54,15 +54,12 @@ describe('Server & API Routes', () => {
       expect(response.statusCode).toBe(200);
     });
 
-    it('should fallback to dev pseudo-token in test environment if no Firebase auth exists', async () => {
+    it('should reject protected routes without Authorization header', async () => {
       const response = await app.inject({
         method: 'GET',
         url: '/profile',
       });
-
-      // It might return 200 if the mock database succeeds, or 500/404 if it fails.
-      // The important part is that we bypass the 401 Unauthorized middleware rejection.
-      expect(response.statusCode).not.toBe(401);
+      expect(response.statusCode).toBe(401);
     });
   });
 
@@ -73,11 +70,7 @@ describe('Server & API Routes', () => {
         url: '/auth/bootstrap',
       });
 
-      // In the mock dev environment with no mocked user creation, it might 500 or 200 depending on firestore availability
-      expect([200, 500]).toContain(response.statusCode);
-      if (response.statusCode === 200) {
-        expect(response.json()).toHaveProperty('user');
-      }
+      expect(response.statusCode).toBe(401);
     });
   });
 
@@ -89,14 +82,7 @@ describe('Server & API Routes', () => {
         payload: { sessionType: 'quiz' },
       });
 
-      // Bypasses auth successfully. If Firestore isn't mocked for the audit logging, it might 500
-      expect([200, 500]).toContain(response.statusCode);
-      if (response.statusCode === 200) {
-        const json = response.json();
-        expect(json).toHaveProperty('session');
-        expect(json.session).toHaveProperty('token');
-        expect(json.session).toHaveProperty('model');
-      }
+      expect(response.statusCode).toBe(401);
     });
   });
 });

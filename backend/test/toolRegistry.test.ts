@@ -4,14 +4,15 @@ import { toModelPayload } from '../src/modules/live/executeLiveTool.js';
 import type { LiveToolExecutionResponse } from '../src/models/types.js';
 
 describe('Tool Registry', () => {
-  it('contains exactly 15 tools', () => {
-    expect(KNOWN_TOOLS.length).toBe(15);
+  it('contains exactly 17 tools', () => {
+    expect(KNOWN_TOOLS.length).toBe(17);
   });
 
   it('matches expected tool names', () => {
     const expected = [
       'start_onboarding', 'save_user_profile', 'get_current_district',
-      'start_live_round', 'grade_answer', 'award_territory',
+      'start_live_round', 'grade_answer', 'request_round_hint',
+      'request_round_repeat', 'award_territory',
       'apply_combo_bonus', 'grant_materials', 'end_round',
       'start_vision_quest', 'validate_vision_result', 'unlock_structure',
       'join_squad_mission', 'contribute_squad_progress', 'get_event_state',

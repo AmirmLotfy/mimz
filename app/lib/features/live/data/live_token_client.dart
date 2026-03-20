@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../domain/live_event.dart';
 import 'live_backend_dtos.dart';
 
@@ -18,6 +19,8 @@ class LiveTokenClient {
   /// same [sessionType] with at least [minRemaining] time left, returns it.
   Future<EphemeralTokenResponse> fetchToken({
     required String sessionType,
+    String? correlationId,
+    String? eventId,
     Duration minRemaining = const Duration(minutes: 1),
   }) async {
     // Return cached only if same session type and still valid
@@ -29,9 +32,18 @@ class LiveTokenClient {
     }
 
     try {
-      final response = await _dio.post('/live/ephemeral-token', data: {
-        'sessionType': sessionType,
-      });
+      final response = await _dio.post(
+        '/live/ephemeral-token',
+        data: {
+          'sessionType': sessionType,
+          if (eventId != null) 'eventId': eventId,
+        },
+        options: Options(
+          headers: {
+            if (correlationId != null) 'X-Correlation-Id': correlationId,
+          },
+        ),
+      );
 
       final token = EphemeralTokenResponse.fromJson(
         response.data as Map<String, dynamic>,
@@ -47,26 +59,69 @@ class LiveTokenClient {
 
       _cachedToken = token;
       _cachedSessionType = sessionType;
+      if (kDebugMode) {
+        final traceId = response.headers.value('x-correlation-id');
+        debugPrint('[Mimz][Live] token_fetched sessionType=$sessionType traceId=$traceId');
+      }
       return token;
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
+      final traceId = e.response?.headers.value('x-correlation-id');
+      if (kDebugMode) {
+        final statusCode = e.response?.statusCode;
+        final code = e.response?.data is Map ? (e.response?.data as Map)['code'] : null;
+        debugPrint('[Mimz][Live] token_fetch_failed statusCode=$statusCode code=$code traceId=$traceId');
+      }
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 401) {
         throw const LiveError(
           code: LiveErrorCode.tokenFetchFailed,
-          message: 'Authentication required',
+          message: 'Sign in again to use Live.',
           recovery: LiveErrorRecovery.fatal,
         );
       }
-      if (e.response?.statusCode == 429) {
+      if (statusCode == 403) {
+        throw const LiveError(
+          code: LiveErrorCode.tokenFetchFailed,
+          message: 'Access restricted. Try again later.',
+          recovery: LiveErrorRecovery.fatal,
+        );
+      }
+      if (statusCode == 429) {
         throw const LiveError(
           code: LiveErrorCode.rateLimited,
           message: 'Too many requests — try again later',
           recovery: LiveErrorRecovery.retry,
         );
       }
+      if (statusCode == 503) {
+        final body = e.response?.data;
+        final msg = body is Map && body['error'] is String
+            ? body['error'] as String
+            : 'Live sessions are temporarily unavailable. Try again later.';
+        throw LiveError(
+          code: LiveErrorCode.tokenFetchFailed,
+          message: msg,
+          detail: body is Map ? body['code'] as String? : null,
+          recovery: LiveErrorRecovery.fatal,
+        );
+      }
+      if (statusCode != null && statusCode >= 500) {
+        throw LiveError(
+          code: LiveErrorCode.tokenFetchFailed,
+          message: 'Server error. Try again in a moment.',
+          detail: 'status=$statusCode; traceId=$traceId',
+          recovery: LiveErrorRecovery.retry,
+        );
+      }
+      final isConnectionError = e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError;
       throw LiveError(
         code: LiveErrorCode.tokenFetchFailed,
-        message: 'Failed to fetch session token',
-        detail: e.message,
+        message: isConnectionError
+            ? 'Could not reach the server. Check your connection and retry.'
+            : 'Failed to fetch session token.',
+        detail: 'status=$statusCode; traceId=$traceId; ${e.message}',
         recovery: LiveErrorRecovery.retry,
       );
     }

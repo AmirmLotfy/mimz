@@ -20,11 +20,21 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _preferredNameCtrl = TextEditingController();
   final _majorCtrl = TextEditingController();
   final _districtNameCtrl = TextEditingController();
+  final _handleCtrl = TextEditingController();
   bool _isSaving = false;
   
   List<String> _selectedInterests = [];
   String _difficulty = 'dynamic';
   String _voice = 'standard';
+  String _selectedTheme = 'Forest';
+
+  static const _districtThemes = [
+    ('Forest', Color(0xFF2D5A27)),
+    ('Ocean', Color(0xFF1B4B6E)),
+    ('Desert', Color(0xFFB8860B)),
+    ('Arctic', Color(0xFF708090)),
+    ('Volcanic', Color(0xFF8B0000)),
+  ];
 
   static const _availableInterests = [
     'Technology', 'Science', 'History', 'Architecture', 'Music', 'Design',
@@ -58,9 +68,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _preferredNameCtrl.text = user.preferredName ?? '';
     _majorCtrl.text = user.majorOrProfession ?? '';
     _districtNameCtrl.text = user.districtName;
+    _handleCtrl.text = user.handle;
     _selectedInterests = List.from(user.interests);
     _difficulty = _normalizeDifficulty(user.difficultyPreference);
     _voice = user.voicePreference ?? 'standard';
+    _selectedTheme = (user as dynamic).districtTheme as String? ?? 'Forest';
   }
 
   @override
@@ -69,6 +81,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _preferredNameCtrl.dispose();
     _majorCtrl.dispose();
     _districtNameCtrl.dispose();
+    _handleCtrl.dispose();
     super.dispose();
   }
 
@@ -97,6 +110,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ref.read(currentUserProvider.notifier).updateUser(
             user.copyWith(
               displayName: displayName,
+              handle: _handleCtrl.text.trim(),
               preferredName: preferredName,
               majorOrProfession: major,
               districtName: districtName,
@@ -110,12 +124,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     try {
       await ref.read(apiClientProvider).patch('/profile', {
         'displayName': displayName,
+        'handle': _handleCtrl.text.trim(),
         'preferredName': preferredName,
         'majorOrProfession': major,
         'districtName': districtName,
         'interests': _selectedInterests,
         'difficultyPreference': _difficulty,
         'voicePreference': _voice,
+        'districtTheme': _selectedTheme,
       });
 
       ref.read(hapticsServiceProvider).success();
@@ -164,6 +180,13 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 controller: _displayNameCtrl,
                 hint: 'How others see you in Mimz',
                 icon: Icons.badge_outlined,
+              ),
+              const SizedBox(height: MimzSpacing.base),
+              _buildField(
+                label: 'Handle',
+                controller: _handleCtrl,
+                hint: '@username',
+                icon: Icons.alternate_email,
               ),
               const SizedBox(height: MimzSpacing.base),
               _buildField(
@@ -234,6 +257,53 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 onChanged: (val) => setState(() => _voice = val!),
               ),
               
+              const SizedBox(height: MimzSpacing.xl),
+
+              Text('District Theme', style: MimzTypography.headlineSmall),
+              const SizedBox(height: MimzSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _districtThemes.map((theme) {
+                  final (name, color) = theme;
+                  final isSelected = _selectedTheme == name;
+                  return GestureDetector(
+                    onTap: () {
+                      ref.read(hapticsServiceProvider).selection();
+                      setState(() => _selectedTheme = name);
+                    },
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: isSelected
+                                ? Border.all(color: Colors.white, width: 3)
+                                : null,
+                            boxShadow: isSelected
+                                ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8)]
+                                : null,
+                          ),
+                          child: isSelected
+                              ? const Icon(Icons.check, color: Colors.white, size: 20)
+                              : null,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          name,
+                          style: MimzTypography.bodySmall.copyWith(
+                            color: isSelected ? MimzColors.mossCore : MimzColors.deepInk,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+
               const SizedBox(height: MimzSpacing.xxl),
               MimzButton(
                 label: _isSaving ? 'Saving…' : 'Save Changes',

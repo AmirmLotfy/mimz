@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { TOOL_SCHEMAS, KNOWN_TOOLS } from './toolSchemas.js';
 import * as game from '../../services/gameService.js';
+import * as rounds from '../../services/roundService.js';
 import * as db from '../../lib/db.js';
 import type { LiveToolExecutionResponse } from '../../models/types.js';
 
@@ -47,6 +48,7 @@ export interface ToolContext {
   userId: string;
   sessionId: string;
   correlationId: string;
+  eventId?: string;
 }
 
 export interface ToolResult {
@@ -98,6 +100,8 @@ const handlers: Record<string, ToolHandler> = {
       data: district ? {
         name: district.name,
         sectors: district.sectors,
+        influence: (district as any).influence ?? 0,
+        influenceThreshold: (district as any).influenceThreshold ?? 500,
         area: district.area,
         structureCount: district.structures.length,
         resources: district.resources,
@@ -108,107 +112,183 @@ const handlers: Record<string, ToolHandler> = {
 
   // ─── Quiz Round ──────────────────────────────────
   async start_live_round(args, ctx) {
-    const round = await db.createRound({
-      id: `round_${randomUUID()}`,
-      userId: ctx.userId,
-      topic: (args.topic as string) || 'General',
-      difficulty: (args.difficulty as any) || 'medium',
-      questionsAsked: 0,
-      correctAnswers: 0,
-      totalScore: 0,
-      maxStreak: 0,
-      status: 'active',
-      startedAt: new Date().toISOString(),
+    const round = await rounds.startRound(ctx.userId, {
+      mode: (args.mode as 'quiz' | 'sprint' | 'event' | undefined) ?? 'quiz',
+      topic: (args.topic as string | undefined) ?? undefined,
+      difficulty: (args.difficulty as 'easy' | 'medium' | 'hard' | undefined) ?? undefined,
+      eventId: (args.eventId as string | undefined) ?? ctx.eventId,
     });
 
-    await game.audit(ctx.userId, 'start_live_round', { roundId: round.id, topic: round.topic }, {
+    await game.audit(ctx.userId, 'start_live_round', { roundId: round.roundId, topic: round.topic, mode: round.mode }, {
       toolName: 'start_live_round', sessionId: ctx.sessionId,
     });
 
     return {
       success: true,
       data: {
-        roundId: round.id,
+        roundId: round.roundId,
+        mode: round.mode,
         topic: round.topic,
         difficulty: round.difficulty,
-        message: `Round started! Topic: ${round.topic}`,
+        questionCount: round.questionCount,
+        currentQuestionIndex: round.currentQuestionIndex,
+        currentQuestion: round.currentQuestion,
+        questions: round.questions,
+        message: `Round started. Ask this exact question next: ${round.currentQuestion?.spokenPhrase ?? round.currentQuestion?.text ?? 'Begin the round.'}`,
       },
     };
   },
 
   async grade_answer(args, ctx) {
-    // Idempotency: if same correlationId already processed, return cached result
     const cached = getCachedResult(ctx.correlationId, 'grade_answer');
     if (cached) return cached;
 
-    const isCorrect = args.isCorrect as boolean ?? true;
-    const user = await db.getUser(ctx.userId);
-    if (!user) throw new Error('User not found');
+    const activeRound = await db.getActiveRound(ctx.userId);
+    if (!activeRound) throw new Error('No active round found');
 
-    const { points, streakBonus, newStreak } = game.calculateScore(
-      isCorrect, user.streak, 'medium',
+    const resultData = await rounds.answerRound(
+      ctx.userId,
+      activeRound.id,
+      args.answer as string,
+      args.questionId as string | undefined,
     );
 
-    // Update user state
-    if (isCorrect) {
-      await db.incrementUserXp(ctx.userId, points);
-      await db.updateUserStreak(ctx.userId, newStreak, user.bestStreak);
-      await game.grantReward(ctx.userId, 'xp', points, 'grade_answer', ctx.sessionId);
-    } else {
-      await db.updateUserStreak(ctx.userId, 0, user.bestStreak);
-    }
-
-    // Update active round
-    const round = await db.getActiveRound(ctx.userId);
-    if (round) {
-      await db.updateRound(round.id, {
-        questionsAsked: round.questionsAsked + 1,
-        correctAnswers: round.correctAnswers + (isCorrect ? 1 : 0),
-        totalScore: round.totalScore + points,
-        maxStreak: Math.max(round.maxStreak, newStreak),
-      });
-    }
-
-    await game.audit(ctx.userId, 'grade_answer', { isCorrect, points, streak: newStreak }, {
+    await game.audit(ctx.userId, 'grade_answer', {
+      questionId: resultData.questionId,
+      topic: resultData.topic,
+      isCorrect: resultData.isCorrect,
+      xpAwarded: resultData.xpAwarded,
+      influenceGranted: resultData.influenceGranted,
+      currentQuestionIndex: resultData.currentQuestionIndex,
+      roundComplete: resultData.roundComplete,
+    }, {
       toolName: 'grade_answer', sessionId: ctx.sessionId,
     });
 
     const result: ToolResult = {
       success: true,
       data: {
-        isCorrect,
-        pointsAwarded: points,
-        streakBonus,
-        currentStreak: newStreak,
-        message: isCorrect
-          ? `Correct! +${points} XP${streakBonus > 0 ? ` (+${streakBonus} streak bonus!)` : ''}`
-          : 'Incorrect. Streak reset. Keep going!',
+        ...resultData,
+        currentStreak: resultData.newStreak,
+        message: resultData.isCorrect
+          ? `Correct. +${resultData.xpAwarded} XP and +${resultData.influenceGranted} influence.${resultData.territoryExpanded ? ` Territory expanded by ${resultData.sectorsGained}.` : ''}${resultData.roundComplete ? ' The round is complete.' : ''}`
+          : `Not quite. The correct answer was ${resultData.correctAnswer}.${resultData.roundComplete ? ' The round is complete.' : ' Move to the next question.'}`,
       },
     };
     setCachedResult(ctx.correlationId, 'grade_answer', result);
     return result;
   },
 
-  async award_territory(args, ctx) {
-    // Idempotency: if same correlationId already processed, return cached result
-    const cached = getCachedResult(ctx.correlationId, 'award_territory');
+  async request_round_hint(args, ctx) {
+    const cached = getCachedResult(ctx.correlationId, 'request_round_hint');
     if (cached) return cached;
 
-    const sectors = args.sectors as number;
-    const expansion = await game.expandTerritory(ctx.userId, sectors);
+    const activeRound = (args.roundId as string | undefined)
+      ? await db.getRound(args.roundId as string)
+      : await db.getActiveRound(ctx.userId);
+    if (!activeRound) throw new Error('No active round found');
 
-    await game.grantReward(ctx.userId, 'territory', sectors, 'award_territory', ctx.sessionId);
-    await game.audit(ctx.userId, 'award_territory', { sectors }, {
-      toolName: 'award_territory', sessionId: ctx.sessionId,
+    const hintResult = await rounds.requestRoundHint(ctx.userId, activeRound.id);
+
+    await game.audit(ctx.userId, 'request_round_hint', {
+      roundId: hintResult.roundId,
+      questionId: hintResult.questionId,
+      hintCount: hintResult.hintCount,
+    }, {
+      toolName: 'request_round_hint', sessionId: ctx.sessionId,
     });
 
     const result: ToolResult = {
       success: true,
       data: {
-        sectorsAdded: sectors,
-        totalSectors: expansion.sectors,
-        area: expansion.area,
-        message: `🗺 Territory expanded by ${sectors} sector${sectors > 1 ? 's' : ''}!`,
+        ...hintResult,
+        prompt: hintResult.currentQuestion.spokenPhrase ?? hintResult.currentQuestion.text,
+        message: `Hint ${hintResult.hintCount}: ${hintResult.hint}`,
+      },
+    };
+    setCachedResult(ctx.correlationId, 'request_round_hint', result);
+    return result;
+  },
+
+  async request_round_repeat(args, ctx) {
+    const cached = getCachedResult(ctx.correlationId, 'request_round_repeat');
+    if (cached) return cached;
+
+    const activeRound = (args.roundId as string | undefined)
+      ? await db.getRound(args.roundId as string)
+      : await db.getActiveRound(ctx.userId);
+    if (!activeRound) throw new Error('No active round found');
+
+    const repeatResult = await rounds.requestRoundRepeat(ctx.userId, activeRound.id);
+
+    await game.audit(ctx.userId, 'request_round_repeat', {
+      roundId: repeatResult.roundId,
+      questionId: repeatResult.questionId,
+      repeatCount: repeatResult.repeatCount,
+    }, {
+      toolName: 'request_round_repeat', sessionId: ctx.sessionId,
+    });
+
+    const result: ToolResult = {
+      success: true,
+      data: {
+        ...repeatResult,
+        prompt: repeatResult.currentQuestion.spokenPhrase ?? repeatResult.currentQuestion.text,
+        message: 'Repeat the current question exactly as returned.',
+      },
+    };
+    setCachedResult(ctx.correlationId, 'request_round_repeat', result);
+    return result;
+  },
+
+  async award_territory(args, ctx) {
+    const cached = getCachedResult(ctx.correlationId, 'award_territory');
+    if (cached) return cached;
+
+    // Influence-driven: grant bonus influence and check if threshold triggers expansion
+    const bonusInfluence = ((args.sectors as number) || 1) * 250;
+    await db.incrementUserInfluence(ctx.userId, bonusInfluence);
+    const district = await game.getDistrict(ctx.userId);
+    if (district) {
+      await db.incrementDistrictInfluence(district.id, bonusInfluence);
+    }
+    await game.grantReward(ctx.userId, 'influence', bonusInfluence, 'award_territory', ctx.sessionId);
+
+    const growthResult = await game.checkGrowthThreshold(ctx.userId);
+
+    await game.audit(ctx.userId, 'award_territory', {
+      bonusInfluence,
+      expanded: growthResult.expanded,
+      sectorsGained: growthResult.sectorsGained,
+    }, {
+      toolName: 'award_territory', sessionId: ctx.sessionId,
+    });
+
+    if (growthResult.expanded) {
+      db.createNotification({
+        id: `notif_${randomUUID()}`,
+        userId: ctx.userId,
+        title: 'Territory expanded!',
+        body: `Your district grew by ${growthResult.sectorsGained} sector${growthResult.sectorsGained > 1 ? 's' : ''}. New area: ${growthResult.area}`,
+        type: 'territory_expanded',
+        createdAt: new Date().toISOString(),
+        read: false,
+        data: { sectors: growthResult.sectorsGained, totalSectors: growthResult.newTotal },
+      }).catch(() => {});
+    }
+
+    const result: ToolResult = {
+      success: true,
+      data: {
+        influenceGranted: bonusInfluence,
+        territoryExpanded: growthResult.expanded,
+        sectorsGained: growthResult.sectorsGained,
+        totalSectors: growthResult.newTotal,
+        area: growthResult.area,
+        influenceRemaining: growthResult.influenceRemaining,
+        message: growthResult.expanded
+          ? `+${bonusInfluence} influence — Territory expanded by ${growthResult.sectorsGained}!`
+          : `+${bonusInfluence} influence — ${growthResult.influenceRemaining} more to next expansion`,
       },
     };
     setCachedResult(ctx.correlationId, 'award_territory', result);
@@ -216,6 +296,9 @@ const handlers: Record<string, ToolHandler> = {
   },
 
   async apply_combo_bonus(args, ctx) {
+    const cached = getCachedResult(ctx.correlationId, 'apply_combo_bonus');
+    if (cached) return cached;
+
     const streak = args.streak as number;
     const multiplier = args.multiplier as number;
     const { bonusXp, bonusMaterials } = game.calculateComboBonus(streak, multiplier);
@@ -224,19 +307,32 @@ const handlers: Record<string, ToolHandler> = {
     const district = await game.getDistrict(ctx.userId);
     if (district) await db.addResources(district.id, bonusMaterials);
 
-    await game.grantReward(ctx.userId, 'combo', bonusXp, 'apply_combo_bonus', ctx.sessionId);
+    const influenceGranted = game.calculateInfluenceGrant('combo', 'medium', streak);
+    await db.incrementUserInfluence(ctx.userId, influenceGranted);
+    if (district) await db.incrementDistrictInfluence(district.id, influenceGranted);
 
-    return {
+    await game.grantReward(ctx.userId, 'combo', bonusXp, 'apply_combo_bonus', ctx.sessionId);
+    await game.grantReward(ctx.userId, 'influence', influenceGranted, 'apply_combo_bonus', ctx.sessionId);
+
+    await game.updatePrestigeIfNeeded(ctx.userId);
+
+    const result: ToolResult = {
       success: true,
       data: {
         bonusXp,
         bonusMaterials,
-        message: `🔥 ${streak}x combo! +${bonusXp} XP and bonus materials!`,
+        influenceGranted,
+        message: `🔥 ${streak}x combo! +${bonusXp} XP, +${influenceGranted} influence, and bonus materials!`,
       },
     };
+    setCachedResult(ctx.correlationId, 'apply_combo_bonus', result);
+    return result;
   },
 
   async grant_materials(args, ctx) {
+    const cached = getCachedResult(ctx.correlationId, 'grant_materials');
+    if (cached) return cached;
+
     const stone = args.stone as number;
     const glass = args.glass as number;
     const wood = args.wood as number;
@@ -244,50 +340,62 @@ const handlers: Record<string, ToolHandler> = {
     const district = await game.getDistrict(ctx.userId);
     if (!district) throw new Error('No district found');
 
-    await db.addResources(district.id, { stone, glass, wood });
-    await game.grantReward(ctx.userId, 'materials', stone + glass + wood, 'grant_materials', ctx.sessionId);
+    const effects = await game.getStructureEffects(ctx.userId);
+    const boostedStone = Math.floor(stone * effects.materialMultiplier);
+    const boostedGlass = Math.floor(glass * effects.materialMultiplier);
+    const boostedWood = Math.floor(wood * effects.materialMultiplier);
 
-    return {
+    await db.addResources(district.id, { stone: boostedStone, glass: boostedGlass, wood: boostedWood });
+    await game.grantReward(ctx.userId, 'materials', boostedStone + boostedGlass + boostedWood, 'grant_materials', ctx.sessionId);
+
+    const result: ToolResult = {
       success: true,
       data: {
-        stone, glass, wood,
-        message: `📦 Materials granted: ${stone} stone, ${glass} glass, ${wood} wood`,
+        stone: boostedStone, glass: boostedGlass, wood: boostedWood,
+        message: `📦 Materials granted: ${boostedStone} stone, ${boostedGlass} glass, ${boostedWood} wood`,
       },
     };
+    setCachedResult(ctx.correlationId, 'grant_materials', result);
+    return result;
   },
 
   async end_round(args, ctx) {
-    const round = await db.getActiveRound(ctx.userId);
-    if (round) {
-      await db.updateRound(round.id, {
-        status: 'completed',
-        totalScore: (args.totalScore as number) ?? round.totalScore,
-        endedAt: new Date().toISOString(),
-      });
-
-      // Update leaderboard
-      const user = await db.getUser(ctx.userId);
-      if (user) {
-        await db.upsertLeaderboardEntry('global', ctx.userId, {
-          userId: ctx.userId,
-          displayName: user.displayName,
-          score: user.xp,
-          districtName: user.districtName,
-        });
-      }
+    const activeRound = (args.roundId as string | undefined)
+      ? await db.getRound(args.roundId as string)
+      : await db.getActiveRound(ctx.userId);
+    if (!activeRound) {
+      throw new Error('No round available to finish');
     }
 
-    await game.audit(ctx.userId, 'end_round', { roundId: round?.id }, {
+    const summary = await rounds.finishRound(ctx.userId, activeRound.id);
+
+    await game.audit(ctx.userId, 'end_round', {
+      roundId: summary.roundId,
+      eventId: ctx.eventId,
+      totalScore: summary.totalScore,
+      questionsAnswered: summary.questionsAnswered,
+      correctAnswers: summary.correctAnswers,
+      newBadges: summary.newBadges,
+    }, {
       toolName: 'end_round', sessionId: ctx.sessionId,
     });
+
+    // Fire notification (non-blocking)
+    db.createNotification({
+      id: `notif_${randomUUID()}`,
+      userId: ctx.userId,
+      title: 'Round complete!',
+      body: `Great job! You scored ${summary.totalScore} XP this round. Keep it up!`,
+      type: 'round_complete',
+      createdAt: new Date().toISOString(),
+      read: false,
+      data: { roundId: summary.roundId, totalScore: summary.totalScore },
+    }).catch(() => {});
 
     return {
       success: true,
       data: {
-        roundId: round?.id,
-        totalScore: round?.totalScore ?? 0,
-        questionsAnswered: round?.questionsAsked ?? 0,
-        correctAnswers: round?.correctAnswers ?? 0,
+        ...summary,
         message: 'Round complete! Great playing!',
       },
     };
@@ -318,38 +426,60 @@ const handlers: Record<string, ToolHandler> = {
       toolName: 'start_vision_quest', sessionId: ctx.sessionId,
     });
 
+    const targetPrompt = (args.targetPrompt as string) || 'Show me something interesting around you.';
+
     return {
       success: true,
       data: {
         questId: quest.id,
         theme: quest.theme,
+        targetPrompt,
         message: 'Vision quest started! Show me something interesting.',
       },
     };
   },
 
   async validate_vision_result(args, ctx) {
+    const cached = getCachedResult(ctx.correlationId, 'validate_vision_result');
+    if (cached) return cached;
+
+    const confidence = typeof args.confidence === 'number' ? args.confidence : 0;
+    const rawValid = typeof args.isValid === 'boolean' ? args.isValid : false;
+    const isValid = rawValid && confidence >= 0.5;
+
     const result = {
       objectIdentified: args.objectIdentified as string,
-      confidence: args.confidence as number,
-      isValid: args.isValid as boolean ?? (args.confidence as number) > 0.6,
+      confidence,
+      isValid,
     };
 
+    let influenceGranted = 0;
     if (result.isValid) {
       await db.incrementUserXp(ctx.userId, 200);
       await game.grantReward(ctx.userId, 'xp', 200, 'validate_vision_result', ctx.sessionId);
+
+      influenceGranted = game.calculateInfluenceGrant('vision_quest', 'medium', 0);
+      await db.incrementUserInfluence(ctx.userId, influenceGranted);
+      const district = await game.getDistrict(ctx.userId);
+      if (district) await db.incrementDistrictInfluence(district.id, influenceGranted);
+      await game.grantReward(ctx.userId, 'influence', influenceGranted, 'validate_vision_result', ctx.sessionId);
     }
 
-    return {
+    await game.updatePrestigeIfNeeded(ctx.userId);
+
+    const toolResult: ToolResult = {
       success: true,
       data: {
         ...result,
         xpAwarded: result.isValid ? 200 : 0,
+        influenceGranted,
         message: result.isValid
-          ? `Verified: "${result.objectIdentified}"! +200 XP`
+          ? `Verified: "${result.objectIdentified}"! +200 XP, +${influenceGranted} influence`
           : `Hmm, not quite. Try again!`,
       },
     };
+    setCachedResult(ctx.correlationId, 'validate_vision_result', toolResult);
+    return toolResult;
   },
 
   // ─── Structures ──────────────────────────────────
@@ -361,6 +491,18 @@ const handlers: Record<string, ToolHandler> = {
     await game.audit(ctx.userId, 'unlock_structure', { structureId }, {
       toolName: 'unlock_structure', sessionId: ctx.sessionId,
     });
+
+    // Fire notification (non-blocking)
+    db.createNotification({
+      id: `notif_${randomUUID()}`,
+      userId: ctx.userId,
+      title: 'New structure unlocked!',
+      body: `${result.structure.name} has been built in your district.`,
+      type: 'structure_unlocked',
+      createdAt: new Date().toISOString(),
+      read: false,
+      data: { structureId, structureName: result.structure.name },
+    }).catch(() => {});
 
     return {
       success: true,

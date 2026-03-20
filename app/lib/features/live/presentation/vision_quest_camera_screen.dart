@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:camera/camera.dart';
 import '../../../design_system/tokens.dart';
-
-import '../../../core/providers.dart';
+import '../application/live_session_controller.dart';
 import '../data/live_camera_stream_service.dart';
 import '../providers/live_session_provider.dart';
+import '../providers/live_providers.dart';
 
 /// Vision Quest Camera — full-screen camera with target overlay
 class VisionQuestCameraScreen extends ConsumerStatefulWidget {
@@ -18,6 +18,7 @@ class VisionQuestCameraScreen extends ConsumerStatefulWidget {
 
 class _VisionQuestCameraScreenState extends ConsumerState<VisionQuestCameraScreen> {
   final _cameraService = LiveCameraStreamService();
+  LiveSessionController? _liveController;
   bool _isCameraInitialized = false;
   bool _isProcessing = false;
 
@@ -27,9 +28,26 @@ class _VisionQuestCameraScreenState extends ConsumerState<VisionQuestCameraScree
     _initCamera();
   }
 
+  ProviderSubscription? _targetSub;
+
   Future<void> _initCamera() async {
     try {
       await _cameraService.initialize();
+      _liveController = ref.read(liveSessionControllerProvider);
+      await _liveController?.startVisionQuestSession();
+
+      // Listen for start_vision_quest tool response to get dynamic target
+      _targetSub = ref.listenManual(liveSessionStateProvider, (prev, next) {
+        final payload = next.valueOrNull?.lastRewardPayload;
+        final prevPayload = prev?.valueOrNull?.lastRewardPayload;
+        if (payload != null && payload != prevPayload && payload.containsKey('targetPrompt')) {
+          final target = payload['targetPrompt'] as String?;
+          if (target != null && target.isNotEmpty) {
+            ref.read(visionQuestTargetProvider.notifier).state = target;
+          }
+        }
+      });
+
       if (mounted) setState(() => _isCameraInitialized = true);
     } catch (e) {
       debugPrint('Camera init failed: $e');
@@ -38,9 +56,13 @@ class _VisionQuestCameraScreenState extends ConsumerState<VisionQuestCameraScree
 
   @override
   void dispose() {
+    _targetSub?.close();
+    _liveController?.endSession();
     _cameraService.dispose();
     super.dispose();
   }
+
+  ProviderSubscription? _validationSub;
 
   Future<void> _captureAndSend() async {
     if (_isProcessing || !_isCameraInitialized) return;
@@ -48,11 +70,26 @@ class _VisionQuestCameraScreenState extends ConsumerState<VisionQuestCameraScree
 
     final frame = await _cameraService.captureOneShot();
     if (frame != null) {
-      ref.read(geminiLiveClientProvider).sendImage(frame);
-      // Set the label to the active target so success screen can display it
-      final target = ref.read(visionQuestTargetProvider);
-      ref.read(visionQuestResultLabelProvider.notifier).state = target;
-      if (mounted) context.go('/play/vision/success');
+      final LiveSessionController controller =
+          _liveController ?? ref.read(liveSessionControllerProvider);
+      controller.sendVisionFrame(frame);
+
+      // Wait for validate_vision_result tool response before navigating
+      _validationSub?.close();
+      _validationSub = ref.listenManual(liveSessionStateProvider, (prev, next) {
+        final payload = next.valueOrNull?.lastRewardPayload;
+        final prevPayload = prev?.valueOrNull?.lastRewardPayload;
+        if (payload != null && payload != prevPayload && payload.containsKey('objectIdentified')) {
+          _validationSub?.close();
+          final label = payload['objectIdentified'] as String? ?? 'Discovery';
+          final xp = (payload['xpAwarded'] as num?)?.toInt() ?? 0;
+          final isValid = payload['isValid'] as bool? ?? false;
+          ref.read(visionQuestResultLabelProvider.notifier).state = label;
+          ref.read(visionQuestXpProvider.notifier).state = xp;
+          ref.read(visionQuestValidProvider.notifier).state = isValid;
+          if (mounted) context.go('/play/vision/success');
+        }
+      });
     } else {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -199,14 +236,17 @@ class _VisionQuestCameraScreenState extends ConsumerState<VisionQuestCameraScree
                     ),
                   ),
                   const SizedBox(height: MimzSpacing.sm),
-                  Text(
-                    'Show something related to architecture or design.',
-                    style: MimzTypography.displaySmall.copyWith(
-                      color: MimzColors.white,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+                  Consumer(builder: (_, ref, __) {
+                    final target = ref.watch(visionQuestTargetProvider);
+                    return Text(
+                      target,
+                      style: MimzTypography.displaySmall.copyWith(
+                        color: MimzColors.white,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      textAlign: TextAlign.center,
+                    );
+                  }),
                   const SizedBox(height: MimzSpacing.xxl),
                   // Camera controls
                   Row(

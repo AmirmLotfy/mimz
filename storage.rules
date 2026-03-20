@@ -19,9 +19,11 @@ service firebase.storage {
     }
 
     // District assets (uploaded via vision quest, etc)
+    // districtId format: district_{userId} — owner check is encoded in the id
     match /districts/{districtId}/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // Simplified for hackathon
+      allow write: if isAuthenticated() &&
+        districtId.matches('district_' + request.auth.uid + '.*');
     }
 
     match /{allPaths=**} {

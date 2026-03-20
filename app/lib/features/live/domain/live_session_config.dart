@@ -18,11 +18,19 @@ class LiveSessionConfig {
   final Duration maxSessionDuration;
   final int maxFramesPerSession;
 
+  /// Override the session type string sent to the backend (defaults to mode.name).
+  final String? sessionTypeOverride;
+
+  /// Event ID for event challenge sessions.
+  final String? eventId;
+
   const LiveSessionConfig({
     required this.mode,
     required this.systemInstruction,
     this.voiceName = 'Aoede',
-    this.responseModalities = const ['AUDIO', 'TEXT'],
+    // Native-audio live models currently require AUDIO-only setup.
+    // Requesting TEXT causes immediate WS close during setup.
+    this.responseModalities = const ['AUDIO'],
     this.tokenTtl = const Duration(minutes: 5),
     this.inactivityTimeout = const Duration(minutes: 3),
     this.maxReconnectAttempts = 3,
@@ -31,22 +39,20 @@ class LiveSessionConfig {
     this.enableAudioCapture = true,
     this.maxSessionDuration = const Duration(minutes: 10),
     this.maxFramesPerSession = 30,
+    this.sessionTypeOverride,
+    this.eventId,
   });
 
   // ─── Presets ─────────────────────────────────────
 
   static const onboarding = LiveSessionConfig(
     mode: LiveSessionMode.onboarding,
-    systemInstruction: '''You are Mimz, a warm and curious AI guide helping a new player set up their profile.
-
-BEHAVIOR:
-- Ask about their interests conversationally (don't list options)
-- Ask what they'd like to name their district
-- Keep it to 3-4 exchanges maximum
-- Be genuinely interested, not scripted
-- When done, call start_onboarding to begin, then save_user_profile with collected info
-
-VOICE: Friendly, editorial, slightly playful. Never robotic.''',
+    systemInstruction:
+        '''You are Mimz, a warm guide helping a new player set up their profile.
+- Call start_onboarding first
+- Conversationally ask about their interests and district name (3-4 exchanges max)
+- Call save_user_profile with collected info when done
+- Be genuine, not scripted. 2-3 sentences max per turn.''',
     inactivityTimeout: Duration(minutes: 5),
     enableCamera: false,
     maxSessionDuration: Duration(minutes: 5),
@@ -54,43 +60,63 @@ VOICE: Friendly, editorial, slightly playful. Never robotic.''',
 
   static const quiz = LiveSessionConfig(
     mode: LiveSessionMode.quiz,
-    systemInstruction: '''You are Mimz, an energetic live quiz host.
-
-BEHAVIOR:
-- Call start_live_round to begin
-- Ask one question at a time, read it clearly
-- Wait for the user's spoken answer
-- Call grade_answer with their response
-- If correct: celebrate briefly, call award_territory and grant_materials
-- If streak >= 3: call apply_combo_bonus
-- If incorrect: supportive hint, no penalty rant
-- After 5 questions, call end_round with summary
-- Keep pace fast — 2-3 sentences max per turn
-
-VOICE: High-energy but not exhausting. Think editorial podcast host.''',
+    systemInstruction:
+        '''You are Mimz, an energetic quiz host. 5 questions per round.
+- Call start_live_round, then ask one question at a time
+- Call grade_answer after each spoken response
+- If the player asks for a hint, call request_round_hint
+- If the player asks you to repeat, call request_round_repeat
+- Correct: celebrate, call award_territory + grant_materials; streak>=3: apply_combo_bonus
+- Incorrect: brief supportive hint only
+- After Q5: call end_round
+- 2-3 sentences max per turn. Fast pace.''',
     inactivityTimeout: Duration(minutes: 2),
     enableCamera: false,
-    maxSessionDuration: Duration(minutes: 10),
+    maxSessionDuration: Duration(minutes: 5),
+  );
+
+  static const sprint = LiveSessionConfig(
+    mode: LiveSessionMode.sprint,
+    systemInstruction:
+        '''You are Mimz, running a blazing-fast Daily Sprint. 3 rapid-fire questions only.
+- Call start_live_round, then ask one question at a time — no filler
+- Call grade_answer immediately after each answer
+- If the player asks for a hint, call request_round_hint
+- If the player asks you to repeat, call request_round_repeat
+- Correct: 1-sentence praise + award_territory; streak>=2: apply_combo_bonus
+- Incorrect: one-word reaction only
+- After Q3: call end_round. Lightning pace — keep it under 2 minutes total.''',
+    inactivityTimeout: Duration(seconds: 90),
+    enableCamera: false,
+    maxSessionDuration: Duration(minutes: 3),
+    tokenTtl: Duration(minutes: 3),
   );
 
   static const visionQuest = LiveSessionConfig(
     mode: LiveSessionMode.visionQuest,
     systemInstruction: '''You are Mimz, guiding a visual exploration challenge.
-
-BEHAVIOR:
-- Call start_vision_quest to begin
-- Ask the player to show you something specific
-- When you receive an image, analyze it
-- Call validate_vision_result with your assessment
+- Call start_vision_quest, then ask the player to show you something specific
+- Analyze each image; call validate_vision_result
 - If valid: call unlock_structure with a thematic blueprint
-- Guide toward 3 discoveries per quest
-- Be genuinely curious about what they show you
-
-VOICE: Curious, observant, appreciative.''',
+- Guide toward 3 discoveries. Be curious. 2-3 sentences max.''',
     inactivityTimeout: Duration(minutes: 3),
     enableCamera: true,
     enableAudioCapture: true,
     maxSessionDuration: Duration(minutes: 5),
     maxFramesPerSession: 20,
   );
+
+  static LiveSessionConfig event({
+    required String eventId,
+    required String eventTitle,
+  }) =>
+      LiveSessionConfig(
+        mode: LiveSessionMode.quiz,
+        systemInstruction: 'You are hosting the "$eventTitle" event challenge.',
+        inactivityTimeout: const Duration(seconds: 120),
+        maxSessionDuration: const Duration(minutes: 5),
+        tokenTtl: const Duration(minutes: 5),
+        sessionTypeOverride: 'event',
+        eventId: eventId,
+      );
 }

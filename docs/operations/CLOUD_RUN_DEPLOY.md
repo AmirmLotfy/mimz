@@ -40,7 +40,7 @@ gcloud run deploy mimz-backend \
   --image gcr.io/YOUR_PROJECT_ID/mimz-backend \
   --region us-central1 \
   --platform managed \
-  --allow-unauthenticated \
+  --no-invoker-iam-check \
   --memory 512Mi \
   --cpu 1 \
   --min-instances 0 \

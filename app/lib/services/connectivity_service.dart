@@ -19,7 +19,7 @@ class ConnectivityService extends StateNotifier<ConnectivityStatus> {
 
   void _startMonitoring() {
     _checkStatus();
-    _timer = Timer.periodic(const Duration(seconds: 15), (_) => _checkStatus());
+    _timer = Timer.periodic(const Duration(seconds: 45), (_) => _checkStatus());
   }
 
   Future<void> _checkStatus() async {

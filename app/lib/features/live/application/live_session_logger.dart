@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../services/api_client.dart';
 import '../domain/live_event.dart';
 
 /// Debug session logger that records an event timeline locally.
@@ -7,15 +8,20 @@ import '../domain/live_event.dart';
 class LiveSessionLogger {
   final List<_LogEntry> _entries = [];
   final int maxEntries;
+  final ApiClient? _apiClient;
+  bool _isFlushing = false;
+  String? _lastFlushedSessionId;
 
-  LiveSessionLogger({this.maxEntries = 500});
+  LiveSessionLogger({
+    this.maxEntries = 500,
+    ApiClient? apiClient,
+  }) : _apiClient = apiClient;
 
-  bool get isEnabled => kDebugMode;
+  bool get isEnabled => true;
+  bool get hasEntries => _entries.isNotEmpty;
 
   /// Log a session event.
   void log(String event, {Map<String, dynamic>? metadata}) {
-    if (!isEnabled) return;
-
     _entries.add(_LogEntry(
       timestamp: DateTime.now(),
       event: event,
@@ -29,6 +35,38 @@ class LiveSessionLogger {
 
     if (kDebugMode) {
       debugPrint('[Mimz Live] $event${metadata != null ? ' $metadata' : ''}');
+    }
+  }
+
+  Future<void> flush({
+    required String sessionId,
+    bool clearAfterFlush = false,
+  }) async {
+    if (_apiClient == null ||
+        _isFlushing ||
+        sessionId.trim().isEmpty ||
+        !hasEntries) {
+      if (clearAfterFlush) clear();
+      return;
+    }
+
+    final timeline = getTimeline();
+    if (timeline.isEmpty) return;
+
+    _isFlushing = true;
+    try {
+      await _apiClient.post('/live/session-log', {
+        'sessionId': sessionId,
+        'events': timeline,
+      });
+      _lastFlushedSessionId = sessionId;
+      if (clearAfterFlush) clear();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Mimz Live] session log upload failed: $e');
+      }
+    } finally {
+      _isFlushing = false;
     }
   }
 
@@ -58,7 +96,11 @@ class LiveSessionLogger {
       case InterruptionDetected():
         log('interruption_detected');
       case SessionError(error: final e):
-        log('session_error', metadata: {'code': e.code.name, 'message': e.message});
+        log('session_error', metadata: {
+          'code': e.code.name,
+          'message': e.message,
+          if (e.detail != null) 'detail': e.detail
+        });
       case SessionWarning(message: final m):
         log('session_warning', metadata: {'message': m});
       default:
@@ -68,11 +110,13 @@ class LiveSessionLogger {
 
   /// Get the full timeline as a list of maps (for debug display or backend POST).
   List<Map<String, dynamic>> getTimeline() {
-    return _entries.map((e) => {
-      'timestamp': e.timestamp.toIso8601String(),
-      'event': e.event,
-      if (e.metadata != null) 'metadata': e.metadata,
-    }).toList();
+    return _entries
+        .map((e) => {
+              'timestamp': e.timestamp.toIso8601String(),
+              'event': e.event,
+              if (e.metadata != null) 'metadata': e.metadata,
+            })
+        .toList();
   }
 
   /// Key milestones for quick inspection.
@@ -92,6 +136,7 @@ class LiveSessionLogger {
       'first_model_audio': find('audio_chunk'),
       'first_tool_call': find('tool_call_requested'),
       'session_closed': find('session_closed'),
+      'last_flushed_session': _lastFlushedSessionId,
     };
   }
 

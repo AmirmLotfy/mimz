@@ -5,7 +5,20 @@
 
 set -euo pipefail
 
-BASE_URL="${1:-https://mimz-backend-1012962167727.europe-west1.run.app}"
+# Canonical service URL
+BASE_URL="${1:-https://mimz-backend-glaimgrznq-ew.a.run.app}"
+AUTH_HEADER=()
+
+# If service is private (403/401), we can retry with an identity token from gcloud.
+get_identity_header() {
+  if command -v gcloud >/dev/null 2>&1; then
+    local token
+    token="$(gcloud auth print-identity-token 2>/dev/null || true)"
+    if [ -n "${token}" ]; then
+      AUTH_HEADER=(-H "Authorization: Bearer ${token}")
+    fi
+  fi
+}
 
 echo "🔍 Validating deployment at $BASE_URL"
 echo ""
@@ -17,6 +30,12 @@ ok=0
 fail=0
 
 if code=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL"); then
+  if [ "$code" = "401" ] || [ "$code" = "403" ]; then
+    get_identity_header
+    if [ "${#AUTH_HEADER[@]}" -gt 0 ]; then
+      code=$(curl -s -o /dev/null -w "%{http_code}" "${AUTH_HEADER[@]}" "$HEALTH_URL")
+    fi
+  fi
   if [ "$code" = "200" ]; then
     echo "✅ GET /health → $code"
     ok=$((ok+1))
@@ -30,6 +49,12 @@ else
 fi
 
 if code=$(curl -s -o /dev/null -w "%{http_code}" "$READYZ_URL"); then
+  if [ "$code" = "401" ] || [ "$code" = "403" ]; then
+    get_identity_header
+    if [ "${#AUTH_HEADER[@]}" -gt 0 ]; then
+      code=$(curl -s -o /dev/null -w "%{http_code}" "${AUTH_HEADER[@]}" "$READYZ_URL")
+    fi
+  fi
   if [ "$code" = "200" ]; then
     echo "✅ GET /readyz → $code"
     ok=$((ok+1))

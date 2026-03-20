@@ -93,6 +93,14 @@ class ToolCallCompleted extends LiveEvent {
   });
 }
 
+/// Sent by the server when a previously issued tool call should be cancelled
+/// because the user interrupted the model mid-turn.
+/// See: BidiGenerateContentToolCallCancellation in Vertex AI Live API docs.
+class ToolCallCancelled extends LiveEvent {
+  final List<String> cancelledIds;
+  const ToolCallCancelled({required this.cancelledIds});
+}
+
 // ─── Vision ───────────────────────────────────────────────
 
 class VisionInputRequested extends LiveEvent {

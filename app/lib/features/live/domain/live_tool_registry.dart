@@ -11,6 +11,8 @@ abstract final class LiveTools {
   // ─── Quiz ───────────────────────────────────────
   static const startLiveRound = 'start_live_round';
   static const gradeAnswer = 'grade_answer';
+  static const requestRoundHint = 'request_round_hint';
+  static const requestRoundRepeat = 'request_round_repeat';
   static const awardTerritory = 'award_territory';
   static const applyComboBonus = 'apply_combo_bonus';
   static const grantMaterials = 'grant_materials';
@@ -28,11 +30,23 @@ abstract final class LiveTools {
 
   /// All known tool names for validation.
   static const all = <String>{
-    startOnboarding, saveUserProfile, getCurrentDistrict,
-    startLiveRound, gradeAnswer, awardTerritory,
-    applyComboBonus, grantMaterials, endRound,
-    startVisionQuest, validateVisionResult, unlockStructure,
-    joinSquadMission, contributeSquadProgress, getEventState,
+    startOnboarding,
+    saveUserProfile,
+    getCurrentDistrict,
+    startLiveRound,
+    gradeAnswer,
+    requestRoundHint,
+    requestRoundRepeat,
+    awardTerritory,
+    applyComboBonus,
+    grantMaterials,
+    endRound,
+    startVisionQuest,
+    validateVisionResult,
+    unlockStructure,
+    joinSquadMission,
+    contributeSquadProgress,
+    getEventState,
   };
 
   /// Returns true if the tool name is recognized.

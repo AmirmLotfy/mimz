@@ -24,7 +24,7 @@ This document captures the final production-hardening changes across Profile, Se
 6. Open events and event details; verify no CTA/content overlap with floating nav.
 7. Open notifications; verify loading, read/unread, mark all read, empty and error handling.
 8. Walk through permission routes and denied/permanent-denied recoveries.
-9. Confirm haptic behavior matches `docs/HAPTICS_SPEC.md`.
+9. Confirm haptic behavior matches `docs/specs/HAPTICS_SPEC.md`.
 
 ## Remaining Manual Dependencies
 - Store listing legal copy review (if policy text updates are required by compliance).

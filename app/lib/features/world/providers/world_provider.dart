@@ -1,16 +1,42 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../data/models/district.dart';
-/// Current district data — fetched from API with demo fallback
+import '../../../services/sound_service.dart';
+import 'game_state_provider.dart';
+/// Current district data — fetched from API. No demo fallback; loading/error shown in UI.
 final districtProvider = StateNotifierProvider<DistrictNotifier, AsyncValue<District>>((ref) {
   return DistrictNotifier(ref);
 });
 
+/// Parse backend /district payload, which wraps district data under `district`.
+District parseDistrictResponse(Map<String, dynamic> response) {
+  final districtJson = response['district'];
+  if (districtJson is! Map<String, dynamic>) {
+    throw const FormatException('District payload missing `district` object');
+  }
+  return District.fromJson(districtJson);
+}
+
+/// Minimal district used only for in-memory reward math when API state is not yet loaded.
+District _placeholderDistrict() => District(
+  id: '',
+  name: 'My District',
+  sectors: 0,
+  area: '0.0 sq km',
+  structures: [],
+  resources: const Resources(),
+  prestigeLevel: 1,
+  influence: 0,
+  influenceThreshold: 500,
+  newSectors: 0,
+);
+
 class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
   final Ref _ref;
 
-  DistrictNotifier(this._ref) : super(AsyncValue.data(District.demo)) {
+  DistrictNotifier(this._ref) : super(const AsyncValue.loading()) {
     _fetchDistrict();
   }
 
@@ -23,17 +49,55 @@ class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
       return;
     }
     try {
-      final apiClient = _ref.read(apiClientProvider);
-      final response = await apiClient.getDistrict();
-      state = AsyncValue.data(District.fromJson(response));
+      final gameState = await _ref.read(gameStateProvider.future);
+      if (gameState != null) {
+        state = AsyncValue.data(gameState.district);
+      } else {
+        final apiClient = _ref.read(apiClientProvider);
+        final response = await apiClient.getDistrict();
+        state = AsyncValue.data(parseDistrictResponse(response));
+      }
       _lastFetch = DateTime.now();
-    } catch (e) {
-      // Keep demo data on failure — ensures demo never breaks
+    } on DioException catch (e, st) {
+      final code = e.response?.statusCode;
+      if (code == 401) {
+        state = AsyncValue.error(
+          StateError('Session expired. Please sign in again.'),
+          st,
+        );
+        return;
+      }
+      if (code == 404) {
+        // Self-heal once: replay bootstrap, then retry district fetch.
+        try {
+          final apiClient = _ref.read(apiClientProvider);
+          await apiClient.bootstrap();
+          _ref.invalidate(gameStateProvider);
+          final gameState = await _ref.read(gameStateProvider.future);
+          if (gameState != null) {
+            state = AsyncValue.data(gameState.district);
+          } else {
+            final retry = await apiClient.getDistrict();
+            state = AsyncValue.data(parseDistrictResponse(retry));
+          }
+          _lastFetch = DateTime.now();
+          return;
+        } catch (_) {}
+        state = AsyncValue.error(
+          StateError('District not found yet. Please retry.'),
+          st,
+        );
+        return;
+      }
+      state = AsyncValue.error(e, st);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> refresh() async {
     _lastFetch = null; // Force refresh when explicitly requested
+    _ref.invalidate(gameStateProvider);
     await _fetchDistrict();
   }
 
@@ -41,54 +105,49 @@ class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
     state = AsyncValue.data(newDistrict);
   }
 
-  /// Claim rewards after a quiz/vision round.
-  /// Calls backend to expand territory and grant resources, then refreshes state.
+  /// Sync state after a round. Backend already granted rewards during the
+  /// live session via tool calls -- we just refresh to get confirmed state.
   Future<RewardClaim> claimRewards({
     required int score,
     required int streak,
     required int sectorsEarned,
     required Resources materialsEarned,
   }) async {
-    final current = state.valueOrNull ?? District.demo;
+    final current = state.valueOrNull ?? _placeholderDistrict();
+    final beforeSectors = current.sectors;
 
     try {
-      final apiClient = _ref.read(apiClientProvider);
-
-      // Call backend to expand territory
-      if (sectorsEarned > 0) {
-        await apiClient.expandTerritory(sectorsEarned);
+      await refresh();
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401) {
+        throw StateError('Session expired. Please sign in again.');
       }
-
-      // Call backend to add resources
-      if (materialsEarned.total > 0) {
-        await apiClient.addResources(materialsEarned.toJson());
-      }
-    } catch (e) {
-      // If backend is unavailable, apply locally for demo
+      throw StateError('Could not sync rewards. Please retry.');
+    } catch (_) {
+      throw StateError('Could not sync rewards. Please retry.');
     }
 
-    // Update local state immediately for snappy UI
-    final updated = current.copyWith(
-      sectors: current.sectors + sectorsEarned,
-      area: '${((current.sectors + sectorsEarned) * 1.1).toStringAsFixed(1)} sq km',
-      resources: current.resources + materialsEarned,
-      newSectors: sectorsEarned,
-    );
-    state = AsyncValue.data(updated);
+    final confirmed = state.valueOrNull ?? current;
+    final gained = (confirmed.sectors - beforeSectors).clamp(0, 99999);
+    final gainedSectors = gained > 0 ? gained : sectorsEarned;
+    state = AsyncValue.data(confirmed.copyWith(newSectors: gainedSectors));
 
-    // Trigger growth animation
     _ref.read(districtGrowthEventProvider.notifier).state =
         DistrictGrowthEvent(
-          newSectors: sectorsEarned,
+          newSectors: gainedSectors,
           materialsEarned: materialsEarned,
           scoreEarned: score,
           timestamp: DateTime.now(),
         );
+    SoundService.instance.playDistrictGrowth();
+
+    _ref.invalidate(gameStateProvider);
 
     return RewardClaim(
-      sectorsGained: sectorsEarned,
+      sectorsGained: gainedSectors,
       materials: materialsEarned,
-      newTotalSectors: updated.sectors,
+      newTotalSectors: confirmed.sectors,
       score: score,
     );
   }
@@ -96,9 +155,11 @@ class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
   /// Syncs UI state based on rewards executed entirely on the backend
   /// (e.g. by a Gemini Live tool execution).
   void syncBackendReward(Map<String, dynamic> payload) {
-    final current = state.valueOrNull ?? District.demo;
+    final current = state.valueOrNull ?? _placeholderDistrict();
 
-    final sectorsAdded = (payload['sectorsAdded'] as num?)?.toInt() ?? 0;
+    final sectorsAdded = (payload['sectorsAdded'] as num?)?.toInt() ??
+        (payload['sectorsGained'] as num?)?.toInt() ??
+        0;
     
     // We update local state to reflect the new sectors without making another API call.
     if (sectorsAdded > 0) {
@@ -118,11 +179,31 @@ class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
             timestamp: DateTime.now(),
           );
     }
+
+    _ref.invalidate(gameStateProvider);
   }
 }
 
-/// Current mission text — updated by game events
-final currentMissionProvider = StateProvider<String>((ref) => 'The Verdant Sproutlings');
+String _fallbackMission(District? district) {
+  if (district == null) return 'Build your district';
+  if (district.sectors < 5) return 'Expand to 5 sectors';
+  if (district.structures.isEmpty) return 'Unlock your first structure';
+  return '${district.name} — ${district.sectors} sectors';
+}
+
+final currentMissionProvider = FutureProvider<String>((ref) async {
+  final cachedMission = ref.watch(canonicalMissionProvider);
+  if (cachedMission != null && cachedMission.isNotEmpty) {
+    return cachedMission;
+  }
+  final district = ref.watch(districtProvider).valueOrNull;
+  try {
+    final gameState = await ref.read(gameStateProvider.future);
+    final mission = gameState?.currentMission;
+    if (mission != null && mission.isNotEmpty) return mission;
+  } catch (_) {}
+  return _fallbackMission(district);
+});
 
 /// Growth event — triggers map animation when district grows
 final districtGrowthEventProvider = StateProvider<DistrictGrowthEvent?>((ref) => null);

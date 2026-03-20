@@ -9,7 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 APK="${1:-$ROOT_DIR/app/build/app/outputs/flutter-apk/app-release.apk}"
-PKG="com.mimz.mimz_app"
+PKG="com.mimz.mimz_mobile"
 
 echo "🔍 Mimz Release Smoke Test — $(date)"
 

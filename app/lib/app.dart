@@ -3,16 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'design_system/tokens.dart';
 import 'routing/router.dart';
 import 'core/app_lifecycle_observer.dart';
+import 'services/push_notification_service.dart';
 
 class MimzApp extends ConsumerWidget {
   const MimzApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Wire the auth guard — must be called once after ProviderScope is available
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      setRouterRef(ProviderScope.containerOf(context));
-    });
+    setRouterRef(ProviderScope.containerOf(context));
+    PushNotificationService.navigatorKey = rootNavigatorKey;
     return MaterialApp.router(
       title: 'Mimz',
       debugShowCheckedModeBanner: false,

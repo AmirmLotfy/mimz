@@ -5,6 +5,7 @@ import 'live_event.dart';
 enum LiveSessionMode {
   onboarding,
   quiz,
+  sprint,
   visionQuest,
 }
 
@@ -25,6 +26,11 @@ class LiveSessionState {
 
   // ─── Current prompt / question ───────────────────
   final String? currentPrompt;
+  final String? currentRoundId;
+  final String? currentQuestionId;
+  final int questionCount;
+  final int currentQuestionIndex;
+  final String? roundTopic;
 
   // ─── Active tool call ────────────────────────────
   final String? activeToolCallId;
@@ -47,6 +53,19 @@ class LiveSessionState {
   // ─── Latest backend-confirmed reward ─────────────
   final Map<String, dynamic>? lastRewardPayload;
 
+  // ─── Cumulative backend-granted totals ──────────────
+  final int grantedXp;
+  final int grantedSectors;
+  final int grantedStone;
+  final int grantedGlass;
+  final int grantedWood;
+  final int grantedComboXp;
+
+  // ─── Round complete signal ────────────────────────
+  /// True when the model has called end_round successfully. The UI uses this
+  /// to auto-navigate to the result screen after Gemini's farewell audio.
+  final bool isRoundComplete;
+
   // ─── Debug ───────────────────────────────────────
   final Duration? latency;
 
@@ -60,6 +79,11 @@ class LiveSessionState {
     this.isModelTranscriptFinal = true,
     this.isUserTranscriptFinal = true,
     this.currentPrompt,
+    this.currentRoundId,
+    this.currentQuestionId,
+    this.questionCount = 0,
+    this.currentQuestionIndex = 0,
+    this.roundTopic,
     this.activeToolCallId,
     this.activeToolName,
     this.isMicActive = false,
@@ -69,6 +93,13 @@ class LiveSessionState {
     this.error,
     this.reconnectAttempts = 0,
     this.lastRewardPayload,
+    this.grantedXp = 0,
+    this.grantedSectors = 0,
+    this.grantedStone = 0,
+    this.grantedGlass = 0,
+    this.grantedWood = 0,
+    this.grantedComboXp = 0,
+    this.isRoundComplete = false,
     this.latency,
   });
 
@@ -82,6 +113,11 @@ class LiveSessionState {
     bool? isModelTranscriptFinal,
     bool? isUserTranscriptFinal,
     String? currentPrompt,
+    String? currentRoundId,
+    String? currentQuestionId,
+    int? questionCount,
+    int? currentQuestionIndex,
+    String? roundTopic,
     String? activeToolCallId,
     String? activeToolName,
     bool? isMicActive,
@@ -91,8 +127,14 @@ class LiveSessionState {
     LiveError? error,
     int? reconnectAttempts,
     Map<String, dynamic>? lastRewardPayload,
+    int? grantedXp,
+    int? grantedSectors,
+    int? grantedStone,
+    int? grantedGlass,
+    int? grantedWood,
+    int? grantedComboXp,
+    bool? isRoundComplete,
     Duration? latency,
-    // Allow explicit null clearing
     bool clearError = false,
     bool clearToolCall = false,
     bool clearPrompt = false,
@@ -107,6 +149,11 @@ class LiveSessionState {
       isModelTranscriptFinal: isModelTranscriptFinal ?? this.isModelTranscriptFinal,
       isUserTranscriptFinal: isUserTranscriptFinal ?? this.isUserTranscriptFinal,
       currentPrompt: clearPrompt ? null : (currentPrompt ?? this.currentPrompt),
+      currentRoundId: currentRoundId ?? this.currentRoundId,
+      currentQuestionId: currentQuestionId ?? this.currentQuestionId,
+      questionCount: questionCount ?? this.questionCount,
+      currentQuestionIndex: currentQuestionIndex ?? this.currentQuestionIndex,
+      roundTopic: roundTopic ?? this.roundTopic,
       activeToolCallId: clearToolCall ? null : (activeToolCallId ?? this.activeToolCallId),
       activeToolName: clearToolCall ? null : (activeToolName ?? this.activeToolName),
       isMicActive: isMicActive ?? this.isMicActive,
@@ -116,6 +163,13 @@ class LiveSessionState {
       error: clearError ? null : (error ?? this.error),
       reconnectAttempts: reconnectAttempts ?? this.reconnectAttempts,
       lastRewardPayload: lastRewardPayload ?? this.lastRewardPayload,
+      grantedXp: grantedXp ?? this.grantedXp,
+      grantedSectors: grantedSectors ?? this.grantedSectors,
+      grantedStone: grantedStone ?? this.grantedStone,
+      grantedGlass: grantedGlass ?? this.grantedGlass,
+      grantedWood: grantedWood ?? this.grantedWood,
+      grantedComboXp: grantedComboXp ?? this.grantedComboXp,
+      isRoundComplete: isRoundComplete ?? this.isRoundComplete,
       latency: latency ?? this.latency,
     );
   }

@@ -7,7 +7,6 @@ import 'package:mimz_app/data/models/user.dart';
 import 'package:mimz_app/features/onboarding/presentation/basic_profile_setup_screen.dart';
 import 'package:mimz_app/features/onboarding/presentation/interest_selection_screen.dart';
 import 'package:mimz_app/features/onboarding/presentation/gameplay_preferences_screen.dart';
-import 'package:mimz_app/features/onboarding/presentation/onboarding_summary_screen.dart';
 import '../../test_helpers/test_app_wrapper.dart';
 import '../../test_helpers/provider_overrides.dart';
 import '../../test_helpers/mocks.dart';

@@ -1,4 +1,4 @@
-package com.mimz.mimz_app
+package com.mimz.mimz_mobile
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

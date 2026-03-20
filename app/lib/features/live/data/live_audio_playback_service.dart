@@ -1,33 +1,49 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
-import 'package:just_audio/just_audio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 
 /// Abstract interface for audio playback.
 abstract class AudioPlaybackService {
   bool get isPlaying;
   Stream<bool> get playbackStateStream;
 
-  /// Queue a chunk of raw PCM 16-bit 24kHz mono audio.
+  /// Queue a chunk of raw PCM 16-bit 24kHz mono audio received from Gemini.
   void enqueue(Uint8List audioData, String mimeType);
 
-  /// Stop playback immediately (for barge-in).
+  /// Stop playback immediately (for barge-in / interruption).
   Future<void> stopImmediately();
 
-  /// Flush the queue without playing remaining chunks.
+  /// Flush the queue without stopping the player.
   void flushQueue();
 
   /// Release all resources.
   void dispose();
 }
 
-/// Plays raw PCM data in memory by prepending a WAV header and piping to just_audio.
+/// Plays raw PCM 16-bit 24kHz mono audio from Gemini Live by continuously
+/// feeding chunks to [flutter_pcm_sound]'s hardware audio buffer.
+///
+/// Architecture: chunks queue up as they arrive from the WebSocket. The
+/// [_onFeed] callback is invoked by flutter_pcm_sound whenever the hardware
+/// buffer falls below [_feedThreshold] frames, at which point we drain the
+/// queue into the buffer. This produces truly gapless output, unlike the
+/// prior [just_audio] per-chunk WAV approach that introduced 20-50ms gaps.
 class LiveAudioPlaybackService implements AudioPlaybackService {
-  final AudioPlayer _player = AudioPlayer();
+  static const int _sampleRate = 24000;
+  static const int _channelCount = 1;
 
-  final _queue = Queue<_AudioChunk>();
+  /// Feed callback fires when remaining buffered frames fall below this.
+  /// 200ms at 24kHz = 4800 frames. Gives enough lead-time to prevent
+  /// underruns even under main-thread load, while keeping latency low.
+  static const int _feedThreshold = 4800;
+
+  final _queue = Queue<Uint8List>();
   bool _isPlaying = false;
   bool _isDisposed = false;
+  bool _isSetup = false;
+
   final _stateController = StreamController<bool>.broadcast();
 
   @override
@@ -36,51 +52,94 @@ class LiveAudioPlaybackService implements AudioPlaybackService {
   @override
   Stream<bool> get playbackStateStream => _stateController.stream;
 
-  @override
-  void enqueue(Uint8List audioData, String mimeType) {
-    if (_isDisposed) return;
-    _queue.add(_AudioChunk(data: audioData, mimeType: mimeType));
-    _processQueue();
+  LiveAudioPlaybackService() {
+    _init();
   }
 
-  Future<void> _processQueue() async {
-    if (_isPlaying || _queue.isEmpty || _isDisposed) return;
+  Future<void> _init() async {
+    try {
+      await FlutterPcmSound.setup(
+        sampleRate: _sampleRate,
+        channelCount: _channelCount,
+      );
+      await FlutterPcmSound.setFeedThreshold(_feedThreshold);
+      FlutterPcmSound.setFeedCallback(_onFeed);
+      _isSetup = true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Mimz][Audio] PCM setup error: $e');
+    }
+  }
 
-    _isPlaying = true;
-    _stateController.add(true);
+  /// Invoked by flutter_pcm_sound when the hardware buffer needs more data.
+  /// Drains the pending chunk queue and feeds all available PCM frames.
+  void _onFeed(int remainingFrames) {
+    if (_isDisposed) return;
 
-    while (_queue.isNotEmpty && !_isDisposed) {
-      final chunk = _queue.removeFirst();
-
-      try {
-        // Gemini outputs 24kHz 16-bit mono PCM.
-        final wavData = _addWavHeader(chunk.data, 24000);
-        final source = _MemoryAudioSource(wavData);
-        
-        await _player.setAudioSource(source);
-        await _player.play();
-        
-        // Wait until this specific chunk is finished playing
-        if (_player.playing) {
-          await _player.playerStateStream.firstWhere(
-            (state) => state.processingState == ProcessingState.completed || !_isPlaying,
-          );
-        }
-      } catch (e) {
-        // Ignore playback errors from interrupted chunks
+    if (_queue.isEmpty) {
+      // Buffer drained, nothing left to play — playback is idle.
+      if (_isPlaying) {
+        _isPlaying = false;
+        if (!_isDisposed) _stateController.add(false);
       }
+      return;
     }
 
-    _isPlaying = false;
-    if (!_isDisposed) _stateController.add(false);
+    // Feed all queued chunks at once. flutter_pcm_sound accumulates them
+    // internally, so we can batch-feed without risk of overflow.
+    while (_queue.isNotEmpty && !_isDisposed) {
+      final chunk = _queue.removeFirst();
+      final pcm = _toPcmArray(chunk);
+      FlutterPcmSound.feed(pcm);
+    }
+  }
+
+  /// Convert raw Gemini PCM bytes (16-bit LE) to a [PcmArrayInt16] for the
+  /// flutter_pcm_sound plugin. Avoids sample-by-sample copy by reusing the
+  /// underlying byte buffer directly.
+  PcmArrayInt16 _toPcmArray(Uint8List pcmBytes) {
+    return PcmArrayInt16(
+      bytes: pcmBytes.buffer.asByteData(
+        pcmBytes.offsetInBytes,
+        pcmBytes.lengthInBytes,
+      ),
+    );
+  }
+
+  @override
+  void enqueue(Uint8List audioData, String mimeType) {
+    if (_isDisposed || !_isSetup) return;
+    _queue.add(audioData);
+
+    final wasIdle = !_isPlaying;
+    if (wasIdle) {
+      _isPlaying = true;
+      _stateController.add(true);
+      // Kickstart: trigger the feed callback immediately via start(),
+      // which calls onFeedSamplesCallback(0) to begin draining the queue.
+      FlutterPcmSound.start();
+    }
+    // If already playing, flutter_pcm_sound will call _onFeed again when
+    // the buffer falls below threshold — no action needed here.
   }
 
   @override
   Future<void> stopImmediately() async {
     _queue.clear();
-    _isPlaying = false;
-    await _player.stop();
-    if (!_isDisposed) _stateController.add(false);
+    if (_isPlaying) {
+      _isPlaying = false;
+      if (!_isDisposed) _stateController.add(false);
+    }
+    try {
+      if (_isSetup) {
+        // Release tears down the native audio session.
+        await FlutterPcmSound.release();
+        // Re-setup so the service is ready for the next session.
+        _isSetup = false;
+        await _init();
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Mimz][Audio] stopImmediately error: $e');
+    }
   }
 
   @override
@@ -94,57 +153,9 @@ class LiveAudioPlaybackService implements AudioPlaybackService {
     _queue.clear();
     _isPlaying = false;
     _stateController.close();
-    _player.dispose();
-  }
-
-  /// Adds a standard WAV header to raw PCM 16-bit data.
-  Uint8List _addWavHeader(Uint8List pcmBytes, int sampleRate) {
-    const channels = 1;
-    final byteRate = sampleRate * channels * 2;
-    
-    final header = ByteData(44);
-    header.setUint8(0, 82); header.setUint8(1, 73); header.setUint8(2, 70); header.setUint8(3, 70); // "RIFF"
-    header.setUint32(4, 36 + pcmBytes.length, Endian.little);
-    header.setUint8(8, 87); header.setUint8(9, 65); header.setUint8(10, 86); header.setUint8(11, 69); // "WAVE"
-    header.setUint8(12, 102); header.setUint8(13, 109); header.setUint8(14, 116); header.setUint8(15, 32); // "fmt "
-    header.setUint32(16, 16, Endian.little);
-    header.setUint16(20, 1, Endian.little); // Format = PCM
-    header.setUint16(22, channels, Endian.little);
-    header.setUint32(24, sampleRate, Endian.little);
-    header.setUint32(28, byteRate, Endian.little);
-    header.setUint16(32, channels * 2, Endian.little); // Block align
-    header.setUint16(34, 16, Endian.little); // Bits per sample
-    header.setUint8(36, 100); header.setUint8(37, 97); header.setUint8(38, 116); header.setUint8(39, 97); // "data"
-    header.setUint32(40, pcmBytes.length, Endian.little);
-
-    final builder = BytesBuilder();
-    builder.add(header.buffer.asUint8List());
-    builder.add(pcmBytes);
-    return builder.toBytes();
-  }
-}
-
-class _AudioChunk {
-  final Uint8List data;
-  final String mimeType;
-  const _AudioChunk({required this.data, required this.mimeType});
-}
-
-class _MemoryAudioSource extends StreamAudioSource {
-  final Uint8List _buffer;
-  
-  _MemoryAudioSource(this._buffer);
-
-  @override
-  Future<StreamAudioResponse> request([int? start, int? end]) async {
-    start ??= 0;
-    end ??= _buffer.length;
-    return StreamAudioResponse(
-      sourceLength: _buffer.length,
-      contentLength: end - start,
-      offset: start,
-      stream: Stream.value(_buffer.sublist(start, end)),
-      contentType: 'audio/wav',
-    );
+    FlutterPcmSound.setFeedCallback(null);
+    try {
+      FlutterPcmSound.release();
+    } catch (_) {}
   }
 }

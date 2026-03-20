@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'providers.dart';
+import '../features/auth/providers/auth_provider.dart';
+import '../features/world/providers/game_state_provider.dart';
 import '../services/connectivity_service.dart';
 import '../design_system/tokens.dart';
 
@@ -12,10 +14,12 @@ class AppLifecycleObserver extends ConsumerStatefulWidget {
   const AppLifecycleObserver({super.key, required this.child});
 
   @override
-  ConsumerState<AppLifecycleObserver> createState() => _AppLifecycleObserverState();
+  ConsumerState<AppLifecycleObserver> createState() =>
+      _AppLifecycleObserverState();
 }
 
-class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver> with WidgetsBindingObserver {
+class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver>
+    with WidgetsBindingObserver {
   bool _isLocked = false;
   bool _isAuthenticating = false;
 
@@ -43,6 +47,10 @@ class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver> wit
         _checkAndLockIfNeeded();
       }
     } else if (state == AppLifecycleState.resumed) {
+      if (ref.read(isAuthenticatedProvider)) {
+        ref.read(connectivityProvider.notifier).retryNow();
+        ref.invalidate(gameStateProvider);
+      }
       if (_isLocked && !_isAuthenticating) {
         _authenticate();
       }
@@ -61,12 +69,12 @@ class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver> wit
   Future<void> _authenticate() async {
     if (_isAuthenticating) return;
     _isAuthenticating = true;
-    
+
     final biometricService = ref.read(biometricServiceProvider);
     final authed = await biometricService.authenticate(
       reason: 'Confirm your identity to access Mimz.',
     );
-    
+
     _isAuthenticating = false;
     if (authed && mounted) {
       setState(() => _isLocked = false);
@@ -76,13 +84,14 @@ class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver> wit
   @override
   Widget build(BuildContext context) {
     final connectivityStatus = ref.watch(connectivityProvider);
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
 
     return Stack(
       children: [
         widget.child,
-        
+
         // Connectivity Banner
-        if (connectivityStatus != ConnectivityStatus.online)
+        if (isAuthenticated && connectivityStatus != ConnectivityStatus.online)
           Positioned(
             top: 0,
             left: 0,
@@ -92,18 +101,21 @@ class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver> wit
               child: SafeArea(
                 bottom: false,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.md, vertical: MimzSpacing.sm),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: MimzSpacing.md, vertical: MimzSpacing.sm),
                   color: MimzColors.error,
                   child: Row(
                     children: [
-                      const Icon(Icons.cloud_off, color: MimzColors.white, size: 20),
+                      const Icon(Icons.cloud_off,
+                          color: MimzColors.white, size: 20),
                       const SizedBox(width: MimzSpacing.sm),
                       Expanded(
                         child: Text(
                           connectivityStatus == ConnectivityStatus.noInternet
                               ? 'No internet connection'
                               : 'Backend unavailable. Reconnecting...',
-                          style: MimzTypography.bodySmall.copyWith(color: MimzColors.white),
+                          style: MimzTypography.bodySmall
+                              .copyWith(color: MimzColors.white),
                         ),
                       ),
                       GestureDetector(
@@ -112,7 +124,8 @@ class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver> wit
                         },
                         child: Text(
                           'RETRY',
-                          style: MimzTypography.buttonText.copyWith(color: MimzColors.white, fontSize: 12),
+                          style: MimzTypography.buttonText
+                              .copyWith(color: MimzColors.white, fontSize: 12),
                         ),
                       ),
                     ],
@@ -120,7 +133,9 @@ class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver> wit
                 ),
               ),
             ),
-          ).animate().slideY(begin: -1, duration: 300.ms, curve: Curves.easeOut),
+          )
+              .animate()
+              .slideY(begin: -1, duration: 300.ms, curve: Curves.easeOut),
 
         if (_isLocked)
           Positioned.fill(
@@ -130,21 +145,27 @@ class _AppLifecycleObserverState extends ConsumerState<AppLifecycleObserver> wit
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.fingerprint, size: 64, color: MimzColors.mossCore),
+                    const Icon(Icons.fingerprint,
+                        size: 64, color: MimzColors.mossCore),
                     const SizedBox(height: MimzSpacing.xl),
                     Text('Mimz is Locked', style: MimzTypography.displayMedium),
                     const SizedBox(height: MimzSpacing.md),
-                    Text('Authentication required to continue', style: MimzTypography.bodyMedium, textAlign: TextAlign.center),
+                    Text('Authentication required to continue',
+                        style: MimzTypography.bodyMedium,
+                        textAlign: TextAlign.center),
                     const SizedBox(height: MimzSpacing.xxl),
                     GestureDetector(
                       onTap: _authenticate,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 16),
                         decoration: BoxDecoration(
                           color: MimzColors.mossCore,
                           borderRadius: BorderRadius.circular(MimzRadius.md),
                         ),
-                        child: Text('Unlock', style: MimzTypography.buttonText.copyWith(color: MimzColors.white)),
+                        child: Text('Unlock',
+                            style: MimzTypography.buttonText
+                                .copyWith(color: MimzColors.white)),
                       ),
                     ),
                   ],

@@ -10,7 +10,7 @@ describe('Model Configuration Registry', () => {
     
     // Check that env overrides are prioritized over fallbacks
     // (In test env, these might be undefined or set to specific defaults)
-    const expectedLive = process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
+    const expectedLive = process.env.GEMINI_LIVE_MODEL || 'gemini-live-2.5-flash-native-audio';
     expect(LIVE_MODEL).toBe(expectedLive);
   });
 
@@ -24,20 +24,20 @@ describe('Model Configuration Registry', () => {
   });
 
   it('getModelWithFallback should return accurate pairs', () => {
-    const livePair = getModelWithFallback('LIVE_REALTIME');
+    const livePair = getModelWithFallback('LIVE_REALTIME_MODEL');
     expect(livePair.primary).toBe(LIVE_MODEL);
     expect(livePair.fallback).toBeDefined();
 
-    const asyncPair = getModelWithFallback('ASYNC_CHALLENGE');
+    const asyncPair = getModelWithFallback('ASYNC_REASONING_MODEL');
     expect(asyncPair.primary).toBe(ASYNC_MODEL);
     expect(asyncPair.fallback).toBeDefined();
     
-    const utilityPair = getModelWithFallback('LOW_COST_UTILITY');
+    const utilityPair = getModelWithFallback('LOW_COST_UTILITY_MODEL');
     expect(utilityPair.primary).toBe(UTILITY_MODEL);
     expect(utilityPair.fallback).toBeDefined();
     
     // If fallback is omitted in config, it should match primary
-    if (MODEL_REGISTRY.LOW_COST_UTILITY.fallback === undefined) {
+    if (MODEL_REGISTRY.LOW_COST_UTILITY_MODEL.fallback === undefined) {
        expect(utilityPair.fallback).toBe(utilityPair.primary);
     }
   });

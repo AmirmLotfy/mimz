@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
 import { getFirebaseAuth } from '../lib/firebase.js';
+import { config } from '../config/index.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -23,18 +24,24 @@ export const authMiddleware = fp(async (server: FastifyInstance) => {
   server.decorateRequest('userEmail', undefined);
 
   server.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
+    const traceId = (request.headers['x-correlation-id'] as string | undefined)?.trim() || request.id;
+    reply.header('x-correlation-id', traceId);
     // Skip auth for public routes
     if (PUBLIC_ROUTES.some(r => request.url.startsWith(r))) return;
 
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
-      // Demo mode fallback for development
-      if (process.env.NODE_ENV !== 'production') {
+      if (config.allowDevAuthBypass) {
         request.userId = 'demo_user_001';
         request.userEmail = 'demo@mimz.app';
         return;
       }
-      return reply.status(401).send({ error: 'Missing authorization header' });
+      return reply.status(401).send({
+        error: 'Missing authorization header',
+        code: 'AUTH_HEADER_MISSING',
+        traceId,
+        retryable: false,
+      });
     }
 
     const token = authHeader.replace('Bearer ', '');
@@ -45,15 +52,19 @@ export const authMiddleware = fp(async (server: FastifyInstance) => {
       request.userId = decoded.uid;
       request.userEmail = decoded.email;
     } catch (err) {
-      // Dev fallback — accept any token format
-      if (process.env.NODE_ENV !== 'production') {
+      if (config.allowDevAuthBypass) {
         request.userId = `user_${token.substring(0, 8)}`;
         request.userEmail = 'dev@mimz.app';
         return;
       }
 
-      request.log.warn({ err }, 'Token verification failed');
-      return reply.status(401).send({ error: 'Invalid authentication token' });
+      request.log.warn({ err, traceId }, 'Token verification failed');
+      return reply.status(401).send({
+        error: 'Invalid authentication token',
+        code: 'AUTH_TOKEN_INVALID',
+        traceId,
+        retryable: false,
+      });
     }
   });
 });

@@ -1,27 +1,8 @@
-import 'dart:math';
+import 'dart:math' show max;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers.dart';
 import '../../../data/models/quiz_state.dart';
 import '../../../data/models/district.dart';
-import '../../../services/gemini_live_client.dart';
-
-/// Live session connection state
-final liveSessionStateProvider = StreamProvider<LiveSessionState>((ref) {
-  final client = ref.watch(geminiLiveClientProvider);
-  return client.stateStream;
-});
-
-/// Incoming Gemini messages
-final geminiMessageProvider = StreamProvider<GeminiMessage>((ref) {
-  final client = ref.watch(geminiLiveClientProvider);
-  return client.messageStream;
-});
-
-/// Incoming tool calls from Gemini
-final geminiToolCallProvider = StreamProvider<GeminiToolCall>((ref) {
-  final client = ref.watch(geminiLiveClientProvider);
-  return client.toolCallStream;
-});
+import 'live_providers.dart' show liveSessionStateProvider;
 
 /// Quiz game state
 final quizStateProvider = StateNotifierProvider<QuizNotifier, QuizState>((ref) {
@@ -29,7 +10,7 @@ final quizStateProvider = StateNotifierProvider<QuizNotifier, QuizState>((ref) {
 });
 
 class QuizNotifier extends StateNotifier<QuizState> {
-  QuizNotifier() : super(QuizState.demo);
+  QuizNotifier() : super(const QuizState());
 
   void setQuestion(String id, String text) {
     state = state.copyWith(
@@ -56,13 +37,22 @@ class QuizNotifier extends StateNotifier<QuizState> {
   }
 }
 
-/// Calculated rewards from a quiz round — derived from quiz state
+/// Rewards derived from backend-granted totals accumulated during the live session.
 final roundRewardsProvider = Provider<RoundRewards>((ref) {
-  final quiz = ref.watch(quizStateProvider);
-  return RoundRewards.fromQuizState(quiz);
+  final session = ref.watch(liveSessionStateProvider).valueOrNull;
+  if (session == null) return const RoundRewards();
+  return RoundRewards(
+    sectorsEarned: session.grantedSectors,
+    materialsEarned: Resources(
+      stone: session.grantedStone,
+      glass: session.grantedGlass,
+      wood: session.grantedWood,
+    ),
+    xpEarned: session.grantedXp,
+    streakBonus: session.grantedComboXp,
+  );
 });
 
-/// Computed rewards based on quiz performance
 class RoundRewards {
   final int sectorsEarned;
   final Resources materialsEarned;
@@ -70,51 +60,26 @@ class RoundRewards {
   final int streakBonus;
 
   const RoundRewards({
-    required this.sectorsEarned,
-    required this.materialsEarned,
-    required this.xpEarned,
-    required this.streakBonus,
+    this.sectorsEarned = 0,
+    this.materialsEarned = const Resources(),
+    this.xpEarned = 0,
+    this.streakBonus = 0,
   });
-
-  /// Calculate rewards from quiz score:
-  /// - 1 sector per 2000 points (min 1 if score > 0)
-  /// - Materials scale with score and streak
-  /// - XP = score
-  /// - Streak bonus = extra materials
-  factory RoundRewards.fromQuizState(QuizState quiz) {
-    if (quiz.score <= 0) {
-      return const RoundRewards(
-        sectorsEarned: 0,
-        materialsEarned: Resources(),
-        xpEarned: 0,
-        streakBonus: 0,
-      );
-    }
-
-    final sectors = max(1, quiz.score ~/ 2000);
-    final streakMult = max(1, quiz.streak);
-    final stone = 20 + (quiz.score ~/ 100) + streakMult * 5;
-    final glass = 10 + (quiz.score ~/ 250) + streakMult * 3;
-    final wood = 15 + (quiz.score ~/ 150) + streakMult * 4;
-    final bonus = streakMult * 50;
-
-    return RoundRewards(
-      sectorsEarned: sectors.clamp(1, 5),
-      materialsEarned: Resources(stone: stone, glass: glass, wood: wood),
-      xpEarned: quiz.score,
-      streakBonus: bonus,
-    );
-  }
 }
 
 /// Vision quest camera state
 final visionQuestActiveProvider = StateProvider<bool>((ref) => false);
 final visionQuestTargetProvider = StateProvider<String>(
-  (ref) => 'Show something related to architecture or design.',
+  (ref) => 'Show me something interesting around you.',
 );
 
 /// Label of the object Gemini identified in the vision quest image.
-/// Set on the camera screen before navigating to success.
 final visionQuestResultLabelProvider = StateProvider<String>(
   (ref) => '',
 );
+
+/// XP awarded for the vision quest validation
+final visionQuestXpProvider = StateProvider<int>((ref) => 0);
+
+/// Whether the vision quest validation was valid
+final visionQuestValidProvider = StateProvider<bool>((ref) => false);

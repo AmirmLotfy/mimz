@@ -17,6 +17,10 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static const String _androidApiKey =
       String.fromEnvironment('FIREBASE_ANDROID_API_KEY');
+  // Fallback for release builds when dart-define is omitted.
+  // Matches app/android/app/google-services.json.
+  static const String _androidApiKeyFallback =
+      'AIzaSyA4tbJZqo7EsXJiml0qMKlBz9u9JkoP4Ls';
   static const String _iosApiKey =
       String.fromEnvironment('FIREBASE_IOS_API_KEY');
 
@@ -55,17 +59,12 @@ class DefaultFirebaseOptions {
   }
 
   static FirebaseOptions get android {
-    if (_androidApiKey.isEmpty) {
-      throw UnsupportedError(
-        'Missing FIREBASE_ANDROID_API_KEY. Pass it via --dart-define.',
-      );
-    }
     return FirebaseOptions(
-      apiKey: _androidApiKey,
-      appId: '1:1012962167727:android:dd7c267a1edf01c0e7bd5a',
-      messagingSenderId: '1012962167727',
-      projectId: 'mimzapp',
-      storageBucket: 'mimzapp.firebasestorage.app',
+      apiKey: _androidApiKey.isEmpty ? _androidApiKeyFallback : _androidApiKey,
+      appId: '1:392547013333:android:7ae37e7927360219da485c',
+      messagingSenderId: '392547013333',
+      projectId: 'mimz-490520',
+      storageBucket: 'mimz-490520.firebasestorage.app',
     );
   }
 
@@ -77,14 +76,14 @@ class DefaultFirebaseOptions {
     }
     return FirebaseOptions(
       apiKey: _iosApiKey,
-      appId: '1:1012962167727:ios:45c7af776d18210ce7bd5a',
-      messagingSenderId: '1012962167727',
-      projectId: 'mimzapp',
-      storageBucket: 'mimzapp.firebasestorage.app',
+      appId: '1:392547013333:ios:c78be5bbda376bbfda485c',
+      messagingSenderId: '392547013333',
+      projectId: 'mimz-490520',
+      storageBucket: 'mimz-490520.firebasestorage.app',
       androidClientId:
-          '1012962167727-0p0dn1t5snr5m1r8sb6hcun9t5b6j24n.apps.googleusercontent.com',
+          '392547013333-51rid4rl2li0v5qf0kv6hhclb4umvgch.apps.googleusercontent.com',
       iosClientId:
-          '1012962167727-lorb8qhom0cvhe5nnj22ealeajf5uv5a.apps.googleusercontent.com',
+          '392547013333-h66prhdk3ep7pa9pd6bue57advji0rel.apps.googleusercontent.com',
       iosBundleId: 'com.mimz.mimzApp',
     );
   }

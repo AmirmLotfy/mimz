@@ -34,7 +34,7 @@ grep -q "googleMapsApiKey" app/android/app/src/main/AndroidManifest.xml && echo 
 
 # 4. Check for production URL in ApiClient
 echo "🌐 Checking ApiClient URL..."
-grep -q "mimz-backend-1012962167727.europe-west1.run.app" app/lib/services/api_client.dart && echo "✅ Production backend URL found." || echo "⚠️  Production backend URL not found or custom."
+grep -q "mimz-backend-glaimgrznq-ew.a.run.app" app/lib/services/api_client.dart && echo "✅ Production backend URL found." || echo "⚠️  Production backend URL not found or custom."
 
 # 5. Check LogInterceptor status
 echo "📝 Checking LogInterceptor hardening..."

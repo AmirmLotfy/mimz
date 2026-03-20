@@ -8,8 +8,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
-LOG_FILE="$ROOT_DIR/build_release.log"
+ARTIFACTS_DIR="$ROOT_DIR/artifacts/release"
+LOG_FILE="$ARTIFACTS_DIR/build_release.log"
 APK_OUT="$APP_DIR/build/app/outputs/flutter-apk"
+
+mkdir -p "$ARTIFACTS_DIR"
 
 echo "🚀 Mimz Release Build — $(date)" | tee "$LOG_FILE"
 echo "   App dir: $APP_DIR"

@@ -5,8 +5,13 @@ export async function rewardsRoutes(server: FastifyInstance) {
   // GET /rewards — Get user's recent reward history
   server.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = request.userId!;
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Last 7 days
-    const rewards = await db.getRewardsSince(userId, since);
+    const query = request.query as { limit?: string; all?: string };
+    const limit = Math.min(parseInt(query.limit ?? '20', 10), 100);
+    const useHistory = query.all === 'true';
+
+    const rewards = useHistory
+      ? await db.getUserRewards(userId, limit)
+      : await db.getRewardsSince(userId, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
 
     const totalXp = rewards.filter(r => r.type === 'xp').reduce((sum, r) => sum + r.amount, 0);
     const totalTerritory = rewards.filter(r => r.type === 'territory').reduce((sum, r) => sum + r.amount, 0);
@@ -14,7 +19,7 @@ export async function rewardsRoutes(server: FastifyInstance) {
     return {
       rewards,
       summary: {
-        period: '7d',
+        period: useHistory ? 'all' : '7d',
         totalXp,
         totalTerritory,
         totalRewards: rewards.length,

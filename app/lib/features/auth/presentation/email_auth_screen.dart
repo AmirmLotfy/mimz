@@ -109,7 +109,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen>
     if (userState.hasError || userState.valueOrNull == null) {
       setState(() {
         _loading = false;
-        _error = 'Signed in, but failed to load your profile. Please retry.';
+        _error = bootstrapFailureMessage(userState.error);
       });
       return;
     }
@@ -143,7 +143,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen>
     if (userState.hasError || userState.valueOrNull == null) {
       setState(() {
         _loading = false;
-        _error = 'Account created, but profile bootstrap failed. Please retry.';
+        _error = bootstrapFailureMessage(userState.error);
       });
       return;
     }

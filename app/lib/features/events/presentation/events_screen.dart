@@ -4,8 +4,19 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../design_system/tokens.dart';
 import '../providers/events_provider.dart';
+import '../../world/providers/game_state_provider.dart';
 import '../../../data/models/event.dart';
+import '../../../data/models/game_state.dart';
 import '../../../services/haptics_service.dart';
+
+String? _zoneDetailForEvent(String eventId, List<EventZoneModel> zones) {
+  for (final zone in zones) {
+    if (zone.eventId == eventId) {
+      return '${zone.regionLabel} • x${zone.rewardMultiplier.toStringAsFixed(1)} rewards';
+    }
+  }
+  return null;
+}
 
 /// Events screen — wired with eventsProvider and tappable cards
 class EventsScreen extends ConsumerWidget {
@@ -13,13 +24,31 @@ class EventsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final events = ref.watch(eventsProvider);
+    final eventsAsync = ref.watch(eventsProvider);
+    final events = eventsAsync.valueOrNull ?? const <MimzEvent>[];
     final activeEvent = ref.watch(activeEventProvider);
+    final eventZones = ref.watch(eventZonesProvider);
 
     return Scaffold(
       backgroundColor: MimzColors.cloudBase,
       appBar: AppBar(title: const Text('Events')),
-      body: events.isEmpty
+      body: eventsAsync.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : eventsAsync.hasError
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(MimzSpacing.xl),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline, color: MimzColors.error, size: 40),
+                        const SizedBox(height: MimzSpacing.md),
+                        Text('Could not load events', style: MimzTypography.headlineSmall),
+                      ],
+                    ),
+                  ),
+                )
+              : events.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -45,6 +74,40 @@ class EventsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (eventZones.isNotEmpty) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(MimzSpacing.base),
+                      decoration: BoxDecoration(
+                        color: MimzColors.white,
+                        borderRadius: BorderRadius.circular(MimzRadius.lg),
+                        border: Border.all(color: MimzColors.borderLight),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'WORLD ZONES',
+                            style: MimzTypography.caption.copyWith(
+                              color: MimzColors.mistBlue,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: MimzSpacing.sm),
+                          ...eventZones.take(2).map((zone) => Padding(
+                                padding: const EdgeInsets.only(bottom: MimzSpacing.sm),
+                                child: Text(
+                                  '${zone.title} • ${zone.regionLabel} • ${zone.districtEffect}',
+                                  style: MimzTypography.bodySmall.copyWith(
+                                    color: MimzColors.textSecondary,
+                                  ),
+                                ),
+                              )),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: MimzSpacing.xl),
+                  ],
                   if (activeEvent != null) ...[
                     Text('HAPPENING NOW', style: MimzTypography.caption.copyWith(
                       color: MimzColors.persimmonHit, fontWeight: FontWeight.w700,
@@ -52,6 +115,7 @@ class EventsScreen extends ConsumerWidget {
                     const SizedBox(height: MimzSpacing.md),
                     _EventCard(
                       event: activeEvent,
+                      zoneDetail: _zoneDetailForEvent(activeEvent.id, eventZones),
                       isLive: true,
                       onTap: () => _showEventDetail(context, ref, activeEvent, isLive: true),
                     ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
@@ -68,6 +132,7 @@ class EventsScreen extends ConsumerWidget {
                             padding: const EdgeInsets.only(bottom: MimzSpacing.md),
                             child: _EventCard(
                               event: entry.value,
+                              zoneDetail: _zoneDetailForEvent(entry.value.id, eventZones),
                               onTap: () => _showEventDetail(context, ref, entry.value),
                             )
                                 .animate(delay: Duration(milliseconds: 200 * entry.key))
@@ -93,8 +158,14 @@ class _EventCard extends StatelessWidget {
   final MimzEvent event;
   final bool isLive;
   final VoidCallback? onTap;
+  final String? zoneDetail;
 
-  const _EventCard({required this.event, this.isLive = false, this.onTap});
+  const _EventCard({
+    required this.event,
+    this.isLive = false,
+    this.onTap,
+    this.zoneDetail,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +223,17 @@ class _EventCard extends StatelessWidget {
                   if (event.description.isNotEmpty)
                     Text(event.description, style: MimzTypography.bodySmall,
                         maxLines: 2, overflow: TextOverflow.ellipsis),
+                  if (zoneDetail != null && zoneDetail!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        zoneDetail!,
+                        style: MimzTypography.caption.copyWith(
+                          color: MimzColors.mistBlue,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

@@ -23,7 +23,9 @@ class MimzEvent {
           (s) => s.name == json['status'],
           orElse: () => EventStatus.upcoming,
         ),
-        participants: json['participants'] as int? ?? 0,
+        participants: (json['participants'] as int?) ??
+            (json['participantCount'] as int?) ??
+            0,
         description: json['description'] as String? ?? '',
         startsAt: json['startsAt'] != null
             ? DateTime.tryParse(json['startsAt'] as String)

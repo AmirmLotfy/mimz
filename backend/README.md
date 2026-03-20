@@ -2,7 +2,7 @@
 
 Production backend for the Mimz live voice-and-vision game.
 
-**Stack**: Node.js · TypeScript · Fastify · Firestore · Firebase Auth · Gemini Live API
+**Stack**: Node.js · TypeScript · Fastify · Firestore · Firebase Auth · Gemini Live API (Vertex on Google Cloud)
 
 ## Quick Start
 
@@ -99,8 +99,7 @@ gcloud builds submit --tag gcr.io/YOUR_PROJECT/mimz-backend
 gcloud run deploy mimz-backend \
   --image gcr.io/YOUR_PROJECT/mimz-backend \
   --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars="GCP_PROJECT_ID=YOUR_PROJECT,GEMINI_API_KEY=YOUR_KEY"
+  --set-env-vars="GCP_PROJECT_ID=YOUR_PROJECT,GEMINI_AUTH_MODE=vertex,GEMINI_VERTEX_LOCATION=us-central1"
 ```
 
 ## Testing
@@ -114,5 +113,6 @@ npm run test:watch    # Watch mode
 
 1. Create Firebase project with Auth + Firestore
 2. Create `.env` from `.env.example`
-3. Set `GEMINI_API_KEY` with your Gemini API key
-4. `npm install && npm run dev`
+3. Set `GEMINI_AUTH_MODE=vertex` (default in this repo)
+4. (Optional) Set `GEMINI_API_KEY` only if using `GEMINI_AUTH_MODE=api_key`
+5. `npm install && npm run dev`

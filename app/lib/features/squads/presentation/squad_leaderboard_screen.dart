@@ -14,6 +14,8 @@ class SquadLeaderboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final members = ref.watch(squadMembersProvider);
+    final squadAsync = ref.watch(squadProvider);
+    final squad = squadAsync.valueOrNull;
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
 
     // Sort by XP descending (parse the numeric part)
@@ -48,14 +50,14 @@ class SquadLeaderboardScreen extends ConsumerWidget {
             child: Column(
               children: [
                 Text(
-                  'Verdant Alliance',
+                  squad?.name ?? 'Your Squad',
                   style: MimzTypography.headlineLarge.copyWith(
                     color: MimzColors.white,
                   ),
                 ),
                 const SizedBox(height: MimzSpacing.sm),
                 Text(
-                  '${members.length} members · Season 1',
+                  '${members.isNotEmpty ? members.length : squad?.members.length ?? 0} members · Season 1',
                   style: MimzTypography.bodySmall.copyWith(
                     color: MimzColors.white.withValues(alpha: 0.7),
                   ),

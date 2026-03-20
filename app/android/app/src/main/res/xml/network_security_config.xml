@@ -2,7 +2,9 @@
 <!--
     Network Security Config for Mimz (Release)
     - All production traffic must use HTTPS (enforced by default on API 28+).
-    - Cleartext (HTTP) is explicitly blocked.
+    - Cleartext (HTTP) is blocked globally except for localhost.
+    - just_audio's StreamAudioSource uses a local HTTP server (127.0.0.1) to
+      serve in-memory audio to ExoPlayer — localhost must be exempt.
     - Trust only system CAs (no pinning needed for Cloud Run TLS rotation flexibility).
 -->
 <network-security-config>
@@ -11,4 +13,9 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <!-- just_audio StreamAudioSource serves audio via a local HTTP server -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
 </network-security-config>

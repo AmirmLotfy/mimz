@@ -23,11 +23,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   /// User-facing message when profile bootstrap fails (after Google sign-in).
   static String _profileLoadErrorMessage(AsyncValue<MimzUser> userState) {
+    if (userState.error is BootstrapFailure) {
+      return bootstrapFailureMessage(userState.error);
+    }
     final err = userState.error;
     if (err is DioException) {
       final code = err.response?.statusCode;
       if (code == 401) {
         return 'Sign-in not recognized. Please try again or use another account.';
+      }
+      if (code == 403) {
+        return 'Signed in, but backend access is restricted by server policy.';
       }
       if (code != null && code >= 500) {
         return 'Server issue. Please try again in a moment.';

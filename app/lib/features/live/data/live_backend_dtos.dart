@@ -14,6 +14,9 @@ class EphemeralTokenRequest {
 
 class EphemeralTokenResponse {
   final String token;
+  final String authType;
+  final String? websocketUrl;
+  final String? sessionId;
   final String model;
   final DateTime expiresAt;
   final List<Map<String, dynamic>> tools;
@@ -25,6 +28,9 @@ class EphemeralTokenResponse {
 
   EphemeralTokenResponse({
     required this.token,
+    required this.authType,
+    this.websocketUrl,
+    this.sessionId,
     required this.model,
     required this.expiresAt,
     required this.tools,
@@ -38,6 +44,9 @@ class EphemeralTokenResponse {
     final session = json['session'] as Map<String, dynamic>? ?? json;
     return EphemeralTokenResponse(
       token: session['token'] as String,
+      authType: session['authType'] as String? ?? 'api_key',
+      websocketUrl: session['websocketUrl'] as String?,
+      sessionId: session['sessionId'] as String?,
       model: session['model'] as String? ??
           (throw const FormatException('Backend must provide model in ephemeral token response')),
       expiresAt: DateTime.parse(session['expiresAt'] as String),

@@ -41,6 +41,9 @@ class LiveToolBridgeClient {
         '/live/tool-execute',
         data: request.toJson(),
         options: Options(
+          headers: {
+            'X-Correlation-Id': request.correlationId,
+          },
           sendTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 10),
         ),
@@ -50,6 +53,7 @@ class LiveToolBridgeClient {
         response.data as Map<String, dynamic>,
       );
     } on DioException catch (e) {
+      final traceId = e.response?.headers.value('x-correlation-id');
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
         throw const LiveError(
@@ -61,7 +65,7 @@ class LiveToolBridgeClient {
       throw LiveError(
         code: LiveErrorCode.toolExecutionFailed,
         message: 'Tool execution failed: ${call.toolName}',
-        detail: e.message,
+        detail: 'status=${e.response?.statusCode}; traceId=$traceId; ${e.message}',
         recovery: LiveErrorRecovery.retry,
       );
     }
