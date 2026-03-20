@@ -17,10 +17,6 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static const String _androidApiKey =
       String.fromEnvironment('FIREBASE_ANDROID_API_KEY');
-  // Fallback for release builds when dart-define is omitted.
-  // Matches app/android/app/google-services.json.
-  static const String _androidApiKeyFallback =
-      'AIzaSyA4tbJZqo7EsXJiml0qMKlBz9u9JkoP4Ls';
   static const String _iosApiKey =
       String.fromEnvironment('FIREBASE_IOS_API_KEY');
 
@@ -59,8 +55,13 @@ class DefaultFirebaseOptions {
   }
 
   static FirebaseOptions get android {
+    if (_androidApiKey.isEmpty) {
+      throw UnsupportedError(
+        'Missing FIREBASE_ANDROID_API_KEY. Pass it via --dart-define.',
+      );
+    }
     return FirebaseOptions(
-      apiKey: _androidApiKey.isEmpty ? _androidApiKeyFallback : _androidApiKey,
+      apiKey: _androidApiKey,
       appId: '1:392547013333:android:7ae37e7927360219da485c',
       messagingSenderId: '392547013333',
       projectId: 'mimz-490520',
@@ -87,5 +88,4 @@ class DefaultFirebaseOptions {
       iosBundleId: 'com.mimz.mimzApp',
     );
   }
-
 }
