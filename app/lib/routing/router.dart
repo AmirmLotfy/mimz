@@ -89,8 +89,6 @@ final appRouter = GoRouter(
 
     final isAuthenticated = container.read(isAuthenticatedProvider);
     final currentUser = container.read(currentUserProvider);
-    final onboardedAsync = container.read(isOnboardedProvider);
-    final isOnboarded = onboardedAsync.valueOrNull;
     final location = state.matchedLocation;
 
     final isProtected = _protectedRoutePrefixes.any((p) => location.startsWith(p));
@@ -113,22 +111,21 @@ final appRouter = GoRouter(
       return null;
     }
 
-    // 3. Authenticated but onboarding gate unresolved — keep in splash until known.
-    if (isOnboarded == null) {
-      if (!isSplash) return '/splash';
-      return null;
-    }
+    final user = currentUser.valueOrNull!;
+    final nextRoute = nextRouteForUser(user);
+    final isOptionalMeetMimz = location == '/onboarding/live';
 
     // 4. Authenticated but NOT onboarded
-    if (isOnboarded == false) {
-      if (isProtected) return '/onboarding/profile-setup';
+    if (!user.onboardingCompleted) {
+      if (isOptionalMeetMimz) return nextRoute;
+      if (isProtected) return nextRoute;
       return null;
     }
 
     // 5. Authenticated AND onboarded
-    if (isOnboarded == true) {
+    if (user.onboardingCompleted) {
       // If fully onboarded, do not allow re-entry into auth or onboarding screens
-      if (isPublic) return '/world';
+      if (isPublic && !isOptionalMeetMimz) return '/world';
     }
 
     return null;

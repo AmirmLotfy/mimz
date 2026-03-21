@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:camera/camera.dart';
+import 'dart:convert';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../design_system/tokens.dart';
-import '../application/live_session_controller.dart';
 import '../data/live_camera_stream_service.dart';
 import '../providers/live_session_provider.dart';
-import '../providers/live_providers.dart';
+import '../../../core/providers.dart';
+import '../../world/providers/world_provider.dart';
+import '../../world/providers/game_state_provider.dart';
 
 /// Vision Quest Camera — full-screen camera with target overlay
 class VisionQuestCameraScreen extends ConsumerStatefulWidget {
@@ -18,9 +21,9 @@ class VisionQuestCameraScreen extends ConsumerStatefulWidget {
 
 class _VisionQuestCameraScreenState extends ConsumerState<VisionQuestCameraScreen> {
   final _cameraService = LiveCameraStreamService();
-  LiveSessionController? _liveController;
   bool _isCameraInitialized = false;
   bool _isProcessing = false;
+  String? _activeQuestId;
 
   @override
   void initState() {
@@ -28,68 +31,85 @@ class _VisionQuestCameraScreenState extends ConsumerState<VisionQuestCameraScree
     _initCamera();
   }
 
-  ProviderSubscription? _targetSub;
-
   Future<void> _initCamera() async {
     try {
-      await _cameraService.initialize();
-      _liveController = ref.read(liveSessionControllerProvider);
-      await _liveController?.startVisionQuestSession();
-
-      // Listen for start_vision_quest tool response to get dynamic target
-      _targetSub = ref.listenManual(liveSessionStateProvider, (prev, next) {
-        final payload = next.valueOrNull?.lastRewardPayload;
-        final prevPayload = prev?.valueOrNull?.lastRewardPayload;
-        if (payload != null && payload != prevPayload && payload.containsKey('targetPrompt')) {
-          final target = payload['targetPrompt'] as String?;
-          if (target != null && target.isNotEmpty) {
-            ref.read(visionQuestTargetProvider.notifier).state = target;
-          }
+      final permission = await Permission.camera.request();
+      if (!permission.isGranted && !permission.isLimited) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Camera permission is needed for Vision Quest. You can enable it when you start one.',
+              ),
+            ),
+          );
+          context.go('/play');
         }
-      });
+        return;
+      }
+      await _cameraService.initialize();
+      final quest =
+          await ref.read(apiClientProvider).startVisionQuest(theme: 'discovery');
+      _activeQuestId = quest['questId'] as String?;
+      final target = quest['targetPrompt'] as String?;
+      if (target != null && target.isNotEmpty) {
+        ref.read(visionQuestTargetProvider.notifier).state = target;
+      }
 
       if (mounted) setState(() => _isCameraInitialized = true);
     } catch (e) {
       debugPrint('Camera init failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not start a vision quest right now.'),
+        ),
+      );
+      context.go('/play');
     }
   }
 
   @override
   void dispose() {
-    _targetSub?.close();
-    _liveController?.endSession();
     _cameraService.dispose();
     super.dispose();
   }
 
-  ProviderSubscription? _validationSub;
-
   Future<void> _captureAndSend() async {
-    if (_isProcessing || !_isCameraInitialized) return;
+    if (_isProcessing || !_isCameraInitialized || _activeQuestId == null) return;
     setState(() => _isProcessing = true);
 
     final frame = await _cameraService.captureOneShot();
     if (frame != null) {
-      final LiveSessionController controller =
-          _liveController ?? ref.read(liveSessionControllerProvider);
-      controller.sendVisionFrame(frame);
+      try {
+        final payload = await ref.read(apiClientProvider).captureVisionQuest(
+              _activeQuestId!,
+              imageBase64: base64Encode(frame),
+            );
+        await ref.read(apiClientProvider).finishVisionQuest(_activeQuestId!);
 
-      // Wait for validate_vision_result tool response before navigating
-      _validationSub?.close();
-      _validationSub = ref.listenManual(liveSessionStateProvider, (prev, next) {
-        final payload = next.valueOrNull?.lastRewardPayload;
-        final prevPayload = prev?.valueOrNull?.lastRewardPayload;
-        if (payload != null && payload != prevPayload && payload.containsKey('objectIdentified')) {
-          _validationSub?.close();
-          final label = payload['objectIdentified'] as String? ?? 'Discovery';
-          final xp = (payload['xpAwarded'] as num?)?.toInt() ?? 0;
-          final isValid = payload['isValid'] as bool? ?? false;
-          ref.read(visionQuestResultLabelProvider.notifier).state = label;
-          ref.read(visionQuestXpProvider.notifier).state = xp;
-          ref.read(visionQuestValidProvider.notifier).state = isValid;
-          if (mounted) context.go('/play/vision/success');
-        }
-      });
+        final label = payload['objectIdentified'] as String? ?? 'Discovery';
+        final xp = (payload['xpAwarded'] as num?)?.toInt() ?? 0;
+        final isValid = payload['isValid'] as bool? ?? false;
+
+        ref.read(visionQuestResultLabelProvider.notifier).state = label;
+        ref.read(visionQuestXpProvider.notifier).state = xp;
+        ref.read(visionQuestValidProvider.notifier).state = isValid;
+        ref.invalidate(districtProvider);
+        ref.invalidate(gameStateProvider);
+
+        if (!mounted) return;
+        context.go('/play/vision/success');
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Vision quest failed: $e'),
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
     } else {
       if (mounted) setState(() => _isProcessing = false);
     }

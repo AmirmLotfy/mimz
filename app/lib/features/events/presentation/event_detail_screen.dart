@@ -90,7 +90,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   Widget build(BuildContext context) {
     final event = widget.event;
     final zones = ref.watch(eventZonesProvider);
-    final zone = zones.cast<dynamic?>().firstWhere(
+    final dynamic zone = zones.cast<dynamic>().firstWhere(
           (candidate) => candidate?.eventId == event.id,
           orElse: () => null,
         );
@@ -230,21 +230,21 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                             ),
                             const SizedBox(height: MimzSpacing.xs),
                             Text(
-                              zone.regionLabel,
+                              'Region • ${zone.regionLabel}',
                               style: MimzTypography.headlineSmall,
                             ),
                             const SizedBox(height: MimzSpacing.xs),
                             Text(
                               zone.districtEffect.isNotEmpty
-                                  ? zone.districtEffect
-                                  : 'This event is affecting the district grid right now.',
+                                  ? 'District effect • ${zone.districtEffect}'
+                                  : 'District effect • This event is affecting the district grid right now.',
                               style: MimzTypography.bodySmall.copyWith(
                                 color: MimzColors.textSecondary,
                               ),
                             ),
                             const SizedBox(height: MimzSpacing.sm),
                             Text(
-                              '${zone.rewardMultiplier.toStringAsFixed(zone.rewardMultiplier % 1 == 0 ? 0 : 1)}x district reward multiplier',
+                              'Reward lane • x${zone.rewardMultiplier.toStringAsFixed(zone.rewardMultiplier % 1 == 0 ? 0 : 1)}',
                               style: MimzTypography.caption.copyWith(
                                 color: MimzColors.mossCore,
                                 fontWeight: FontWeight.w700,

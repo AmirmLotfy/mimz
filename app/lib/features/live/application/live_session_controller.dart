@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import '../../../services/api_client.dart';
+import '../../../services/telemetry_service.dart';
 
 import '../domain/live_connection_phase.dart';
 import '../domain/live_event.dart';
@@ -27,6 +29,7 @@ import 'live_session_logger.dart';
 /// The controller is feature-agnostic — use [LiveSessionConfig] presets
 /// for onboarding vs quiz vs vision quest behavior.
 class LiveSessionController {
+  final ApiClient _apiClient;
   final LiveWebSocketClient _ws;
   final LiveTokenClient _tokenClient;
   final LiveToolBridgeClient _toolBridge;
@@ -37,6 +40,7 @@ class LiveSessionController {
   final LiveTurnDetector _turnDetector;
   final LiveReconnectPolicy _reconnectPolicy;
   final LiveSessionLogger _logger;
+  final TelemetryService? _telemetry;
   final LiveMockAdapter? _mockAdapter;
 
   /// Feature flag: use mock adapter instead of real services.
@@ -85,12 +89,21 @@ class LiveSessionController {
   DateTime _lastAmplitudeEmit = DateTime(2000);
   static const _amplitudeEmitInterval = Duration(milliseconds: 80);
   Timer? _sessionDurationTimer;
+  Timer? _silenceGuardTimer;
+  String? _silenceGuardQuestionKey;
+  int _silencePromptCount = 0;
+  DateTime? _sessionStartupStartedAt;
+  DateTime? _tokenFetchStartedAt;
+  DateTime? _wsConnectStartedAt;
+  DateTime? _sessionReadyAt;
+  DateTime? _firstAudioChunkAt;
 
   /// Fires if setupComplete is not received from server within handshake window.
   static const _handshakeTimeout = Duration(seconds: 18);
   Timer? _handshakeTimer;
 
   LiveSessionController({
+    required ApiClient apiClient,
     required LiveWebSocketClient ws,
     required LiveTokenClient tokenClient,
     required LiveToolBridgeClient toolBridge,
@@ -101,10 +114,12 @@ class LiveSessionController {
     LiveTurnDetector? turnDetector,
     LiveReconnectPolicy? reconnectPolicy,
     LiveSessionLogger? logger,
+    TelemetryService? telemetry,
     LiveMockAdapter? mockAdapter,
     this.useMock = false,
     this.authPreconditionError,
-  })  : _ws = ws,
+  })  : _apiClient = apiClient,
+        _ws = ws,
         _tokenClient = tokenClient,
         _toolBridge = toolBridge,
         _audioCapture = audioCapture,
@@ -114,7 +129,47 @@ class LiveSessionController {
         _turnDetector = turnDetector ?? LiveTurnDetector(),
         _reconnectPolicy = reconnectPolicy ?? LiveReconnectPolicy(),
         _logger = logger ?? LiveSessionLogger(),
+        _telemetry = telemetry,
         _mockAdapter = mockAdapter;
+
+  Future<void> _pauseMicCapture() async {
+    if (_activeConfig?.enableAudioCapture != true) return;
+    if (_audioCapture.isCapturing) {
+      await _audioCapture.pauseCapture();
+    }
+    _emitState(_state.copyWith(
+      isMicActive: false,
+      audioAmplitude: 0.0,
+      silencePromptCount: 0,
+    ));
+  }
+
+  Future<void> _resumeMicCapture() async {
+    if (_activeConfig?.enableAudioCapture != true) return;
+    if (_audioPlayback.isPlaying || _state.isPlaybackActive) return;
+    if (_state.phase == LiveConnectionPhase.failed ||
+        _state.phase == LiveConnectionPhase.ended ||
+        _state.phase == LiveConnectionPhase.reconnecting ||
+        _state.phase == LiveConnectionPhase.roundComplete) {
+      return;
+    }
+    if (_audioCapture.isCapturing) {
+      _emitState(_state.copyWith(isMicActive: true));
+      return;
+    }
+    try {
+      await _audioCapture.resumeCapture();
+    } catch (_) {
+      try {
+        await _audioCapture.startCapture();
+      } catch (_) {}
+    }
+    _emitState(_state.copyWith(
+      phase: LiveConnectionPhase.listeningForAnswer,
+      isMicActive: true,
+      silencePromptCount: 0,
+    ));
+  }
 
   // ═══════════════════════════════════════════════════
   // PUBLIC API
@@ -156,21 +211,24 @@ class LiveSessionController {
 
   /// Interrupt the model with user speech (barge-in).
   Future<void> interruptWithUserSpeech() async {
-    if (!_state.phase.isActive) return;
+    if (!_state.phase.isActive &&
+        _state.phase != LiveConnectionPhase.modelSpeaking) {
+      return;
+    }
     _logger.log('barge_in_requested');
 
     // Stop playback immediately
     await _audioPlayback.stopImmediately();
 
     // Resume mic capture
-    if (!_audioCapture.isCapturing) {
-      await _audioCapture.startCapture();
-    }
+    await _resumeMicCapture();
+    final micEnabled = _activeConfig?.enableAudioCapture == true;
 
     _emitState(_state.copyWith(
-      phase: LiveConnectionPhase.userSpeaking,
+      phase:
+          micEnabled ? LiveConnectionPhase.listeningForAnswer : LiveConnectionPhase.waitingForOpeningPrompt,
       isPlaybackActive: false,
-      isMicActive: true,
+      isMicActive: micEnabled,
     ));
   }
 
@@ -183,8 +241,9 @@ class LiveSessionController {
 
   /// Send a captured vision frame when camera UI is managed by the caller.
   void sendVisionFrame(Uint8List jpegData) {
-    if (_state.mode != LiveSessionMode.visionQuest || !_state.phase.isActive)
+    if (_state.mode != LiveSessionMode.visionQuest || !_state.phase.isActive) {
       return;
+    }
     _ws.sendImage(jpegData);
     _logger.log('vision_frame_sent', metadata: {'bytes': jpegData.length});
   }
@@ -198,29 +257,143 @@ class LiveSessionController {
   }
 
   /// Request the model to repeat its last response.
-  void requestRepeat() {
+  Future<void> requestRepeat() async {
     if (!_isCommandAllowed()) return;
     if (_repeatCount >= maxRepeatsPerRound) {
       _logger.log('repeat_capped', metadata: {'count': _repeatCount});
       return;
     }
-    sendTextFallback('Please repeat the current question exactly.');
+    final roundId = _state.currentRoundId;
+    if (roundId == null || roundId.isEmpty) return;
+    _emitState(_state.copyWith(
+      phase: LiveConnectionPhase.grading,
+      activeToolName: 'request_round_repeat',
+    ));
+    try {
+      final result = await _apiClient.requestRoundRepeat(roundId);
+      final currentQuestion = _mapFromDynamic(result['currentQuestion']);
+      final prompt = currentQuestion != null
+          ? _promptFromQuestion(currentQuestion)
+          : result['prompt'] as String?;
+      _repeatCount = (result['repeatCount'] as num?)?.toInt() ?? _repeatCount;
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.waitingForOpeningPrompt,
+        currentRoundId: result['roundId'] as String? ?? _state.currentRoundId,
+        currentQuestionId:
+            result['questionId'] as String? ?? _state.currentQuestionId,
+        currentPrompt: prompt ?? _state.currentPrompt,
+        silencePromptCount: 0,
+        clearToolCall: true,
+      ));
+      if (prompt != null && prompt.isNotEmpty) {
+        _ws.sendText(
+          'Repeat this exact backend-authored question now, word for word: $prompt',
+        );
+      }
+    } catch (e) {
+      _handleError(LiveError(
+        code: LiveErrorCode.toolExecutionFailed,
+        message: 'Could not repeat the current question.',
+        detail: e.toString(),
+        recovery: LiveErrorRecovery.retry,
+      ));
+    }
   }
 
   /// Request a hint from the model.
-  void requestHint() {
+  Future<void> requestHint() async {
     if (!_isCommandAllowed()) return;
     if (_hintCount >= maxHintsPerRound) {
       _logger.log('hint_capped', metadata: {'count': _hintCount});
       return;
     }
-    sendTextFallback('Please give me a hint for the current question.');
+    final roundId = _state.currentRoundId;
+    if (roundId == null || roundId.isEmpty) return;
+    _emitState(_state.copyWith(
+      phase: LiveConnectionPhase.grading,
+      activeToolName: 'request_round_hint',
+    ));
+    try {
+      final result = await _apiClient.requestRoundHint(roundId);
+      final hint = result['hint'] as String? ?? '';
+      final currentQuestion = _mapFromDynamic(result['currentQuestion']);
+      final prompt = currentQuestion != null
+          ? _promptFromQuestion(currentQuestion)
+          : result['prompt'] as String?;
+      _hintCount = (result['hintCount'] as num?)?.toInt() ?? _hintCount;
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.waitingForOpeningPrompt,
+        currentRoundId: result['roundId'] as String? ?? _state.currentRoundId,
+        currentQuestionId:
+            result['questionId'] as String? ?? _state.currentQuestionId,
+        currentPrompt: prompt ?? _state.currentPrompt,
+        lastRewardPayload: result,
+        silencePromptCount: 0,
+        clearToolCall: true,
+      ));
+      if (hint.isNotEmpty) {
+        _ws.sendText(
+          'Give the player this exact backend-authored hint in one short sentence, then pause for their answer: $hint',
+        );
+      }
+    } catch (e) {
+      _handleError(LiveError(
+        code: LiveErrorCode.toolExecutionFailed,
+        message: 'Could not load a hint right now.',
+        detail: e.toString(),
+        recovery: LiveErrorRecovery.retry,
+      ));
+    }
   }
 
   /// Request difficulty change.
-  void requestDifficultyChange({bool harder = false}) {
+  Future<void> requestDifficultyChange(String difficulty) async {
     if (!_isCommandAllowed()) return;
-    sendTextFallback(harder ? 'Make it harder.' : 'Can you make it easier?');
+    final roundId = _state.currentRoundId;
+    if (roundId == null || roundId.isEmpty) return;
+    _emitState(_state.copyWith(
+      phase: LiveConnectionPhase.grading,
+      activeToolName: 'change_round_difficulty',
+    ));
+    try {
+      final result = await _apiClient.updateRoundDifficulty(
+        roundId,
+        difficulty: difficulty,
+      );
+      final currentQuestion = _mapFromDynamic(result['currentQuestion']);
+      final prompt = currentQuestion != null
+          ? _promptFromQuestion(currentQuestion)
+          : _state.currentPrompt;
+      final appliesFromQuestionIndex =
+          (result['appliesFromQuestionIndex'] as num?)?.toInt();
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.waitingForOpeningPrompt,
+        currentPrompt: prompt,
+        currentQuestionId:
+            currentQuestion?['id'] as String? ?? _state.currentQuestionId,
+        currentQuestionIndex:
+            (result['currentQuestionIndex'] as num?)?.toInt() ??
+                _state.currentQuestionIndex,
+        questionCount: (result['questionCount'] as num?)?.toInt() ??
+            _state.questionCount,
+        roundDifficultyPreference: difficulty,
+        silencePromptCount: 0,
+        clearToolCall: true,
+      ));
+      _ws.sendText(
+        'Acknowledge the difficulty change briefly. '
+        'Future questions should now be ${difficulty == 'easy' ? 'easier' : difficulty == 'hard' ? 'harder' : 'adaptive'}. '
+        '${appliesFromQuestionIndex != null ? 'This applies from question ${appliesFromQuestionIndex + 1} onward. ' : ''}'
+        'If you have the next exact backend-authored question, ask it now.',
+      );
+    } catch (e) {
+      _handleError(LiveError(
+        code: LiveErrorCode.toolExecutionFailed,
+        message: 'Could not change difficulty right now.',
+        detail: e.toString(),
+        recovery: LiveErrorRecovery.retry,
+      ));
+    }
   }
 
   /// Submit a camera frame for vision quest.
@@ -270,28 +443,73 @@ class LiveSessionController {
     // Always start from a clean transport/mic state so retries don't stack listeners.
     _isEnded = false;
     await _teardown(keepState: true);
+    final previousState = _state;
+    final preserveProgress = !resetReconnectPolicy;
     _activeConfig = config;
     if (resetReconnectPolicy) {
       _reconnectPolicy.reset();
     }
-    _hintCount = 0;
-    _repeatCount = 0;
+    if (resetReconnectPolicy) {
+      _hintCount = 0;
+      _repeatCount = 0;
+    }
     _lastCommandTime = DateTime(2000);
 
     // Enforce max session duration
     _sessionDurationTimer?.cancel();
+    _silenceGuardTimer?.cancel();
     _sessionDurationTimer = Timer(config.maxSessionDuration, () {
       _logger.log('session_duration_cap_reached');
       endSession();
     });
     final correlationId = 'live_${DateTime.now().millisecondsSinceEpoch}';
+    _sessionStartupStartedAt = DateTime.now();
+    _tokenFetchStartedAt = null;
+    _wsConnectStartedAt = null;
+    _sessionReadyAt = null;
+    _firstAudioChunkAt = null;
+    _silenceGuardQuestionKey = null;
+    _silencePromptCount = 0;
 
     _emitState(LiveSessionState(
       mode: config.mode,
       phase: LiveConnectionPhase.idle,
       correlationId: correlationId,
+      sessionId: preserveProgress ? previousState.sessionId : null,
+      currentPrompt: preserveProgress ? previousState.currentPrompt : null,
+      currentRoundId: preserveProgress ? previousState.currentRoundId : null,
+      currentQuestionId:
+          preserveProgress ? previousState.currentQuestionId : null,
+      questionCount: preserveProgress ? previousState.questionCount : 0,
+      currentQuestionIndex:
+          preserveProgress ? previousState.currentQuestionIndex : 0,
+      roundTopic: preserveProgress ? previousState.roundTopic : null,
+      roundDifficultyPreference:
+          preserveProgress ? previousState.roundDifficultyPreference : null,
+      grantedXp: preserveProgress ? previousState.grantedXp : 0,
+      grantedSectors: preserveProgress ? previousState.grantedSectors : 0,
+      grantedStone: preserveProgress ? previousState.grantedStone : 0,
+      grantedGlass: preserveProgress ? previousState.grantedGlass : 0,
+      grantedWood: preserveProgress ? previousState.grantedWood : 0,
+      grantedComboXp: preserveProgress ? previousState.grantedComboXp : 0,
       reconnectAttempts: _reconnectPolicy.attempts,
+      silencePromptCount: 0,
     ));
+
+    unawaited(
+      _telemetry?.track(
+            'live_session_start_requested',
+            route: '/play',
+            correlationId: correlationId,
+            metadata: {
+              'mode': config.mode.name,
+              'sessionType': config.sessionTypeOverride ?? config.mode.name,
+              if (config.eventId != null) 'eventId': config.eventId,
+              'preserveProgress': preserveProgress,
+            },
+          ) ??
+          Future.value(),
+    );
 
     // Use mock adapter in dev mode
     if (useMock && _mockAdapter != null) {
@@ -301,6 +519,18 @@ class LiveSessionController {
     // 0. Auth/bootstrap precondition — block start with actionable message if invalid
     final preconditionError = authPreconditionError?.call();
     if (preconditionError != null && preconditionError.isNotEmpty) {
+      unawaited(
+        _telemetry?.track(
+              'live_session_blocked',
+              route: '/play',
+              correlationId: correlationId,
+              metadata: {
+                'mode': config.mode.name,
+                'reason': preconditionError,
+              },
+            ) ??
+            Future.value(),
+      );
       _emitState(_state.copyWith(
         phase: LiveConnectionPhase.failed,
         error: LiveError(
@@ -313,13 +543,25 @@ class LiveSessionController {
     }
 
     // 1. Check permissions
-    _emitState(_state.copyWith(phase: LiveConnectionPhase.idle));
+    _emitState(_state.copyWith(phase: LiveConnectionPhase.connecting));
     final permError = await _permissions.checkPermissions(
       needsMicrophone: config.enableAudioCapture,
       needsCamera: config.enableCamera,
       needsLocation: false,
     );
     if (permError != null) {
+      unawaited(
+        _telemetry?.track(
+              'live_session_permission_blocked',
+              route: '/play',
+              correlationId: correlationId,
+              metadata: {
+                'mode': config.mode.name,
+                'code': permError.code.name,
+              },
+            ) ??
+            Future.value(),
+      );
       _emitState(_state.copyWith(
         phase: LiveConnectionPhase.failed,
         error: permError,
@@ -327,23 +569,35 @@ class LiveSessionController {
       return;
     }
 
+    final primedRoundFuture = _primeRoundIfNeeded(config);
+
     // 2. Fetch token
-    _emitState(_state.copyWith(phase: LiveConnectionPhase.fetchingToken));
+    _emitState(_state.copyWith(phase: LiveConnectionPhase.connecting));
     _logger.log('fetching_token', metadata: {'correlationId': correlationId});
+    _tokenFetchStartedAt = DateTime.now();
 
     try {
-      final token = await _tokenClient.fetchToken(
+      final tokenFuture = _tokenClient.fetchToken(
         sessionType: config.sessionTypeOverride ?? config.mode.name,
         correlationId: correlationId,
         eventId: config.eventId,
       );
+      final token = await tokenFuture;
+      final primedRound = await primedRoundFuture;
+      if (primedRound != null) {
+        _applyPrimedRound(primedRound);
+      }
 
       // 3. Connect WebSocket
       _emitState(_state.copyWith(phase: LiveConnectionPhase.connecting));
       _logger.log('connecting_ws', metadata: {
         'correlationId': correlationId,
         'model': token.model,
+        if (_tokenFetchStartedAt != null)
+          'tokenFetchMs':
+              DateTime.now().difference(_tokenFetchStartedAt!).inMilliseconds,
       });
+      _wsConnectStartedAt = DateTime.now();
 
       _setupEventListeners();
 
@@ -359,7 +613,9 @@ class LiveSessionController {
         tools: token.tools,
         websocketUrl: token.websocketUrl,
       );
-      _emitState(_state.copyWith(phase: LiveConnectionPhase.handshaking));
+      _emitState(
+        _state.copyWith(phase: LiveConnectionPhase.waitingForOpeningPrompt),
+      );
       if (token.sessionId != null && token.sessionId!.isNotEmpty) {
         // Keep backend-issued session id for tool execution authorization.
         _emitState(_state.copyWith(sessionId: token.sessionId));
@@ -371,7 +627,7 @@ class LiveSessionController {
       _handshakeTimer?.cancel();
       _handshakeTimer = Timer(_handshakeTimeout, () {
         if (_state.phase == LiveConnectionPhase.connecting ||
-            _state.phase == LiveConnectionPhase.handshaking) {
+            _state.phase == LiveConnectionPhase.waitingForOpeningPrompt) {
           _logger.log('handshake_timeout');
           _emitState(_state.copyWith(
             phase: LiveConnectionPhase.failed,
@@ -386,6 +642,24 @@ class LiveSessionController {
         }
       });
     } on LiveError catch (e) {
+      unawaited(
+        _telemetry?.track(
+              'live_session_start_failed',
+              route: '/play',
+              correlationId: _state.correlationId,
+              metadata: {
+                'mode': config.mode.name,
+                'code': e.code.name,
+                'recovery': e.recovery.name,
+                'tokenFetchMs': _tokenFetchStartedAt == null
+                    ? null
+                    : DateTime.now()
+                        .difference(_tokenFetchStartedAt!)
+                        .inMilliseconds,
+              },
+            ) ??
+            Future.value(),
+      );
       _logger.log('startup_live_error', metadata: {
         'correlationId': _state.correlationId,
         'code': e.code.name,
@@ -395,6 +669,19 @@ class LiveSessionController {
         error: e,
       ));
     } catch (e) {
+      unawaited(
+        _telemetry?.track(
+              'live_session_start_failed',
+              route: '/play',
+              correlationId: _state.correlationId,
+              metadata: {
+                'mode': config.mode.name,
+                'code': 'unexpected',
+                'detail': e.toString(),
+              },
+            ) ??
+            Future.value(),
+      );
       _logger.log('startup_unexpected_error', metadata: {
         'correlationId': _state.correlationId,
         'detail': e.toString(),
@@ -462,20 +749,36 @@ class LiveSessionController {
     // Playback state → turn detector
     _playbackStateSub = _audioPlayback.playbackStateStream.listen((playing) {
       _turnDetector.onPlaybackState(playing);
-      _emitState(_state.copyWith(isPlaybackActive: playing));
+      if (playing) {
+        unawaited(_pauseMicCapture());
+      } else if (_activeConfig?.enableAudioCapture == true &&
+          _state.phase != LiveConnectionPhase.grading &&
+          _state.phase != LiveConnectionPhase.roundComplete &&
+          _state.phase != LiveConnectionPhase.failed &&
+          _state.phase != LiveConnectionPhase.ended) {
+        unawaited(_resumeMicCapture());
+      }
+      _emitState(_state.copyWith(
+        isPlaybackActive: playing,
+        phase: playing ? LiveConnectionPhase.modelSpeaking : _state.phase,
+      ));
     });
 
     // Turn detector → state
     _turnSub = _turnDetector.turnStream.listen((turn) {
       switch (turn) {
         case TurnState.userSpeaking:
-          _emitState(_state.copyWith(phase: LiveConnectionPhase.userSpeaking));
+          if (_state.phase == LiveConnectionPhase.listeningForAnswer) {
+            _emitState(_state.copyWith(phase: LiveConnectionPhase.listeningForAnswer));
+          }
         case TurnState.modelSpeaking:
           _emitState(_state.copyWith(phase: LiveConnectionPhase.modelSpeaking));
         case TurnState.idle:
-          if (_state.phase == LiveConnectionPhase.userSpeaking ||
-              _state.phase == LiveConnectionPhase.modelSpeaking) {
-            _emitState(_state.copyWith(phase: LiveConnectionPhase.connected));
+          if (_state.phase == LiveConnectionPhase.modelSpeaking &&
+              !_state.isRoundComplete) {
+            _emitState(
+              _state.copyWith(phase: LiveConnectionPhase.listeningForAnswer),
+            );
           }
       }
     });
@@ -491,6 +794,7 @@ class LiveSessionController {
       case SessionClosed():
         _onSessionClosed();
       case ModelTurnStarted():
+        unawaited(_pauseMicCapture());
         _emitState(_state.copyWith(
           phase: LiveConnectionPhase.modelSpeaking,
           modelTranscript: '',
@@ -500,10 +804,19 @@ class LiveSessionController {
         // Don't reset phase if we're waiting for a tool result — the model
         // sends turnComplete immediately after a tool call, but the tool is
         // still being executed. The phase will be reset by _handleToolCall.
-        if (_state.phase != LiveConnectionPhase.waitingForToolResult) {
+        if (_state.phase != LiveConnectionPhase.grading &&
+            _state.phase != LiveConnectionPhase.roundComplete &&
+            !_audioPlayback.isPlaying) {
+          if (_activeConfig?.enableAudioCapture != true &&
+              _state.mode == LiveSessionMode.onboarding) {
+            unawaited(endSession());
+            return;
+          }
+          unawaited(_resumeMicCapture());
           _emitState(_state.copyWith(
-            phase: LiveConnectionPhase.connected,
+            phase: LiveConnectionPhase.listeningForAnswer,
             isModelTranscriptFinal: true,
+            silencePromptCount: 0,
           ));
         }
       case TranscriptDelta(text: final t, isModel: final m):
@@ -512,7 +825,10 @@ class LiveSessionController {
             modelTranscript: _state.modelTranscript + t,
           ));
         } else {
-          _emitState(_state.copyWith(userTranscript: t));
+          _emitState(_state.copyWith(
+            userTranscript: t,
+            silencePromptCount: 0,
+          ));
         }
       case TranscriptFinal(text: final t, isModel: final m):
         if (m) {
@@ -524,9 +840,38 @@ class LiveSessionController {
           _emitState(_state.copyWith(
             userTranscript: t,
             isUserTranscriptFinal: true,
+            silencePromptCount: 0,
           ));
         }
       case AudioChunkReceived(data: final d, mimeType: final m):
+        _firstAudioChunkAt ??= DateTime.now();
+        if (_sessionStartupStartedAt != null && _sessionReadyAt != null) {
+          unawaited(
+            _telemetry?.track(
+                  'live_first_audio',
+                  route: '/play',
+                  correlationId: _state.correlationId,
+                  dedupeKey:
+                      'live-first-audio-${_state.correlationId ?? _state.sessionId ?? _state.mode.name}',
+                  metadata: {
+                    'mode': _state.mode.name,
+                    'startupMs': _firstAudioChunkAt!
+                        .difference(_sessionStartupStartedAt!)
+                        .inMilliseconds,
+                    'postConnectMs': _firstAudioChunkAt!
+                        .difference(_sessionReadyAt!)
+                        .inMilliseconds,
+                  },
+                ) ??
+                Future.value(),
+          );
+          _logger.log('first_audio_received', metadata: {
+            'startupMs':
+                _firstAudioChunkAt!.difference(_sessionStartupStartedAt!).inMilliseconds,
+            'postConnectMs':
+                _firstAudioChunkAt!.difference(_sessionReadyAt!).inMilliseconds,
+          });
+        }
         _audioPlayback.enqueue(Uint8List.fromList(d), m);
         _emitState(_state.copyWith(isPlaybackActive: true));
       case ToolCallRequested():
@@ -538,8 +883,10 @@ class LiveSessionController {
         // interrupted. Reset the waitingForToolResult phase so the UI doesn't
         // stay stuck showing "CHECKING..." indefinitely.
         _logger.log('tool_call_cancelled', metadata: {'ids': ids.join(',')});
+        unawaited(_resumeMicCapture());
         _emitState(_state.copyWith(
-          phase: LiveConnectionPhase.connected,
+          phase: LiveConnectionPhase.listeningForAnswer,
+          silencePromptCount: 0,
           clearToolCall: true,
         ));
       case InterruptionDetected():
@@ -556,18 +903,14 @@ class LiveSessionController {
   void _onSessionStarted(String sessionId) {
     _handshakeTimer?.cancel();
     _handshakeTimer = null;
+    _sessionReadyAt = DateTime.now();
     _emitState(_state.copyWith(
-      phase: LiveConnectionPhase.connected,
+      phase: LiveConnectionPhase.waitingForOpeningPrompt,
       // Prefer backend-minted session id; websocket session id can differ by transport.
       sessionId: _state.sessionId ?? sessionId,
+      isMicActive: false,
       clearError: true,
     ));
-
-    // Start mic capture
-    if (_activeConfig?.enableAudioCapture == true) {
-      _audioCapture.startCapture();
-      _emitState(_state.copyWith(isMicActive: true));
-    }
 
     // Start camera if vision quest
     if (_activeConfig?.enableCamera == true) {
@@ -578,10 +921,56 @@ class LiveSessionController {
     }
 
     _logger.log('session_ready', metadata: {'sessionId': sessionId});
+    if (_sessionStartupStartedAt != null) {
+      final startupMs =
+          _sessionReadyAt!.difference(_sessionStartupStartedAt!).inMilliseconds;
+      final tokenFetchMs = _tokenFetchStartedAt != null
+          ? (_wsConnectStartedAt ?? _sessionReadyAt!)
+              .difference(_tokenFetchStartedAt!)
+              .inMilliseconds
+          : null;
+      final connectMs = _wsConnectStartedAt != null
+          ? _sessionReadyAt!.difference(_wsConnectStartedAt!).inMilliseconds
+          : null;
+      unawaited(
+        _telemetry?.track(
+              'live_session_ready',
+              route: '/play',
+              correlationId: _state.correlationId,
+              metadata: {
+                'mode': _state.mode.name,
+                'startupMs': startupMs,
+                if (tokenFetchMs != null) 'tokenFetchMs': tokenFetchMs,
+                if (connectMs != null) 'connectMs': connectMs,
+              },
+            ) ??
+            Future.value(),
+      );
+      _logger.log('session_startup_timing', metadata: {
+        'startupMs': startupMs,
+        if (tokenFetchMs != null) 'tokenFetchMs': tokenFetchMs,
+        if (connectMs != null) 'connectMs': connectMs,
+      });
+    }
+
+    final primedPrompt = _state.currentPrompt;
+    if (primedPrompt != null &&
+        primedPrompt.isNotEmpty &&
+        _state.currentRoundId != null) {
+      _logger.log('opening_prompt_primed', metadata: {
+        'roundId': _state.currentRoundId,
+        'questionId': _state.currentQuestionId,
+      });
+      _ws.sendText(
+        'A backend-authored round is already active. '
+        'Do not call start_live_round. '
+        'Ask this exact backend-authored question now, then pause for the player answer: $primedPrompt',
+      );
+      return;
+    }
 
     // The native audio model requires a user turn to begin generating.
-    // Send an empty kickstart turn so Gemini starts its opening response
-    // (e.g. calling start_live_round) immediately after setup.
+    // Send an empty kickstart turn so Gemini starts its opening response.
     _ws.sendKickstart();
   }
 
@@ -597,7 +986,7 @@ class LiveSessionController {
 
   Future<void> _handleToolCall(ToolCallRequested call) async {
     _emitState(_state.copyWith(
-      phase: LiveConnectionPhase.waitingForToolResult,
+      phase: LiveConnectionPhase.grading,
       activeToolCallId: call.callId,
       activeToolName: call.toolName,
     ));
@@ -628,6 +1017,7 @@ class LiveSessionController {
       int questionCount = _state.questionCount;
       int currentQuestionIndex = _state.currentQuestionIndex;
       String? roundTopic = _state.roundTopic;
+      String? roundDifficultyPreference = _state.roundDifficultyPreference;
       var clearPrompt = false;
       if (call.toolName == 'grade_answer') {
         addXp = (d['xpAwarded'] as num?)?.toInt() ??
@@ -646,6 +1036,9 @@ class LiveSessionController {
             currentQuestionIndex;
         questionCount = (d['questionCount'] as num?)?.toInt() ?? questionCount;
         roundTopic = d['topic'] as String? ?? roundTopic;
+        roundDifficultyPreference =
+            _normalizeDifficultyLabel(d['difficulty']) ??
+                roundDifficultyPreference;
         final nextQuestion = _mapFromDynamic(d['nextQuestion']);
         if (nextQuestion != null) {
           currentQuestionId =
@@ -675,6 +1068,9 @@ class LiveSessionController {
       } else if (call.toolName == 'start_live_round') {
         currentRoundId = d['roundId'] as String? ?? currentRoundId;
         roundTopic = d['topic'] as String? ?? roundTopic;
+        roundDifficultyPreference =
+            _normalizeDifficultyLabel(d['difficulty']) ??
+                roundDifficultyPreference;
         questionCount = (d['questionCount'] as num?)?.toInt() ?? questionCount;
         currentQuestionIndex =
             (d['currentQuestionIndex'] as num?)?.toInt() ?? 0;
@@ -707,18 +1103,33 @@ class LiveSessionController {
           currentPrompt = d['prompt'] as String? ?? currentPrompt;
         }
       } else if (call.toolName == 'end_round') {
+        addXp = (d['dailyBonusXp'] as num?)?.toInt() ?? 0;
         clearPrompt = true;
         currentQuestionId = null;
       }
 
+      final nextPhase = switch (call.toolName) {
+        'end_round' => LiveConnectionPhase.roundComplete,
+        'start_live_round' ||
+        'grade_answer' ||
+        'request_round_hint' ||
+        'request_round_repeat' =>
+          LiveConnectionPhase.waitingForOpeningPrompt,
+        _ => currentQuestionId != null
+            ? LiveConnectionPhase.listeningForAnswer
+            : LiveConnectionPhase.waitingForOpeningPrompt,
+      };
+
       _emitState(_state.copyWith(
-        phase: LiveConnectionPhase.connected,
+        phase: roundJustCompleted ? LiveConnectionPhase.roundComplete : nextPhase,
         currentRoundId: currentRoundId,
         currentQuestionId: currentQuestionId,
         currentPrompt: currentPrompt,
         questionCount: questionCount,
         currentQuestionIndex: currentQuestionIndex,
         roundTopic: roundTopic,
+        roundDifficultyPreference: roundDifficultyPreference,
+        silencePromptCount: 0,
         lastRewardPayload: result.data,
         clearToolCall: true,
         clearPrompt: clearPrompt,
@@ -730,6 +1141,24 @@ class LiveSessionController {
         grantedWood: _state.grantedWood + addWood,
         grantedComboXp: _state.grantedComboXp + addComboXp,
       ));
+
+      if (roundJustCompleted) {
+        unawaited(
+          _telemetry?.track(
+                'live_round_completed',
+                route: '/play',
+                correlationId: _state.correlationId,
+                metadata: {
+                  'mode': _state.mode.name,
+                  'roundId': currentRoundId,
+                  'questionCount': questionCount,
+                  'xpGranted': _state.grantedXp + addXp + addComboXp,
+                  'sectorsGranted': _state.grantedSectors + addSectors,
+                },
+              ) ??
+              Future.value(),
+        );
+      }
 
       _logger.log('tool_result_sent', metadata: {
         'tool': call.toolName,
@@ -748,7 +1177,8 @@ class LiveSessionController {
         'detail': e.toString(),
       });
       _emitState(_state.copyWith(
-        phase: LiveConnectionPhase.connected,
+        phase: LiveConnectionPhase.listeningForAnswer,
+        silencePromptCount: 0,
         clearToolCall: true,
       ));
     }
@@ -765,6 +1195,21 @@ class LiveSessionController {
       'code': error.code.name,
       'recovery': error.recovery.name,
     });
+    unawaited(
+      _telemetry?.track(
+            'live_session_error',
+            route: '/play',
+            correlationId: _state.correlationId,
+            metadata: {
+              'mode': _state.mode.name,
+              'phase': _state.phase.name,
+              'code': error.code.name,
+              'recovery': error.recovery.name,
+              'reconnectAttempts': _reconnectPolicy.attempts,
+            },
+          ) ??
+          Future.value(),
+    );
 
     switch (error.recovery) {
       case LiveErrorRecovery.reconnect:
@@ -792,6 +1237,18 @@ class LiveSessionController {
 
   Future<void> _attemptReconnect() async {
     if (!_reconnectPolicy.canRetry) {
+      unawaited(
+        _telemetry?.track(
+              'live_reconnect_exhausted',
+              route: '/play',
+              correlationId: _state.correlationId,
+              metadata: {
+                'mode': _state.mode.name,
+                'attempts': _reconnectPolicy.attempts,
+              },
+            ) ??
+            Future.value(),
+      );
       _emitState(_state.copyWith(
         phase: LiveConnectionPhase.failed,
         error: const LiveError(
@@ -814,6 +1271,19 @@ class LiveSessionController {
       'attempt': _reconnectPolicy.attempts,
       'delay': delay.inMilliseconds,
     });
+    unawaited(
+      _telemetry?.track(
+            'live_reconnect_attempt',
+            route: '/play',
+            correlationId: _state.correlationId,
+            metadata: {
+              'mode': _state.mode.name,
+              'attempt': _reconnectPolicy.attempts,
+              'delayMs': delay.inMilliseconds,
+            },
+          ) ??
+          Future.value(),
+    );
 
     // Wait with backoff
     await Future.delayed(delay);
@@ -837,7 +1307,9 @@ class LiveSessionController {
   Future<void> _teardown({bool keepState = false}) async {
     _sessionDurationTimer?.cancel();
     _handshakeTimer?.cancel();
+    _silenceGuardTimer?.cancel();
     _handshakeTimer = null;
+    _silenceGuardTimer = null;
     await _wsEventSub?.cancel();
     await _audioCaptureSub?.cancel();
     await _amplitudeSub?.cancel();
@@ -876,17 +1348,181 @@ class LiveSessionController {
 
   void _emitState(LiveSessionState newState) {
     _state = newState;
+    _syncSilenceGuard();
     _stateController.add(newState);
   }
 
   Map<String, dynamic>? _mapFromDynamic(dynamic value) {
     if (value is Map<String, dynamic>) return value;
-    if (value is Map)
+    if (value is Map) {
       return value.map((key, dynamicValue) => MapEntry('$key', dynamicValue));
+    }
     return null;
   }
 
   String? _promptFromQuestion(Map<String, dynamic> question) {
     return question['spokenPhrase'] as String? ?? question['text'] as String?;
+  }
+
+  String? _normalizeDifficultyLabel(dynamic value) {
+    final raw = value as String?;
+    if (raw == null || raw.isEmpty) return null;
+    if (raw == 'easy' || raw == 'hard' || raw == 'dynamic') return raw;
+    if (raw == 'medium') return 'dynamic';
+    return null;
+  }
+
+  void _syncSilenceGuard() {
+    _silenceGuardTimer?.cancel();
+    _silenceGuardTimer = null;
+
+    if (_state.phase != LiveConnectionPhase.listeningForAnswer ||
+        _state.currentRoundId == null ||
+        _state.currentQuestionId == null ||
+        _state.isRoundComplete ||
+        _state.isPlaybackActive) {
+      return;
+    }
+
+    final key =
+        '${_state.currentRoundId}:${_state.currentQuestionId}:${_state.currentQuestionIndex}';
+    if (_silenceGuardQuestionKey != key) {
+      _silenceGuardQuestionKey = key;
+      _silencePromptCount = 0;
+    }
+
+    if (_silencePromptCount >= 2) return;
+
+    final timeout = _silencePromptCount == 0
+        ? const Duration(seconds: 8)
+        : const Duration(seconds: 6);
+    _silenceGuardTimer = Timer(timeout, _handleListeningSilence);
+  }
+
+  void _handleListeningSilence() {
+    if (_state.phase != LiveConnectionPhase.listeningForAnswer ||
+        _state.isPlaybackActive ||
+        _state.isRoundComplete ||
+        _userSpeechActive) {
+      _syncSilenceGuard();
+      return;
+    }
+
+    if (_silencePromptCount == 0) {
+      _silencePromptCount = 1;
+      _logger.log('listening_silence_reprompt', metadata: {
+        'roundId': _state.currentRoundId,
+        'questionId': _state.currentQuestionId,
+      });
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.waitingForOpeningPrompt,
+        silencePromptCount: 1,
+      ));
+      _ws.sendText(
+        'The player is still silent. Repeat the same backend-authored question once, gently and briefly, then pause for their answer.',
+      );
+      return;
+    }
+
+    if (_silencePromptCount == 1) {
+      _silencePromptCount = 2;
+      _logger.log('listening_silence_guidance', metadata: {
+        'roundId': _state.currentRoundId,
+        'questionId': _state.currentQuestionId,
+      });
+      _emitState(_state.copyWith(
+        phase: LiveConnectionPhase.waitingForOpeningPrompt,
+        silencePromptCount: 2,
+      ));
+      _ws.sendText(
+        'The player is still silent. In one short line, tell them they can answer now, say hint, or say repeat. Then stop talking.',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>?> _primeRoundIfNeeded(
+    LiveSessionConfig config,
+  ) async {
+    if (config.mode == LiveSessionMode.onboarding ||
+        config.mode == LiveSessionMode.visionQuest) {
+      return null;
+    }
+    if (_state.currentRoundId != null && _state.currentQuestionId != null) {
+      return null;
+    }
+
+    final startedAt = DateTime.now();
+    try {
+      final response = await _apiClient.startRound(
+        mode: switch (config.mode) {
+          LiveSessionMode.sprint => 'sprint',
+          LiveSessionMode.quiz => 'quiz',
+          _ => 'event',
+        },
+        eventId: config.eventId,
+      );
+      _logger.log('round_primed', metadata: {
+        'mode': config.mode.name,
+        'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
+        'roundId': response['roundId'],
+      });
+      unawaited(
+        _telemetry?.track(
+              'live_round_primed',
+              route: '/play',
+              correlationId: _state.correlationId,
+              metadata: {
+                'mode': config.mode.name,
+                'durationMs':
+                    DateTime.now().difference(startedAt).inMilliseconds,
+              },
+            ) ??
+            Future.value(),
+      );
+      return response;
+    } catch (e) {
+      _logger.log('round_prime_failed', metadata: {
+        'mode': config.mode.name,
+        'detail': e.toString(),
+      });
+      unawaited(
+        _telemetry?.track(
+              'live_round_prime_failed',
+              route: '/play',
+              correlationId: _state.correlationId,
+              metadata: {
+                'mode': config.mode.name,
+                'detail': e.toString(),
+              },
+            ) ??
+            Future.value(),
+      );
+      return null;
+    }
+  }
+
+  void _applyPrimedRound(Map<String, dynamic> response) {
+    final currentQuestion = _mapFromDynamic(response['currentQuestion']);
+    final prompt = currentQuestion != null
+        ? _promptFromQuestion(currentQuestion)
+        : response['prompt'] as String?;
+    _hintCount = (response['hintCount'] as num?)?.toInt() ?? 0;
+    _repeatCount = (response['repeatCount'] as num?)?.toInt() ?? 0;
+    _emitState(_state.copyWith(
+      currentRoundId: response['roundId'] as String? ?? _state.currentRoundId,
+      currentQuestionId:
+          currentQuestion?['id'] as String? ?? _state.currentQuestionId,
+      currentPrompt: prompt ?? _state.currentPrompt,
+      questionCount:
+          (response['questionCount'] as num?)?.toInt() ?? _state.questionCount,
+      currentQuestionIndex:
+          (response['currentQuestionIndex'] as num?)?.toInt() ??
+              _state.currentQuestionIndex,
+      roundTopic: response['topic'] as String? ?? _state.roundTopic,
+      roundDifficultyPreference:
+          _normalizeDifficultyLabel(response['difficulty']) ??
+              _state.roundDifficultyPreference,
+      silencePromptCount: 0,
+    ));
   }
 }

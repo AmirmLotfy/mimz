@@ -119,9 +119,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Challenge Level'), findsOneWidget);
-      expect(find.text('Casual'), findsOneWidget);
-      expect(find.text('Dynamic'), findsOneWidget);
-      expect(find.text('Challenger'), findsOneWidget);
+      expect(find.text('Easy'), findsOneWidget);
+      expect(find.text('Adaptive'), findsOneWidget);
+      expect(find.text('Hard'), findsOneWidget);
     });
 
     testWidgets('renders squad mode options', (tester) async {

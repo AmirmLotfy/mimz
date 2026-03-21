@@ -13,7 +13,7 @@ class LiveReconnectPolicy {
   final _random = Random();
 
   LiveReconnectPolicy({
-    this.maxAttempts = 3,
+    this.maxAttempts = 1,
     this.initialDelay = const Duration(seconds: 1),
     this.maxDelay = const Duration(seconds: 30),
     this.backoffMultiplier = 2.0,

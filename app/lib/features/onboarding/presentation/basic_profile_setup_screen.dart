@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../../../core/providers.dart';
 import '../../../services/haptics_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
 
 /// Screen — Basic profile personalization (name, age band, status, major)
@@ -46,17 +48,57 @@ class _BasicProfileSetupScreenState
       _selectedAgeBand != null &&
       _selectedStatus != null;
 
-  void _proceed() {
+  @override
+  void initState() {
+    super.initState();
+    final onboarding = ref.read(onboardingDataProvider);
+    final user = ref.read(currentUserProvider).valueOrNull;
+    _nameController.text =
+        onboarding.preferredName ?? user?.preferredName ?? '';
+    _majorController.text =
+        onboarding.majorOrProfession ?? user?.majorOrProfession ?? '';
+    _selectedAgeBand = onboarding.ageBand ?? user?.ageBand;
+    _selectedStatus = onboarding.studyWorkStatus ?? user?.studyWorkStatus;
+  }
+
+  Future<void> _proceed() async {
     ref.read(hapticsServiceProvider).mediumImpact();
+    final preferredName = _nameController.text.trim();
+    final major = _majorController.text.trim();
+
     // Save to onboarding state
     ref.read(onboardingDataProvider.notifier).updateField(
-          preferredName: _nameController.text.trim(),
+          preferredName: preferredName,
           ageBand: _selectedAgeBand,
           studyWorkStatus: _selectedStatus,
-          majorOrProfession: _majorController.text.trim().isEmpty
-              ? null
-              : _majorController.text.trim(),
+          majorOrProfession: major.isEmpty ? null : major,
         );
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user != null) {
+      ref.read(currentUserProvider.notifier).updateUser(
+            user.copyWith(
+              preferredName: preferredName,
+              ageBand: _selectedAgeBand,
+              studyWorkStatus: _selectedStatus,
+              majorOrProfession: major.isEmpty ? null : major,
+              onboardingStage: 'interests',
+            ),
+          );
+    }
+
+    try {
+      await ref.read(apiClientProvider).updateProfile({
+        'preferredName': preferredName,
+        'displayName': preferredName,
+        'ageBand': _selectedAgeBand,
+        'studyWorkStatus': _selectedStatus,
+        'majorOrProfession': major.isEmpty ? null : major,
+        'onboardingStage': 'interests',
+      });
+    } catch (_) {}
+
+    if (!context.mounted) return;
     context.push('/onboarding/interests');
   }
 

@@ -7,6 +7,8 @@ import '../../../design_system/components/mimz_button.dart';
 import '../../../design_system/components/waveform_visualizer.dart';
 import '../../../services/haptics_service.dart';
 import '../providers/onboarding_provider.dart';
+import '../../../core/providers.dart';
+import '../../auth/providers/auth_provider.dart';
 
 /// Screen 6 — Microphone permission
 class MicrophonePermissionScreen extends ConsumerStatefulWidget {
@@ -24,10 +26,22 @@ class _MicrophonePermissionScreenState extends ConsumerState<MicrophonePermissio
   }
 
   void _checkAndPop() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    Future.delayed(const Duration(milliseconds: 100), () async {
       if (!mounted) return;
       if (ref.read(permissionsProvider).microphone) {
-        context.go('/permissions');
+        final user = ref.read(currentUserProvider).valueOrNull;
+        if (user != null) {
+          ref.read(currentUserProvider.notifier).updateUser(
+            user.copyWith(onboardingStage: 'emblem'),
+          );
+        }
+        try {
+          await ref.read(apiClientProvider).updateProfile({
+            'onboardingStage': 'emblem',
+          });
+        } catch (_) {}
+        if (!context.mounted) return;
+        context.go('/district/emblem');
       }
     });
   }
@@ -37,7 +51,21 @@ class _MicrophonePermissionScreenState extends ConsumerState<MicrophonePermissio
     // Listen for changes and pop if granted
     ref.listen(permissionsProvider, (prev, next) {
       if (next.microphone) {
-        context.go('/permissions');
+        Future<void>(() async {
+          final user = ref.read(currentUserProvider).valueOrNull;
+          if (user != null) {
+            ref.read(currentUserProvider.notifier).updateUser(
+              user.copyWith(onboardingStage: 'emblem'),
+            );
+          }
+          try {
+            await ref.read(apiClientProvider).updateProfile({
+              'onboardingStage': 'emblem',
+            });
+          } catch (_) {}
+          if (!context.mounted) return;
+          context.go('/district/emblem');
+        });
       }
     });
 
@@ -206,6 +234,17 @@ class _MicrophonePermissionScreenState extends ConsumerState<MicrophonePermissio
                 if (status.isGranted || status.isLimited) {
                   ref.read(hapticsServiceProvider).success();
                   await ref.read(permissionsProvider.notifier).grantMicrophone();
+                  final user = ref.read(currentUserProvider).valueOrNull;
+                  if (user != null) {
+                    ref.read(currentUserProvider.notifier).updateUser(
+                      user.copyWith(onboardingStage: 'emblem'),
+                    );
+                  }
+                  try {
+                    await ref.read(apiClientProvider).updateProfile({
+                      'onboardingStage': 'emblem',
+                    });
+                  } catch (_) {}
                 } else if (mounted) {
                   ref.read(hapticsServiceProvider).error();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -216,14 +255,29 @@ class _MicrophonePermissionScreenState extends ConsumerState<MicrophonePermissio
                     ),
                   );
                 }
-                if (context.mounted) context.go('/permissions');
+                if (!context.mounted) return;
+                context.go('/district/emblem');
               },
             ),
             const SizedBox(height: MimzSpacing.md),
             MimzButton(
               label: 'Maybe Later',
               variant: MimzButtonVariant.ghost,
-              onPressed: () => context.go('/permissions'),
+              onPressed: () async {
+                final user = ref.read(currentUserProvider).valueOrNull;
+                if (user != null) {
+                  ref.read(currentUserProvider.notifier).updateUser(
+                    user.copyWith(onboardingStage: 'emblem'),
+                  );
+                }
+                try {
+                  await ref.read(apiClientProvider).updateProfile({
+                    'onboardingStage': 'emblem',
+                  });
+                } catch (_) {}
+                if (!context.mounted) return;
+                context.go('/district/emblem');
+              },
             ),
             const SizedBox(height: MimzSpacing.base),
           ],

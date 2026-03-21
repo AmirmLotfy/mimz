@@ -55,13 +55,12 @@ class LiveStatusPill extends ConsumerWidget {
 
   (IconData, String, Color) _pillData(LiveConnectionPhase phase) {
     return switch (phase) {
-      LiveConnectionPhase.fetchingToken => (Icons.hourglass_top, 'CONNECTING', MimzColors.textSecondary),
       LiveConnectionPhase.connecting    => (Icons.wifi, 'CONNECTING', MimzColors.textSecondary),
-      LiveConnectionPhase.handshaking   => (Icons.wifi, 'HANDSHAKING', MimzColors.textSecondary),
-      LiveConnectionPhase.connected     => (Icons.wifi, 'LIVE', MimzColors.mossCore),
+      LiveConnectionPhase.waitingForOpeningPrompt => (Icons.graphic_eq, 'PREPARING ROUND', MimzColors.textSecondary),
       LiveConnectionPhase.modelSpeaking => (Icons.volume_up, 'MIMZ SPEAKING', MimzColors.persimmonHit),
-      LiveConnectionPhase.userSpeaking  => (Icons.mic, 'LISTENING', MimzColors.mossCore),
-      LiveConnectionPhase.waitingForToolResult => (Icons.hourglass_bottom, 'PROCESSING', MimzColors.dustyGold),
+      LiveConnectionPhase.listeningForAnswer  => (Icons.mic, 'LISTENING', MimzColors.mossCore),
+      LiveConnectionPhase.grading => (Icons.hourglass_bottom, 'CHECKING', MimzColors.dustyGold),
+      LiveConnectionPhase.roundComplete => (Icons.emoji_events, 'ROUND COMPLETE', MimzColors.acidLime),
       LiveConnectionPhase.reconnecting  => (Icons.refresh, 'RECONNECTING', MimzColors.textSecondary),
       LiveConnectionPhase.ended         => (Icons.stop_circle, 'ENDED', MimzColors.textSecondary),
       LiveConnectionPhase.failed        => (Icons.error_outline, 'ERROR', MimzColors.persimmonHit),

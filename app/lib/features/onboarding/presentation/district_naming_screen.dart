@@ -246,7 +246,18 @@ class _DistrictNamingScreenState extends ConsumerState<DistrictNamingScreen> {
                   try {
                     await ref.read(apiClientProvider).patch('/profile', {
                       'districtName': name,
+                      'onboardingStage': 'district_reveal',
                     });
+                    final refreshedUser =
+                        ref.read(currentUserProvider).valueOrNull;
+                    if (refreshedUser != null) {
+                      ref.read(currentUserProvider.notifier).updateUser(
+                        refreshedUser.copyWith(
+                          districtName: name,
+                          onboardingStage: 'district_reveal',
+                        ),
+                      );
+                    }
                   } catch (_) {
                     // Non-fatal — local state already updated
                   }

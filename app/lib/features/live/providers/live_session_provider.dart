@@ -50,6 +50,20 @@ final roundRewardsProvider = Provider<RoundRewards>((ref) {
     ),
     xpEarned: session.grantedXp,
     streakBonus: session.grantedComboXp,
+    dailyBonusXp:
+        (session.lastRewardPayload?['dailyBonusXp'] as num?)?.toInt() ?? 0,
+    dailyBonusInfluence:
+        (session.lastRewardPayload?['dailyBonusInfluence'] as num?)?.toInt() ??
+            0,
+    squadContribution:
+        ((session.lastRewardPayload?['squadContribution'] as Map?)?['amount']
+                as num?)
+            ?.toInt() ??
+            0,
+    eventId: ((session.lastRewardPayload?['eventParticipation'] as Map?)
+        ?['eventId']) as String?,
+    isDailySprint:
+        session.lastRewardPayload?['isDailySprint'] as bool? ?? false,
   );
 });
 
@@ -58,12 +72,22 @@ class RoundRewards {
   final Resources materialsEarned;
   final int xpEarned;
   final int streakBonus;
+  final int dailyBonusXp;
+  final int dailyBonusInfluence;
+  final int squadContribution;
+  final String? eventId;
+  final bool isDailySprint;
 
   const RoundRewards({
     this.sectorsEarned = 0,
     this.materialsEarned = const Resources(),
     this.xpEarned = 0,
     this.streakBonus = 0,
+    this.dailyBonusXp = 0,
+    this.dailyBonusInfluence = 0,
+    this.squadContribution = 0,
+    this.eventId,
+    this.isDailySprint = false,
   });
 }
 

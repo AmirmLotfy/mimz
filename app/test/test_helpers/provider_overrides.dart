@@ -35,13 +35,28 @@ List<Override> createTestOverrides({
   final client = apiClient ?? MockApiClient();
   if (auth is MockAuthService) {
     when(() => auth.getIdToken()).thenAnswer((_) async => null);
+    final status = isAuthenticated
+        ? AuthStatus.authenticated
+        : AuthStatus.unauthenticated;
+    when(() => auth.currentStatus).thenReturn(status);
+    when(() => auth.statusStream).thenAnswer((_) => Stream<AuthStatus>.value(status));
+    when(() => auth.userId).thenReturn(
+      isAuthenticated ? MimzUser.demo.id : null,
+    );
+    when(() => auth.userEmail).thenReturn(
+      isAuthenticated ? MimzUser.demo.email : null,
+    );
   }
   if (client is MockApiClient) {
+    final demoUser = MimzUser.demo.copyWith(
+      onboardingCompleted: isOnboarded,
+      onboardingStage: isOnboarded ? 'completed' : 'profile',
+    );
     when(() => client.getGameState()).thenAnswer((_) async => {
-          'user': MimzUser.demo.toJson(),
+          'user': demoUser.toJson(),
           'district': {
             'id': 'district_demo',
-            'ownerId': MimzUser.demo.id,
+            'ownerId': demoUser.id,
             'name': 'Verdant Reach',
             'sectors': 7,
             'area': '7.7 sq km',
@@ -62,6 +77,28 @@ List<Override> createTestOverrides({
           'leaderboardSnippets': const [],
           'activeConflicts': const [],
         });
+    when(() => client.startVisionQuest(theme: any(named: 'theme')))
+        .thenAnswer((_) async => {
+              'questId': 'vq_test',
+              'theme': 'discovery',
+              'targetPrompt': 'Show me something green.',
+              'targetKeywords': const ['green', 'leaf'],
+            });
+    when(() => client.captureVisionQuest(
+          any(),
+          objectIdentified: any(named: 'objectIdentified'),
+          confidence: any(named: 'confidence'),
+          imageBase64: any(named: 'imageBase64'),
+        )).thenAnswer((_) async => {
+              'questId': 'vq_test',
+              'objectIdentified': 'green leaf',
+              'isValid': true,
+              'xpAwarded': 200,
+            });
+    when(() => client.finishVisionQuest(any()))
+        .thenAnswer((_) async => {
+              'quest': {'id': 'vq_test', 'status': 'completed'},
+            });
   }
 
   return [

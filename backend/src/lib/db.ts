@@ -1,7 +1,17 @@
 import { getDb } from './firebase.js';
 import { FieldValue } from 'firebase-admin/firestore';
 import { randomUUID } from 'crypto';
-import type { User, District, RewardGrant, RoundSession, AuditLog, Squad, MimzEvent, FeedbackSubmission } from '../models/types.js';
+import type {
+  User,
+  District,
+  RewardGrant,
+  RoundSession,
+  AuditLog,
+  Squad,
+  MimzEvent,
+  FeedbackSubmission,
+  ClientTelemetryEvent,
+} from '../models/types.js';
 
 /**
  * Firestore data access layer.
@@ -96,9 +106,17 @@ export async function updateDailyStreak(userId: string): Promise<void> {
   const current = ((user as any).dailyStreak as number) ?? 0;
   if (last === today) return; // Already counted today
   const nextStreak = last === yesterday ? current + 1 : 1;
+  const existingHistory = Array.isArray((user as any).activityHistory)
+    ? ((user as any).activityHistory as string[])
+    : [];
+  const nextHistory = [...new Set([...existingHistory.filter((entry) => entry !== today), today])]
+    .sort((a, b) => a.localeCompare(b));
   await getDb().collection('users').doc(userId).update({
     lastActivityDate: today,
     dailyStreak: nextStreak,
+    activityHistory: nextHistory.length > 21
+        ? nextHistory.slice(nextHistory.length - 21)
+        : nextHistory,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -220,6 +238,9 @@ export async function createVisionQuest(quest: {
   id: string;
   userId: string;
   theme: string;
+  targetPrompt?: string;
+  targetKeywords?: string[];
+  objectIdentified?: string;
   status: string;
   confidence: number;
   isValid: boolean;
@@ -237,6 +258,25 @@ export async function updateVisionQuest(
     ...updates,
     updatedAt: new Date().toISOString(),
   });
+}
+
+export async function getVisionQuest(questId: string): Promise<any | null> {
+  const doc = await getDb().collection('visionQuests').doc(questId).get();
+  return doc.exists ? doc.data() : null;
+}
+
+export async function createClientTelemetryEvent(
+  userId: string,
+  event: ClientTelemetryEvent,
+): Promise<string> {
+  const id = randomUUID();
+  await getDb().collection('clientTelemetry').doc(id).set({
+    id,
+    userId,
+    ...event,
+    receivedAt: new Date().toISOString(),
+  });
+  return id;
 }
 
 export async function getUserVisionQuests(userId: string, limit = 20): Promise<any[]> {

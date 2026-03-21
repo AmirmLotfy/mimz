@@ -115,7 +115,7 @@ const handlers: Record<string, ToolHandler> = {
     const round = await rounds.startRound(ctx.userId, {
       mode: (args.mode as 'quiz' | 'sprint' | 'event' | undefined) ?? 'quiz',
       topic: (args.topic as string | undefined) ?? undefined,
-      difficulty: (args.difficulty as 'easy' | 'medium' | 'hard' | undefined) ?? undefined,
+      difficulty: (args.difficulty as 'easy' | 'dynamic' | 'hard' | undefined) ?? undefined,
       eventId: (args.eventId as string | undefined) ?? ctx.eventId,
     });
 
@@ -404,10 +404,15 @@ const handlers: Record<string, ToolHandler> = {
   // ─── Vision Quest ────────────────────────────────
   async start_vision_quest(args, ctx) {
     const questId = `vq_${randomUUID()}`;
+    const blueprint = game.buildVisionQuestBlueprint(
+      (args.theme as string) || 'discovery',
+    );
     const quest = {
       id: questId,
       userId: ctx.userId,
       theme: (args.theme as string) || 'discovery',
+      targetPrompt: blueprint.targetPrompt,
+      targetKeywords: blueprint.targetKeywords,
       status: 'active' as const,
       confidence: 0,
       isValid: false,
@@ -426,15 +431,15 @@ const handlers: Record<string, ToolHandler> = {
       toolName: 'start_vision_quest', sessionId: ctx.sessionId,
     });
 
-    const targetPrompt = (args.targetPrompt as string) || 'Show me something interesting around you.';
-
     return {
       success: true,
       data: {
         questId: quest.id,
         theme: quest.theme,
-        targetPrompt,
-        message: 'Vision quest started! Show me something interesting.',
+        targetPrompt: blueprint.targetPrompt,
+        targetKeywords: blueprint.targetKeywords,
+        rewardStructureId: blueprint.rewardStructureId,
+        message: `Vision quest started! ${blueprint.targetPrompt}`,
       },
     };
   },
@@ -444,16 +449,32 @@ const handlers: Record<string, ToolHandler> = {
     if (cached) return cached;
 
     const confidence = typeof args.confidence === 'number' ? args.confidence : 0;
-    const rawValid = typeof args.isValid === 'boolean' ? args.isValid : false;
-    const isValid = rawValid && confidence >= 0.5;
+    const questId = args.questId as string;
+    const quest = await db.getVisionQuest(questId);
+    if (!quest || quest.userId !== ctx.userId) {
+      throw new Error('Vision quest not found');
+    }
+
+    const objectIdentified = args.objectIdentified as string;
+    const targetKeywords = Array.isArray(quest.targetKeywords)
+      ? (quest.targetKeywords as string[])
+      : [];
+    const isValid = game.validateVisionQuestObservation(
+      targetKeywords,
+      objectIdentified,
+      confidence,
+    );
 
     const result = {
-      objectIdentified: args.objectIdentified as string,
+      questId,
+      targetPrompt: quest.targetPrompt as string | undefined,
+      objectIdentified,
       confidence,
       isValid,
     };
 
     let influenceGranted = 0;
+    let materialsEarned = { stone: 0, glass: 0, wood: 0 };
     if (result.isValid) {
       await db.incrementUserXp(ctx.userId, 200);
       await game.grantReward(ctx.userId, 'xp', 200, 'validate_vision_result', ctx.sessionId);
@@ -461,9 +482,28 @@ const handlers: Record<string, ToolHandler> = {
       influenceGranted = game.calculateInfluenceGrant('vision_quest', 'medium', 0);
       await db.incrementUserInfluence(ctx.userId, influenceGranted);
       const district = await game.getDistrict(ctx.userId);
-      if (district) await db.incrementDistrictInfluence(district.id, influenceGranted);
+      if (district) {
+        await db.incrementDistrictInfluence(district.id, influenceGranted);
+        materialsEarned = { stone: 8, glass: 4, wood: 6 };
+        await db.addResources(district.id, materialsEarned);
+      }
       await game.grantReward(ctx.userId, 'influence', influenceGranted, 'validate_vision_result', ctx.sessionId);
+      await game.grantReward(
+        ctx.userId,
+        'materials',
+        materialsEarned.stone + materialsEarned.glass + materialsEarned.wood,
+        'validate_vision_result',
+        ctx.sessionId,
+      );
     }
+
+    await db.updateVisionQuest(questId, {
+      objectIdentified,
+      confidence,
+      isValid,
+      status: result.isValid ? 'completed' : 'failed',
+      completedAt: new Date().toISOString(),
+    });
 
     await game.updatePrestigeIfNeeded(ctx.userId);
 
@@ -473,6 +513,7 @@ const handlers: Record<string, ToolHandler> = {
         ...result,
         xpAwarded: result.isValid ? 200 : 0,
         influenceGranted,
+        materialsEarned,
         message: result.isValid
           ? `Verified: "${result.objectIdentified}"! +200 XP, +${influenceGranted} influence`
           : `Hmm, not quite. Try again!`,

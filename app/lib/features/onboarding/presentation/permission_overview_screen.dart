@@ -42,8 +42,8 @@ class _PermissionOverviewScreenState extends ConsumerState<PermissionOverviewScr
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       final permissions = ref.read(permissionsProvider);
-      if (permissions.allGranted) {
-        context.go('/onboarding/live');
+      if (permissions.location && permissions.microphone) {
+        context.go('/district/emblem');
       }
     });
   }
@@ -55,8 +55,8 @@ class _PermissionOverviewScreenState extends ConsumerState<PermissionOverviewScr
 
     // Auto-advance if all granted while on the screen
     ref.listen(permissionsProvider, (prev, next) {
-      if (next.allGranted) {
-        context.go('/onboarding/live');
+      if (next.location && next.microphone) {
+        context.go('/district/emblem');
       }
     });
 
@@ -118,7 +118,7 @@ class _PermissionOverviewScreenState extends ConsumerState<PermissionOverviewScr
               PermissionCard(
                 icon: Icons.location_on,
                 title: 'Location',
-                description: 'Spawn your district on the real map and discover nearby events.',
+                description: 'Anchor your district to a privacy-safe region on the world map.',
                 isGranted: permissions.location,
                 onEnable: () async {
                   final granted = await locationService.requestPermission();
@@ -139,26 +139,21 @@ class _PermissionOverviewScreenState extends ConsumerState<PermissionOverviewScr
                 onEnable: () => context.go('/permissions/microphone'),
                 onDismiss: () => context.go('/permissions/microphone'),
               ).animate().fadeIn(delay: 400.ms, duration: 400.ms).slideY(begin: 0.1),
-              const SizedBox(height: MimzSpacing.md),
-              PermissionCard(
-                icon: Icons.camera_alt,
-                title: 'Camera',
-                description: 'Unlock Vision Quest and identify real-world objects.',
-                isGranted: permissions.camera,
-                onEnable: () => context.go('/permissions/camera'),
-                onDismiss: () => context.go('/permissions/camera'),
-              ).animate().fadeIn(delay: 600.ms, duration: 400.ms).slideY(begin: 0.1),
               const SizedBox(height: MimzSpacing.xxl),
               MimzButton(
-                label: permissions.allGranted
+                label: (permissions.location && permissions.microphone)
                     ? 'ALL SET — CONTINUE  →'
                     : 'CONTINUE  →',
-                onPressed: () => context.go('/onboarding/live'),
+                onPressed: () => context.go(
+                  permissions.location
+                      ? '/permissions/microphone'
+                      : '/permissions/location',
+                ),
               ),
               const SizedBox(height: MimzSpacing.md),
               Center(
                 child: Text(
-                  '${permissions.grantedCount}/3 permissions granted',
+                  '${[permissions.location, permissions.microphone].where((granted) => granted).length}/2 permissions granted',
                   style: MimzTypography.bodySmall.copyWith(
                     color: MimzColors.mossCore,
                   ),

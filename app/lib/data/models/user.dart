@@ -30,6 +30,9 @@ class MimzUser {
   final String difficultyPreference;
   final String squadPreference;
   final String? voicePreference;
+  final String onboardingStage;
+  final bool onboardingCompleted;
+  final bool meetMimzIntroSeen;
 
   final DateTime createdAt;
 
@@ -55,6 +58,9 @@ class MimzUser {
     this.difficultyPreference = 'dynamic',
     this.squadPreference = 'social',
     this.voicePreference,
+    this.onboardingStage = 'profile',
+    this.onboardingCompleted = false,
+    this.meetMimzIntroSeen = false,
     required this.createdAt,
   });
 
@@ -80,6 +86,9 @@ class MimzUser {
         difficultyPreference: json['difficultyPreference'] as String? ?? 'dynamic',
         squadPreference: json['squadPreference'] as String? ?? 'social',
         voicePreference: json['voicePreference'] as String?,
+        onboardingStage: json['onboardingStage'] as String? ?? 'profile',
+        onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
+        meetMimzIntroSeen: json['meetMimzIntroSeen'] as bool? ?? false,
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       );
 
@@ -105,6 +114,9 @@ class MimzUser {
         'difficultyPreference': difficultyPreference,
         'squadPreference': squadPreference,
         'voicePreference': voicePreference,
+        'onboardingStage': onboardingStage,
+        'onboardingCompleted': onboardingCompleted,
+        'meetMimzIntroSeen': meetMimzIntroSeen,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -129,6 +141,9 @@ class MimzUser {
     String? difficultyPreference,
     String? squadPreference,
     Object? voicePreference = _unset,
+    String? onboardingStage,
+    bool? onboardingCompleted,
+    bool? meetMimzIntroSeen,
   }) =>
       MimzUser(
         id: id,
@@ -166,6 +181,9 @@ class MimzUser {
         voicePreference: identical(voicePreference, _unset)
             ? this.voicePreference
             : voicePreference as String?,
+        onboardingStage: onboardingStage ?? this.onboardingStage,
+        onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+        meetMimzIntroSeen: meetMimzIntroSeen ?? this.meetMimzIntroSeen,
         createdAt: createdAt,
       );
 

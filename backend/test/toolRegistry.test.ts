@@ -52,17 +52,22 @@ describe('Tool Registry', () => {
   });
 
   it('all schemas have valid default parsing', () => {
+    const sampleArgs: Record<string, Record<string, unknown>> = {
+      grade_answer: { answer: 'test' },
+      validate_vision_result: {
+        questId: 'quest_test',
+        objectIdentified: 'notebook',
+        confidence: 0.9,
+      },
+      unlock_structure: { structureId: 'test' },
+      join_squad_mission: { missionId: 'test' },
+      contribute_squad_progress: { missionId: 'test', amount: 5 },
+      get_event_state: { eventId: 'test' },
+    };
+
     for (const [name, schema] of Object.entries(TOOL_SCHEMAS)) {
       // All schemas should at least parse with some valid data
-      const result = schema.safeParse(
-        name === 'grade_answer' ? { answer: 'test' } :
-        name === 'validate_vision_result' ? { objectIdentified: 'test' } :
-        name === 'unlock_structure' ? { structureId: 'test' } :
-        name === 'join_squad_mission' ? { missionId: 'test' } :
-        name === 'contribute_squad_progress' ? { missionId: 'test', amount: 5 } :
-        name === 'get_event_state' ? { eventId: 'test' } :
-        {}
-      );
+      const result = schema.safeParse(sampleArgs[name] ?? {});
       expect(result.success, `Schema ${name} failed`).toBe(true);
     }
   });

@@ -6,6 +6,8 @@ import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../services/haptics_service.dart';
 import '../providers/onboarding_provider.dart';
+import '../../../core/providers.dart';
+import '../../auth/providers/auth_provider.dart';
 
 /// Screen 5 — Location permission dedicated screen
 class LocationPermissionScreen extends ConsumerStatefulWidget {
@@ -25,7 +27,19 @@ class _LocationPermissionScreenState extends ConsumerState<LocationPermissionScr
   void _checkAndPop() async {
     await ref.read(permissionsProvider.notifier).refresh();
     if (mounted && ref.read(permissionsProvider).location) {
-      context.go('/permissions');
+      final user = ref.read(currentUserProvider).valueOrNull;
+      if (user != null) {
+        ref.read(currentUserProvider.notifier).updateUser(
+              user.copyWith(onboardingStage: 'permissions_microphone'),
+            );
+      }
+      try {
+        await ref.read(apiClientProvider).updateProfile({
+          'onboardingStage': 'permissions_microphone',
+        });
+      } catch (_) {}
+      if (!context.mounted) return;
+      context.go('/permissions/microphone');
     }
   }
 
@@ -34,7 +48,21 @@ class _LocationPermissionScreenState extends ConsumerState<LocationPermissionScr
     // Listen for changes and pop if granted
     ref.listen(permissionsProvider, (prev, next) {
       if (next.location) {
-        context.go('/permissions');
+        Future<void>(() async {
+          final user = ref.read(currentUserProvider).valueOrNull;
+          if (user != null) {
+            ref.read(currentUserProvider.notifier).updateUser(
+                  user.copyWith(onboardingStage: 'permissions_microphone'),
+                );
+          }
+          try {
+            await ref.read(apiClientProvider).updateProfile({
+              'onboardingStage': 'permissions_microphone',
+            });
+          } catch (_) {}
+          if (!context.mounted) return;
+          context.go('/permissions/microphone');
+        });
       }
     });
 
@@ -150,6 +178,19 @@ class _LocationPermissionScreenState extends ConsumerState<LocationPermissionScr
                       if (status.isGranted || status.isLimited) {
                         ref.read(hapticsServiceProvider).success();
                         await ref.read(permissionsProvider.notifier).grantLocation();
+                        final user = ref.read(currentUserProvider).valueOrNull;
+                        if (user != null) {
+                          ref.read(currentUserProvider.notifier).updateUser(
+                                user.copyWith(
+                                  onboardingStage: 'permissions_microphone',
+                                ),
+                              );
+                        }
+                        try {
+                          await ref.read(apiClientProvider).updateProfile({
+                            'onboardingStage': 'permissions_microphone',
+                          });
+                        } catch (_) {}
                       } else if (mounted) {
                         ref.read(hapticsServiceProvider).error();
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -160,14 +201,31 @@ class _LocationPermissionScreenState extends ConsumerState<LocationPermissionScr
                           ),
                         );
                       }
-                      if (context.mounted) context.go('/permissions');
+                      if (!context.mounted) return;
+                      context.go('/permissions/microphone');
                     },
                   ),
                   const SizedBox(height: MimzSpacing.base),
                   MimzButton(
                     label: 'Maybe Later',
                     variant: MimzButtonVariant.ghost,
-                    onPressed: () => context.go('/permissions'),
+                    onPressed: () async {
+                      final user = ref.read(currentUserProvider).valueOrNull;
+                      if (user != null) {
+                        ref.read(currentUserProvider.notifier).updateUser(
+                              user.copyWith(
+                                onboardingStage: 'permissions_microphone',
+                              ),
+                            );
+                      }
+                      try {
+                        await ref.read(apiClientProvider).updateProfile({
+                          'onboardingStage': 'permissions_microphone',
+                        });
+                      } catch (_) {}
+                      if (!context.mounted) return;
+                      context.go('/permissions/microphone');
+                    },
                   ),
                   const SizedBox(height: MimzSpacing.base),
                   Text(

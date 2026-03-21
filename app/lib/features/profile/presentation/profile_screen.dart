@@ -42,7 +42,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Remove', style: TextStyle(color: MimzColors.error)),
+            child: const Text(
+              'Remove',
+              style: TextStyle(color: MimzColors.error),
+            ),
           ),
         ],
       ),
@@ -144,19 +147,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String _formatMemberSince(DateTime date) =>
       '${_monthAbbrevs[date.month - 1]} ${date.year}';
 
-  int _prestigeLevel(int xp) {
-    if (xp >= 50000) return 10;
-    if (xp >= 30000) return 8;
-    if (xp >= 20000) return 6;
-    if (xp >= 10000) return 4;
-    if (xp >= 5000) return 2;
-    if (xp >= 1000) return 1;
-    return 0;
+  int _nextStreakMilestone(int dailyStreak) {
+    const milestones = [3, 7, 14, 21, 30, 45, 60];
+    for (final milestone in milestones) {
+      if (dailyStreak < milestone) return milestone;
+    }
+    return dailyStreak + 15;
   }
 
-  Widget _buildStreakCalendar(int dailyStreak) {
-    final today = DateTime.now();
-    const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  Widget _buildStreakCalendar(
+    List<StreakHistoryEntryModel> history,
+    String riskState,
+    int dailyStreak,
+    int bestStreak,
+    int streakProtection,
+  ) {
+    final recentHistory =
+        history.length > 14 ? history.sublist(history.length - 14) : history;
+    final nextMilestone = _nextStreakMilestone(dailyStreak);
     return Container(
       padding: const EdgeInsets.symmetric(
         vertical: MimzSpacing.base,
@@ -167,31 +175,85 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         borderRadius: BorderRadius.circular(MimzRadius.md),
         border: Border.all(color: MimzColors.borderLight),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(7, (i) {
-          final day = today.subtract(Duration(days: 6 - i));
-          final isActive = (6 - i) < dailyStreak;
-          final dayLabel = dayLabels[day.weekday - 1];
-          return Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color:
-                      isActive ? MimzColors.mossCore : MimzColors.borderLight,
+              Text('Streaks & Rhythm', style: MimzTypography.headlineSmall),
+              const Spacer(),
+              Text(
+                riskState == 'secured'
+                    ? 'Secured'
+                    : riskState == 'at_risk'
+                        ? 'At Risk'
+                        : 'Cold',
+                style: MimzTypography.caption.copyWith(
+                  color: riskState == 'secured'
+                      ? MimzColors.mossCore
+                      : riskState == 'at_risk'
+                          ? MimzColors.persimmonHit
+                          : MimzColors.textTertiary,
+                  fontWeight: FontWeight.w700,
                 ),
-                child: isActive
-                    ? const Icon(Icons.check, color: MimzColors.white, size: 14)
-                    : null,
               ),
-              const SizedBox(height: MimzSpacing.xs),
-              Text(dayLabel, style: MimzTypography.caption),
             ],
-          );
-        }),
+          ),
+          const SizedBox(height: MimzSpacing.xs),
+          Text(
+            riskState == 'secured'
+                ? 'Your daily return rhythm is locked in and district protection is active.'
+                : riskState == 'at_risk'
+                    ? 'One fast session keeps your district safe and your streak alive.'
+                    : 'A quick return session starts the rhythm again.',
+            style: MimzTypography.bodySmall.copyWith(
+              color: MimzColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: MimzSpacing.base),
+          Wrap(
+            spacing: MimzSpacing.sm,
+            runSpacing: MimzSpacing.sm,
+            children: recentHistory.map((entry) {
+              final date = DateTime.tryParse('${entry.date}T00:00:00') ??
+                  DateTime.now();
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: entry.active
+                          ? MimzColors.mossCore
+                          : MimzColors.borderLight,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${date.day}',
+                    style: MimzTypography.caption.copyWith(
+                      color: MimzColors.textSecondary,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: MimzSpacing.base),
+          Wrap(
+            spacing: MimzSpacing.sm,
+            runSpacing: MimzSpacing.sm,
+            children: [
+              _EffectChip(label: 'Current $dailyStreak days'),
+              _EffectChip(label: 'Best $bestStreak days'),
+              _EffectChip(label: 'Next $nextMilestone-day reward'),
+              if (streakProtection > 0)
+                _EffectChip(label: '+$streakProtection shield'),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -236,8 +298,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ListTile(
                 leading:
                     const Icon(Icons.delete_outline, color: MimzColors.error),
-                title: Text('Remove photo',
-                    style: TextStyle(color: MimzColors.error)),
+                title: const Text(
+                  'Remove photo',
+                  style: TextStyle(color: MimzColors.error),
+                ),
                 onTap: _removePhoto,
               ),
             const SizedBox(height: MimzSpacing.md),
@@ -251,15 +315,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.valueOrNull;
-    final stats = ref.watch(userStatsProvider);
     final gameState = ref.watch(gameStateProvider).valueOrNull;
     final structureEffects = ref.watch(structureEffectsProvider);
+    final structureProgress = ref.watch(structureProgressProvider);
     final leaderboardSnippets = ref.watch(leaderboardSnippetsProvider);
+    final rankState = ref.watch(rankStateProvider);
+    final districtHealth = ref.watch(districtHealthSummaryProvider);
+    final primaryAction = ref.watch(recommendedPrimaryActionProvider);
+    final squad = ref.watch(canonicalSquadProvider);
     final isLoading = userAsync.isLoading;
     final district = gameState?.district;
     final streakState = gameState?.streakState;
     final topTopics = [...?district?.topicAffinities]
       ..sort((a, b) => b.masteryScore.compareTo(a.masteryScore));
+    final stats = {
+      'Prestige': '${district?.totalPrestige ?? district?.prestigeLevel ?? 1}',
+      'District Size': '${district?.sectors ?? user?.sectors ?? 0}',
+      'Daily Streak': '${streakState?.dailyStreak ?? user?.dailyStreak ?? 0}',
+      'Best Streak': '${streakState?.bestStreak ?? user?.streak ?? 0}',
+    };
 
     if (userAsync.hasError) {
       return Scaffold(
@@ -271,7 +345,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 48, color: MimzColors.error),
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: MimzColors.error,
+                  ),
                   const SizedBox(height: MimzSpacing.md),
                   Text(
                     'Could not load your profile.',
@@ -338,8 +416,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     await ref.read(authServiceProvider).signOut();
                     if (mounted) context.go('/welcome');
                   },
-                  child: Text('Sign out',
-                      style: TextStyle(color: MimzColors.textSecondary)),
+                  child: const Text(
+                    'Sign out',
+                    style: TextStyle(color: MimzColors.textSecondary),
+                  ),
                 ),
               ],
             ),
@@ -353,7 +433,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
-          padding: EdgeInsets.only(
+          padding: const EdgeInsets.only(
             left: MimzSpacing.xl,
             right: MimzSpacing.xl,
             top: MimzSpacing.xl,
@@ -433,7 +513,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               color: MimzColors.white, size: 12),
                         ),
                       ),
-                      if (_prestigeLevel(user.xp) > 0)
+                      if ((rankState?.rank ?? 0) > 0)
                         Positioned(
                           top: -2,
                           right: -4,
@@ -454,7 +534,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     color: MimzColors.white, size: 10),
                                 const SizedBox(width: 2),
                                 Text(
-                                  '${_prestigeLevel(user.xp)}',
+                                  '${rankState?.rank ?? 1}',
                                   style: MimzTypography.caption.copyWith(
                                     color: MimzColors.white,
                                     fontWeight: FontWeight.w700,
@@ -477,11 +557,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const _SkeletonBox(width: 100, height: 14, radius: 4),
               ] else ...[
                 Text(user.displayName, style: MimzTypography.headlineLarge),
-                Text(user.handle, style: MimzTypography.bodySmall),
+                Text(
+                  rankState != null
+                      ? '${rankState.rankTitle} • ${user.handle}'
+                      : user.handle,
+                  style: MimzTypography.bodySmall,
+                ),
                 const SizedBox(height: MimzSpacing.xs),
                 Text(
-                  'Member since ${_formatMemberSince(user.createdAt)}',
+                  '${district?.regionLabel ?? 'Global District Grid'} • Member since ${_formatMemberSince(user.createdAt)}',
                   style: MimzTypography.caption,
+                ),
+              ],
+              if (!isLoading) ...[
+                const SizedBox(height: MimzSpacing.xl),
+                _ProfileIdentityCard(
+                  districtName: district?.name.isNotEmpty == true
+                      ? district!.name
+                      : user.districtName,
+                  handle: user.handle,
+                  regionLabel: district?.regionLabel ?? 'Global District Grid',
+                  rankTitle: rankState?.rankTitle ?? 'Explorer',
+                  rank: rankState?.rank ?? 1,
+                  nextRankXp: rankState?.nextRankXp ?? 0,
+                  prestigeTier: rankState?.prestigeTier ?? 'bronze',
+                  squadName: squad?.name,
+                  nextStructureName: structureProgress?.nextStructureName,
+                  unlockedStructures: structureProgress?.unlockedCount ?? 0,
+                  totalStructures: structureProgress?.totalAvailable ?? 0,
+                  readyToBuild: structureProgress?.readyToBuild ?? false,
                 ),
               ],
               const SizedBox(height: MimzSpacing.xxl),
@@ -507,7 +611,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: Row(
                     children: [
                       ...stats.entries.toList().asMap().entries.expand((entry) {
-                        final isStreak = entry.value.key == 'STREAK' &&
+                        final isStreak = entry.value.key == 'Daily Streak' &&
                             (int.tryParse(entry.value.value) ?? 0) > 0;
                         final widgets = <Widget>[
                           _StatCard(
@@ -529,23 +633,55 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
               if (!isLoading) ...[
                 const SizedBox(height: MimzSpacing.base),
+                const _ProfileSectionLabel(
+                  title: 'Rhythm',
+                  subtitle: 'Your return habit, protection, and next streak target.',
+                ),
+                const SizedBox(height: MimzSpacing.md),
                 _buildStreakCalendar(
-                    streakState?.dailyStreak ?? user.dailyStreak),
+                  streakState?.streakHistory ?? const [],
+                  streakState?.streakRiskState ?? 'cold',
+                  streakState?.dailyStreak ?? user.dailyStreak,
+                  streakState?.bestStreak ?? user.streak,
+                  structureEffects?.streakProtection ?? 0,
+                ),
                 if (streakState != null || structureEffects != null) ...[
                   const SizedBox(height: MimzSpacing.xl),
+                  const _ProfileSectionLabel(
+                    title: 'District Pulse',
+                    subtitle:
+                        'What your district is feeling now, and the fastest way to push it forward.',
+                  ),
+                  const SizedBox(height: MimzSpacing.md),
                   _DistrictPulseCard(
                     liveStreak: streakState?.liveStreak ?? user.streak,
                     dailyStreak: streakState?.dailyStreak ?? user.dailyStreak,
                     bestStreak: streakState?.bestStreak ?? user.streak,
+                    streakRiskState:
+                        streakState?.streakRiskState ?? 'cold',
+                    districtHealth: districtHealth,
+                    recommendedAction: primaryAction,
                     structureEffects: structureEffects,
                   ),
                 ],
                 if (topTopics.isNotEmpty) ...[
                   const SizedBox(height: MimzSpacing.xl),
+                  const _ProfileSectionLabel(
+                    title: 'Mastery',
+                    subtitle:
+                        'Your strongest knowledge lanes, win rate, and topic momentum.',
+                  ),
+                  const SizedBox(height: MimzSpacing.md),
                   _TopicMasteryCard(topTopics: topTopics.take(3).toList()),
                 ],
                 if (leaderboardSnippets.isNotEmpty) ...[
                   const SizedBox(height: MimzSpacing.xl),
+                  const _ProfileSectionLabel(
+                    title: 'Status',
+                    subtitle:
+                        'Where your district is placing right now across live boards.',
+                  ),
+                  const SizedBox(height: MimzSpacing.md),
                   _LeaderboardHighlightsCard(
                       snippets: leaderboardSnippets.take(3).toList()),
                 ],
@@ -699,16 +835,195 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+class _ProfileSectionLabel extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _ProfileSectionLabel({
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: MimzTypography.headlineMedium),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: MimzTypography.bodySmall.copyWith(
+              color: MimzColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileIdentityCard extends StatelessWidget {
+  final String districtName;
+  final String handle;
+  final String regionLabel;
+  final String rankTitle;
+  final int rank;
+  final int nextRankXp;
+  final String prestigeTier;
+  final String? squadName;
+  final String? nextStructureName;
+  final int unlockedStructures;
+  final int totalStructures;
+  final bool readyToBuild;
+
+  const _ProfileIdentityCard({
+    required this.districtName,
+    required this.handle,
+    required this.regionLabel,
+    required this.rankTitle,
+    required this.rank,
+    required this.nextRankXp,
+    required this.prestigeTier,
+    this.squadName,
+    this.nextStructureName,
+    this.unlockedStructures = 0,
+    this.totalStructures = 0,
+    this.readyToBuild = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(MimzSpacing.base),
+      decoration: BoxDecoration(
+        color: MimzColors.white,
+        borderRadius: BorderRadius.circular(MimzRadius.lg),
+        border: Border.all(color: MimzColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: MimzColors.deepInk.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Identity',
+                      style: MimzTypography.caption.copyWith(
+                        color: MimzColors.mossCore,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(districtName, style: MimzTypography.headlineMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$rankTitle • $handle',
+                      style: MimzTypography.bodySmall.copyWith(
+                        color: MimzColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: MimzSpacing.sm,
+                  vertical: MimzSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: MimzColors.dustyGold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(MimzRadius.pill),
+                ),
+                child: Text(
+                  'RANK $rank',
+                  style: MimzTypography.caption.copyWith(
+                    color: MimzColors.dustyGold,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: MimzSpacing.base),
+          Wrap(
+            spacing: MimzSpacing.sm,
+            runSpacing: MimzSpacing.sm,
+            children: [
+              _EffectChip(label: regionLabel),
+              _EffectChip(label: 'Tier ${prestigeTier.toUpperCase()}'),
+              _EffectChip(label: squadName ?? 'Solo district'),
+            ],
+          ),
+          const SizedBox(height: MimzSpacing.base),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(MimzSpacing.md),
+            decoration: BoxDecoration(
+              color: MimzColors.surfaceLight,
+              borderRadius: BorderRadius.circular(MimzRadius.md),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nextRankXp > 0
+                      ? 'Next rank in $nextRankXp XP'
+                      : 'Rank threshold secured',
+                  style: MimzTypography.bodySmall.copyWith(
+                    color: MimzColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: MimzSpacing.sm),
+                Text(
+                  readyToBuild
+                      ? '${nextStructureName ?? 'Structure'} is ready to build now.'
+                      : totalStructures > 0
+                          ? '$unlockedStructures of $totalStructures structures unlocked.'
+                          : 'Keep playing to unlock district structures.',
+                  style: MimzTypography.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DistrictPulseCard extends StatelessWidget {
   final int liveStreak;
   final int dailyStreak;
   final int bestStreak;
+  final String streakRiskState;
+  final DistrictHealthSummaryModel? districtHealth;
+  final RecommendedActionModel? recommendedAction;
   final StructureEffectsModel? structureEffects;
 
   const _DistrictPulseCard({
     required this.liveStreak,
     required this.dailyStreak,
     required this.bestStreak,
+    required this.streakRiskState,
+    required this.districtHealth,
+    required this.recommendedAction,
     required this.structureEffects,
   });
 
@@ -729,11 +1044,25 @@ class _DistrictPulseCard extends StatelessWidget {
           Text('District Pulse', style: MimzTypography.headlineMedium),
           const SizedBox(height: MimzSpacing.xs),
           Text(
-            'Your current rhythm and passive district bonuses.',
+            districtHealth?.headline ??
+                (streakRiskState == 'secured'
+                    ? 'Your streak is protected today and your district bonuses are active.'
+                    : streakRiskState == 'at_risk'
+                        ? 'One quick session keeps your district rhythm alive today.'
+                        : 'Start a fresh rhythm and wake your district up.'),
             style: MimzTypography.bodySmall.copyWith(
               color: MimzColors.textSecondary,
             ),
           ),
+          if (districtHealth != null) ...[
+            const SizedBox(height: MimzSpacing.xs),
+            Text(
+              districtHealth!.summary,
+              style: MimzTypography.caption.copyWith(
+                color: MimzColors.textTertiary,
+              ),
+            ),
+          ],
           const SizedBox(height: MimzSpacing.base),
           Row(
             children: [
@@ -769,6 +1098,43 @@ class _DistrictPulseCard extends StatelessWidget {
                     label: '+${effects.streakProtection} streak shield',
                   ),
               ],
+            ),
+          ],
+          if (recommendedAction != null) ...[
+            const SizedBox(height: MimzSpacing.base),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(MimzSpacing.md),
+              decoration: BoxDecoration(
+                color: MimzColors.surfaceLight,
+                borderRadius: BorderRadius.circular(MimzRadius.md),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recommended Next',
+                    style: MimzTypography.caption.copyWith(
+                      color: MimzColors.mossCore,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    recommendedAction!.title,
+                    style: MimzTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${recommendedAction!.impactLabel} • ${recommendedAction!.rewardPreview}',
+                    style: MimzTypography.bodySmall.copyWith(
+                      color: MimzColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -828,6 +1194,7 @@ class _TopicAffinityRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = (topic.winRate * 100).round();
+    final masteryProgress = (topic.masteryScore / 100).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(MimzSpacing.md),
       decoration: BoxDecoration(
@@ -846,6 +1213,18 @@ class _TopicAffinityRow extends StatelessWidget {
                   '${topic.correct}/${topic.answered} correct • $percent% win rate',
                   style: MimzTypography.bodySmall.copyWith(
                     color: MimzColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: MimzSpacing.sm),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(MimzRadius.pill),
+                  child: LinearProgressIndicator(
+                    value: masteryProgress,
+                    minHeight: 8,
+                    backgroundColor: MimzColors.borderLight,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      MimzColors.mossCore,
+                    ),
                   ),
                 ),
               ],

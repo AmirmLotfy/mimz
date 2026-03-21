@@ -63,6 +63,7 @@ export const UserSchema = z.object({
   bestStreak: z.number().int().min(0).default(0),
   dailyStreak: z.number().int().min(0).default(0),
   lastActivityDate: z.string().optional(), // ISO date YYYY-MM-DD
+  activityHistory: z.array(z.string()).default([]),
   sectors: z.number().int().min(0).default(1),
   districtId: z.string().optional(),
   districtName: z.string().default('My District'),
@@ -87,6 +88,21 @@ export const UserSchema = z.object({
   topicStats: z.record(TopicAffinitySchema).default({}),
 
   visibility: VisibilitySchema.default('coarse'),
+  onboardingStage: z.enum([
+    'profile',
+    'interests',
+    'preferences',
+    'summary',
+    'permissions',
+    'permissions_location',
+    'permissions_microphone',
+    'emblem',
+    'district_name',
+    'district_reveal',
+    'completed',
+  ]).default('profile'),
+  onboardingCompleted: z.boolean().default(false),
+  meetMimzIntroSeen: z.boolean().default(false),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema.optional(),
 });
@@ -105,6 +121,9 @@ export const UserProfileSchema = UserSchema.pick({
   difficultyPreference: true,
   squadPreference: true,
   voicePreference: true,
+  onboardingStage: true,
+  onboardingCompleted: true,
+  meetMimzIntroSeen: true,
 }).partial();
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
@@ -188,7 +207,7 @@ export const RoundSessionSchema = z.object({
   userId: z.string(),
   mode: z.enum(['quiz', 'sprint', 'event']).default('quiz'),
   topic: z.string().default('General'),
-  difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
+  difficulty: z.enum(['easy', 'dynamic', 'hard']).default('dynamic'),
   eventId: z.string().optional(),
   questionIds: z.array(z.string()).default([]),
   questionCount: z.number().int().min(1).default(5),
@@ -212,6 +231,8 @@ export const VisionQuestSchema = z.object({
   id: z.string(),
   userId: z.string(),
   theme: z.string().default('discovery'),
+  targetPrompt: z.string().optional(),
+  targetKeywords: z.array(z.string()).default([]),
   objectIdentified: z.string().optional(),
   confidence: z.number().min(0).max(1).default(0),
   isValid: z.boolean().default(false),
@@ -448,6 +469,16 @@ export const FeedbackSubmissionSchema = z.object({
 });
 export type FeedbackSubmission = z.infer<typeof FeedbackSubmissionSchema>;
 
+export const ClientTelemetryEventSchema = z.object({
+  sessionId: z.string().min(1),
+  event: z.string().trim().min(1).max(80),
+  occurredAt: TimestampSchema,
+  route: z.string().optional(),
+  correlationId: z.string().optional(),
+  metadata: z.record(z.unknown()).default({}),
+});
+export type ClientTelemetryEvent = z.infer<typeof ClientTelemetryEventSchema>;
+
 // ─── Structure Catalog ───────────────────────────────────
 
 export interface StructureCatalogEntry {
@@ -615,7 +646,7 @@ export type QuestionGenerationRequest = z.infer<typeof QuestionGenerationRequest
 export const RoundStartRequestSchema = z.object({
   mode: z.enum(['quiz', 'sprint', 'event']).default('quiz'),
   topic: z.string().optional(),
-  difficulty: QuestionDifficultySchema.optional(),
+  difficulty: z.enum(['easy', 'dynamic', 'hard']).optional(),
   eventId: z.string().optional(),
 });
 export type RoundStartRequest = z.infer<typeof RoundStartRequestSchema>;
@@ -627,7 +658,7 @@ export const RoundDefinitionSchema = z.object({
   roundId: z.string(),
   mode: z.enum(['quiz', 'sprint', 'event']).default('quiz'),
   topic: z.string(),
-  difficulty: QuestionDifficultySchema,
+  difficulty: z.enum(['easy', 'dynamic', 'hard']),
   eventId: z.string().optional(),
   questionCount: z.number().int().min(1),
   currentQuestionIndex: z.number().int().min(0).default(0),
@@ -658,6 +689,7 @@ export type AnswerResult = z.infer<typeof AnswerResultSchema>;
 
 export const VisionQuestResultSchema = z.object({
   questId: z.string(),
+  targetPrompt: z.string().optional(),
   objectIdentified: z.string(),
   confidence: z.number().min(0).max(1).default(0),
   isValid: z.boolean().default(false),
@@ -673,6 +705,11 @@ export const StreakStateSchema = z.object({
   dailyStreak: z.number().int().min(0).default(0),
   bestStreak: z.number().int().min(0).default(0),
   lastActivityDate: z.string().optional(),
+  streakRiskState: z.enum(['secured', 'at_risk', 'cold']).default('cold'),
+  streakHistory: z.array(z.object({
+    date: z.string(),
+    active: z.boolean().default(false),
+  })).default([]),
 });
 export type StreakState = z.infer<typeof StreakStateSchema>;
 
@@ -692,14 +729,74 @@ export const SquadSummarySchema = z.object({
 });
 export type SquadSummary = z.infer<typeof SquadSummarySchema>;
 
+export const RankStateSchema = z.object({
+  rank: z.number().int().min(1).default(1),
+  rankTitle: z.string().default('Explorer'),
+  nextRankXp: z.number().int().min(0).default(0),
+  prestigeTier: z.enum(['bronze', 'silver', 'gold', 'platinum', 'diamond']).default('bronze'),
+});
+export type RankState = z.infer<typeof RankStateSchema>;
+
+export const DistrictHealthSummarySchema = z.object({
+  state: z.enum(['stable', 'cooling', 'vulnerable', 'reclaimable']).default('stable'),
+  headline: z.string().default('District stable'),
+  summary: z.string().default('Your frontier is holding steady.'),
+  vulnerableCells: z.number().int().min(0).default(0),
+  reclaimableCells: z.number().int().min(0).default(0),
+  nextExpansionIn: z.number().int().min(0).default(0),
+});
+export type DistrictHealthSummary = z.infer<typeof DistrictHealthSummarySchema>;
+
+export const HeroBannerSchema = z.object({
+  eyebrow: z.string().default('Today'),
+  title: z.string().default('Grow your district'),
+  body: z.string().default('One strong session changes your world.'),
+  accent: z.enum(['moss', 'mist', 'gold', 'persimmon']).default('moss'),
+  route: z.string().default('/play'),
+});
+export type HeroBanner = z.infer<typeof HeroBannerSchema>;
+
+export const RecommendedActionSchema = z.object({
+  type: z.enum(['quiz', 'sprint', 'event', 'vision', 'reclaim', 'squad', 'build']).default('quiz'),
+  title: z.string(),
+  subtitle: z.string().default(''),
+  reasonWhyNow: z.string().default('This is the strongest move for your district right now.'),
+  rewardPreview: z.string().default('District growth and progression rewards.'),
+  impactLabel: z.string().default('District impact'),
+  ctaLabel: z.string().default('Play'),
+  route: z.string().default('/play'),
+  estimatedMinutes: z.number().int().min(1).default(2),
+  badge: z.string().default('NOW'),
+});
+export type RecommendedAction = z.infer<typeof RecommendedActionSchema>;
+
+export const MissionSummarySchema = z.object({
+  title: z.string().default('Build your district'),
+  summary: z.string().default('One strong session changes your district today.'),
+  rewardPreview: z.string().default('District growth and progression rewards.'),
+  route: z.string().default('/play'),
+  estimatedMinutes: z.number().int().min(1).default(3),
+  priority: z.enum(['now', 'soon', 'later']).default('now'),
+});
+export type MissionSummary = z.infer<typeof MissionSummarySchema>;
+
 export const GameStateSchema = z.object({
   user: UserSchema,
   district: DistrictSchema,
+  onboardingCompleted: z.boolean().default(false),
+  nextRecommendedRoute: z.string().default('/world'),
+  showMeetMimzPrompt: z.boolean().default(false),
   currentMission: z.string(),
+  missionSummary: MissionSummarySchema.optional(),
   activeEvent: EventSchema.nullable().optional(),
   eventZones: z.array(EventZoneSchema).default([]),
   squadSummary: SquadSummarySchema.optional(),
+  rankState: RankStateSchema,
   streakState: StreakStateSchema,
+  districtHealthSummary: DistrictHealthSummarySchema,
+  worldHeroBanner: HeroBannerSchema,
+  recommendedPrimaryAction: RecommendedActionSchema,
+  recommendedSecondaryAction: RecommendedActionSchema.optional(),
   structureEffects: StructureEffectSchema,
   structureProgress: StructureProgressSchema,
   notifications: z.array(NotificationSchema).default([]),

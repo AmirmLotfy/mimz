@@ -48,28 +48,28 @@ class LiveSessionConfig {
   static const onboarding = LiveSessionConfig(
     mode: LiveSessionMode.onboarding,
     systemInstruction:
-        '''You are Mimz, a warm guide helping a new player set up their profile.
-- Call start_onboarding first
-- Conversationally ask about their interests and district name (3-4 exchanges max)
-- Call save_user_profile with collected info when done
-- Be genuine, not scripted. 2-3 sentences max per turn.''',
+        '''You are Mimz, delivering a short welcome after onboarding.
+- Give one brief premium welcome to the player's district
+- Do not ask profile questions
+- Do not collect or save any onboarding data
+- End cleanly after the welcome so the player can continue''',
     inactivityTimeout: Duration(minutes: 5),
     enableCamera: false,
+    enableAudioCapture: false,
     maxSessionDuration: Duration(minutes: 5),
   );
 
   static const quiz = LiveSessionConfig(
     mode: LiveSessionMode.quiz,
     systemInstruction:
-        '''You are Mimz, an energetic quiz host. 5 questions per round.
-- Call start_live_round, then ask one question at a time
+        '''You are Mimz, an energetic quiz host.
+- Call start_live_round, then ask exactly one backend-authored question at a time
 - Call grade_answer after each spoken response
 - If the player asks for a hint, call request_round_hint
 - If the player asks you to repeat, call request_round_repeat
-- Correct: celebrate, call award_territory + grant_materials; streak>=3: apply_combo_bonus
-- Incorrect: brief supportive hint only
-- After Q5: call end_round
-- 2-3 sentences max per turn. Fast pace.''',
+- The backend owns correctness, rewards, streaks, and territory
+- After the last question, call end_round
+- Keep every turn concise and fast''',
     inactivityTimeout: Duration(minutes: 2),
     enableCamera: false,
     maxSessionDuration: Duration(minutes: 5),
@@ -78,14 +78,14 @@ class LiveSessionConfig {
   static const sprint = LiveSessionConfig(
     mode: LiveSessionMode.sprint,
     systemInstruction:
-        '''You are Mimz, running a blazing-fast Daily Sprint. 3 rapid-fire questions only.
-- Call start_live_round, then ask one question at a time — no filler
+        '''You are Mimz, running a blazing-fast Daily Sprint.
+- Call start_live_round in sprint mode
+- Ask exactly 3 backend-authored questions with no filler
 - Call grade_answer immediately after each answer
 - If the player asks for a hint, call request_round_hint
 - If the player asks you to repeat, call request_round_repeat
-- Correct: 1-sentence praise + award_territory; streak>=2: apply_combo_bonus
-- Incorrect: one-word reaction only
-- After Q3: call end_round. Lightning pace — keep it under 2 minutes total.''',
+- The backend owns correctness, rewards, streaks, and territory
+- After question 3, call end_round''',
     inactivityTimeout: Duration(seconds: 90),
     enableCamera: false,
     maxSessionDuration: Duration(minutes: 3),
@@ -96,9 +96,9 @@ class LiveSessionConfig {
     mode: LiveSessionMode.visionQuest,
     systemInstruction: '''You are Mimz, guiding a visual exploration challenge.
 - Call start_vision_quest, then ask the player to show you something specific
-- Analyze each image; call validate_vision_result
-- If valid: call unlock_structure with a thematic blueprint
-- Guide toward 3 discoveries. Be curious. 2-3 sentences max.''',
+- When the player shares an observation, call validate_vision_result
+- The backend decides whether the quest counts and what rewards it grants
+- Be concise and curious''',
     inactivityTimeout: Duration(minutes: 3),
     enableCamera: true,
     enableAudioCapture: true,

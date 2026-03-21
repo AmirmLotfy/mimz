@@ -6,11 +6,20 @@ import 'user.dart';
 class GameStateSnapshot {
   final MimzUser user;
   final District district;
+  final bool onboardingCompleted;
+  final String nextRecommendedRoute;
+  final bool showMeetMimzPrompt;
   final String currentMission;
+  final MissionSummaryModel? missionSummary;
   final MimzEvent? activeEvent;
   final List<EventZoneModel> eventZones;
   final SquadSummaryModel? squadSummary;
+  final RankStateModel rankState;
   final StreakStateModel streakState;
+  final DistrictHealthSummaryModel districtHealthSummary;
+  final HeroBannerModel worldHeroBanner;
+  final RecommendedActionModel recommendedPrimaryAction;
+  final RecommendedActionModel? recommendedSecondaryAction;
   final StructureEffectsModel structureEffects;
   final StructureProgressModel structureProgress;
   final List<NotificationModel> notifications;
@@ -20,11 +29,20 @@ class GameStateSnapshot {
   const GameStateSnapshot({
     required this.user,
     required this.district,
+    this.onboardingCompleted = false,
+    this.nextRecommendedRoute = '/world',
+    this.showMeetMimzPrompt = false,
     required this.currentMission,
+    this.missionSummary,
     this.activeEvent,
     this.eventZones = const [],
     this.squadSummary,
+    required this.rankState,
     required this.streakState,
+    required this.districtHealthSummary,
+    required this.worldHeroBanner,
+    required this.recommendedPrimaryAction,
+    this.recommendedSecondaryAction,
     required this.structureEffects,
     required this.structureProgress,
     this.notifications = const [],
@@ -35,10 +53,18 @@ class GameStateSnapshot {
   factory GameStateSnapshot.fromJson(Map<String, dynamic> json) {
     final activeEventJson = _asStringDynamicMap(json['activeEvent']);
     final squadSummaryJson = _asStringDynamicMap(json['squadSummary']);
+    final missionSummaryJson = _asStringDynamicMap(json['missionSummary']);
     return GameStateSnapshot(
       user: MimzUser.fromJson(json['user'] as Map<String, dynamic>),
       district: District.fromJson(json['district'] as Map<String, dynamic>),
+      onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
+      nextRecommendedRoute:
+          json['nextRecommendedRoute'] as String? ?? '/world',
+      showMeetMimzPrompt: json['showMeetMimzPrompt'] as bool? ?? false,
       currentMission: json['currentMission'] as String? ?? 'Build your district',
+      missionSummary: missionSummaryJson != null
+          ? MissionSummaryModel.fromJson(missionSummaryJson)
+          : null,
       activeEvent: activeEventJson != null
           ? MimzEvent.fromJson(activeEventJson)
           : null,
@@ -50,9 +76,27 @@ class GameStateSnapshot {
       squadSummary: squadSummaryJson != null
           ? SquadSummaryModel.fromJson(squadSummaryJson)
           : null,
+      rankState: RankStateModel.fromJson(
+        _asStringDynamicMap(json['rankState']) ?? const {},
+      ),
       streakState: StreakStateModel.fromJson(
         _asStringDynamicMap(json['streakState']) ?? const {},
       ),
+      districtHealthSummary: DistrictHealthSummaryModel.fromJson(
+        _asStringDynamicMap(json['districtHealthSummary']) ?? const {},
+      ),
+      worldHeroBanner: HeroBannerModel.fromJson(
+        _asStringDynamicMap(json['worldHeroBanner']) ?? const {},
+      ),
+      recommendedPrimaryAction: RecommendedActionModel.fromJson(
+        _asStringDynamicMap(json['recommendedPrimaryAction']) ?? const {},
+      ),
+      recommendedSecondaryAction:
+          _asStringDynamicMap(json['recommendedSecondaryAction']) != null
+              ? RecommendedActionModel.fromJson(
+                  _asStringDynamicMap(json['recommendedSecondaryAction'])!,
+                )
+              : null,
       structureEffects: StructureEffectsModel.fromJson(
         _asStringDynamicMap(json['structureEffects']) ?? const {},
       ),
@@ -124,12 +168,16 @@ class StreakStateModel {
   final int dailyStreak;
   final int bestStreak;
   final String? lastActivityDate;
+  final String streakRiskState;
+  final List<StreakHistoryEntryModel> streakHistory;
 
   const StreakStateModel({
     this.liveStreak = 0,
     this.dailyStreak = 0,
     this.bestStreak = 0,
     this.lastActivityDate,
+    this.streakRiskState = 'cold',
+    this.streakHistory = const [],
   });
 
   factory StreakStateModel.fromJson(Map<String, dynamic> json) => StreakStateModel(
@@ -137,6 +185,170 @@ class StreakStateModel {
         dailyStreak: (json['dailyStreak'] as num?)?.toInt() ?? 0,
         bestStreak: (json['bestStreak'] as num?)?.toInt() ?? 0,
         lastActivityDate: json['lastActivityDate'] as String?,
+        streakRiskState: json['streakRiskState'] as String? ?? 'cold',
+        streakHistory: (json['streakHistory'] as List?)
+                ?.whereType<Map<String, dynamic>>()
+                .map(StreakHistoryEntryModel.fromJson)
+                .toList() ??
+            const [],
+      );
+}
+
+class StreakHistoryEntryModel {
+  final String date;
+  final bool active;
+
+  const StreakHistoryEntryModel({
+    required this.date,
+    this.active = false,
+  });
+
+  factory StreakHistoryEntryModel.fromJson(Map<String, dynamic> json) =>
+      StreakHistoryEntryModel(
+        date: json['date'] as String? ?? '',
+        active: json['active'] as bool? ?? false,
+      );
+}
+
+class RankStateModel {
+  final int rank;
+  final String rankTitle;
+  final int nextRankXp;
+  final String prestigeTier;
+
+  const RankStateModel({
+    this.rank = 1,
+    this.rankTitle = 'Explorer',
+    this.nextRankXp = 0,
+    this.prestigeTier = 'bronze',
+  });
+
+  factory RankStateModel.fromJson(Map<String, dynamic> json) => RankStateModel(
+        rank: (json['rank'] as num?)?.toInt() ?? 1,
+        rankTitle: json['rankTitle'] as String? ?? 'Explorer',
+        nextRankXp: (json['nextRankXp'] as num?)?.toInt() ?? 0,
+        prestigeTier: json['prestigeTier'] as String? ?? 'bronze',
+      );
+}
+
+class DistrictHealthSummaryModel {
+  final String state;
+  final String headline;
+  final String summary;
+  final int vulnerableCells;
+  final int reclaimableCells;
+  final int nextExpansionIn;
+
+  const DistrictHealthSummaryModel({
+    this.state = 'stable',
+    this.headline = 'District stable',
+    this.summary = '',
+    this.vulnerableCells = 0,
+    this.reclaimableCells = 0,
+    this.nextExpansionIn = 0,
+  });
+
+  factory DistrictHealthSummaryModel.fromJson(Map<String, dynamic> json) =>
+      DistrictHealthSummaryModel(
+        state: json['state'] as String? ?? 'stable',
+        headline: json['headline'] as String? ?? 'District stable',
+        summary: json['summary'] as String? ?? '',
+        vulnerableCells: (json['vulnerableCells'] as num?)?.toInt() ?? 0,
+        reclaimableCells: (json['reclaimableCells'] as num?)?.toInt() ?? 0,
+        nextExpansionIn: (json['nextExpansionIn'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class HeroBannerModel {
+  final String eyebrow;
+  final String title;
+  final String body;
+  final String accent;
+  final String route;
+
+  const HeroBannerModel({
+    this.eyebrow = 'Today',
+    this.title = 'Grow your district',
+    this.body = '',
+    this.accent = 'moss',
+    this.route = '/play',
+  });
+
+  factory HeroBannerModel.fromJson(Map<String, dynamic> json) =>
+      HeroBannerModel(
+        eyebrow: json['eyebrow'] as String? ?? 'Today',
+        title: json['title'] as String? ?? 'Grow your district',
+        body: json['body'] as String? ?? '',
+        accent: json['accent'] as String? ?? 'moss',
+        route: json['route'] as String? ?? '/play',
+      );
+}
+
+class MissionSummaryModel {
+  final String title;
+  final String summary;
+  final String rewardPreview;
+  final String route;
+  final int estimatedMinutes;
+  final String priority;
+
+  const MissionSummaryModel({
+    this.title = 'Build your district',
+    this.summary = '',
+    this.rewardPreview = '',
+    this.route = '/play',
+    this.estimatedMinutes = 3,
+    this.priority = 'now',
+  });
+
+  factory MissionSummaryModel.fromJson(Map<String, dynamic> json) =>
+      MissionSummaryModel(
+        title: json['title'] as String? ?? 'Build your district',
+        summary: json['summary'] as String? ?? '',
+        rewardPreview: json['rewardPreview'] as String? ?? '',
+        route: json['route'] as String? ?? '/play',
+        estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 3,
+        priority: json['priority'] as String? ?? 'now',
+      );
+}
+
+class RecommendedActionModel {
+  final String type;
+  final String title;
+  final String subtitle;
+  final String reasonWhyNow;
+  final String rewardPreview;
+  final String impactLabel;
+  final String ctaLabel;
+  final String route;
+  final int estimatedMinutes;
+  final String badge;
+
+  const RecommendedActionModel({
+    this.type = 'quiz',
+    this.title = '',
+    this.subtitle = '',
+    this.reasonWhyNow = '',
+    this.rewardPreview = '',
+    this.impactLabel = 'District impact',
+    this.ctaLabel = 'Play',
+    this.route = '/play',
+    this.estimatedMinutes = 2,
+    this.badge = 'NOW',
+  });
+
+  factory RecommendedActionModel.fromJson(Map<String, dynamic> json) =>
+      RecommendedActionModel(
+        type: json['type'] as String? ?? 'quiz',
+        title: json['title'] as String? ?? '',
+        subtitle: json['subtitle'] as String? ?? '',
+        reasonWhyNow: json['reasonWhyNow'] as String? ?? '',
+        rewardPreview: json['rewardPreview'] as String? ?? '',
+        impactLabel: json['impactLabel'] as String? ?? 'District impact',
+        ctaLabel: json['ctaLabel'] as String? ?? 'Play',
+        route: json['route'] as String? ?? '/play',
+        estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 2,
+        badge: json['badge'] as String? ?? 'NOW',
       );
 }
 

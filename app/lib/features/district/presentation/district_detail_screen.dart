@@ -97,10 +97,10 @@ class _DistrictBody extends StatelessWidget {
               .fadeIn(duration: 400.ms),
           const SizedBox(height: MimzSpacing.xl),
 
-          // Prestige section
-          const _SectionHeader(label: 'PRESTIGE', icon: Icons.military_tech_outlined),
+          // District status section
+          const _SectionHeader(label: 'DISTRICT STATUS', icon: Icons.shield_outlined),
           const SizedBox(height: MimzSpacing.md),
-          _PrestigeCard(district: district)
+          _DistrictStatusCard(district: district)
               .animate(delay: 300.ms)
               .fadeIn(duration: 400.ms),
           const SizedBox(height: MimzSpacing.xl),
@@ -209,13 +209,13 @@ class _DistrictBanner extends StatelessWidget {
             ],
           ),
           const SizedBox(height: MimzSpacing.md),
-          // Growth rate bar
+          // Canonical district summary
           Row(
             children: [
-              const Icon(Icons.trending_up, color: MimzColors.acidLime, size: 16),
+              const Icon(Icons.public, color: MimzColors.acidLime, size: 16),
               const SizedBox(width: MimzSpacing.sm),
               Text(
-                '+${district.growthRate.toStringAsFixed(1)}% growth rate',
+                district.regionLabel,
                 style: MimzTypography.caption.copyWith(
                   color: MimzColors.acidLime,
                   fontWeight: FontWeight.w700,
@@ -223,7 +223,7 @@ class _DistrictBanner extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '${district.populationFormatted} pop.',
+                '${district.influence}/${district.influenceThreshold} influence',
                 style: MimzTypography.caption.copyWith(
                   color: MimzColors.white.withValues(alpha: 0.8),
                 ),
@@ -245,17 +245,19 @@ class _StatsRow extends StatelessWidget {
     return Row(
       children: [
         _StatChip(
-          label: 'Sectors',
+          label: 'Territory',
           value: '${district.sectors}',
           icon: Icons.grid_view,
           color: MimzColors.mossCore,
         ),
         const SizedBox(width: MimzSpacing.sm),
         _StatChip(
-          label: 'Structures',
-          value: '${district.structures.length}',
-          icon: Icons.domain,
-          color: MimzColors.mistBlue,
+          label: 'Frontier',
+          value: '${district.frontierCount}',
+          icon: Icons.explore,
+          color: district.reclaimableFrontierCount > 0
+              ? MimzColors.persimmonHit
+              : MimzColors.mistBlue,
         ),
         const SizedBox(width: MimzSpacing.sm),
         _StatChip(
@@ -410,45 +412,50 @@ class _ResourceBar extends StatelessWidget {
   }
 }
 
-class _PrestigeCard extends StatelessWidget {
+class _DistrictStatusCard extends StatelessWidget {
   final District district;
-  const _PrestigeCard({required this.district});
-
-  static const _xpTiers = [0, 500, 1500, 3500, 7000, 12000, 20000];
+  const _DistrictStatusCard({required this.district});
 
   @override
   Widget build(BuildContext context) {
-    final level = district.prestigeLevel;
-    final nextLevel = level + 1;
-    final currentXp = district.sectors * 100; // approximate
-    final tierMin = level <= _xpTiers.length ? _xpTiers[level - 1] : 0;
-    final tierMax = nextLevel <= _xpTiers.length ? _xpTiers[nextLevel - 1] : tierMin + 1000;
-    final progress = ((currentXp - tierMin) / (tierMax - tierMin)).clamp(0.0, 1.0);
+    final decayLabel = switch (district.decayState) {
+      'reclaimable' => 'Reclaimable',
+      'vulnerable' => 'Vulnerable',
+      'cooling' => 'Cooling',
+      _ => 'Stable',
+    };
+    final decayColor = switch (district.decayState) {
+      'reclaimable' => MimzColors.persimmonHit,
+      'vulnerable' => MimzColors.persimmonHit,
+      'cooling' => MimzColors.dustyGold,
+      _ => MimzColors.mossCore,
+    };
 
     return Container(
       padding: const EdgeInsets.all(MimzSpacing.base),
       decoration: BoxDecoration(
         color: MimzColors.white,
         borderRadius: BorderRadius.circular(MimzRadius.lg),
-        border: Border.all(color: MimzColors.dustyGold.withValues(alpha: 0.3)),
+        border: Border.all(color: decayColor.withValues(alpha: 0.24)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.military_tech, color: MimzColors.dustyGold, size: 22),
+                  Icon(Icons.shield_outlined, color: decayColor, size: 22),
                   const SizedBox(width: MimzSpacing.sm),
                   Text(
-                    'Prestige $level',
-                    style: MimzTypography.headlineSmall.copyWith(color: MimzColors.dustyGold),
+                    'Frontier $decayLabel',
+                    style: MimzTypography.headlineSmall.copyWith(color: decayColor),
                   ),
                 ],
               ),
               Text(
-                '→ Prestige $nextLevel',
+                '${district.coreCount} core • ${district.innerCount} inner • ${district.frontierCount} frontier',
                 style: MimzTypography.bodySmall.copyWith(color: MimzColors.textSecondary),
               ),
             ],
@@ -457,16 +464,84 @@ class _PrestigeCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: progress,
+              value: district.influenceProgress,
               minHeight: 8,
               backgroundColor: MimzColors.borderLight,
-              valueColor: const AlwaysStoppedAnimation(MimzColors.dustyGold),
+              valueColor: AlwaysStoppedAnimation(decayColor),
             ),
           ),
           const SizedBox(height: MimzSpacing.sm),
           Text(
-            '$currentXp / $tierMax XP to next prestige',
+            district.influenceThreshold > district.influence
+                ? '${district.influenceThreshold - district.influence} influence until the next expansion'
+                : 'Your district is ready to expand on the next strong result',
             style: MimzTypography.bodySmall.copyWith(color: MimzColors.textSecondary),
+          ),
+          const SizedBox(height: MimzSpacing.base),
+          Wrap(
+            spacing: MimzSpacing.sm,
+            runSpacing: MimzSpacing.sm,
+            children: [
+              _StatusTag(
+                icon: Icons.warning_amber_rounded,
+                label: '${district.vulnerableFrontierCount} vulnerable',
+                color: district.vulnerableFrontierCount > 0
+                    ? MimzColors.persimmonHit
+                    : MimzColors.textTertiary,
+              ),
+              _StatusTag(
+                icon: Icons.refresh,
+                label: '${district.reclaimableFrontierCount} reclaimable',
+                color: district.reclaimableFrontierCount > 0
+                    ? MimzColors.dustyGold
+                    : MimzColors.textTertiary,
+              ),
+              _StatusTag(
+                icon: Icons.military_tech_outlined,
+                label: 'Prestige ${district.prestigeLevel}',
+                color: MimzColors.mossCore,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusTag extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _StatusTag({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: MimzSpacing.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(MimzRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: MimzTypography.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

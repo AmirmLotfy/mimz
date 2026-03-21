@@ -8,6 +8,10 @@ const AnswerBodySchema = z.object({
   questionId: z.string().optional(),
 });
 
+const DifficultyBodySchema = z.object({
+  difficulty: z.enum(['easy', 'dynamic', 'hard']),
+});
+
 export const roundsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/rounds/start', async (request, reply) => {
     const userId = (request as any).userId as string;
@@ -55,6 +59,27 @@ export const roundsRoutes: FastifyPluginAsync = async (server) => {
     const userId = (request as any).userId as string;
     try {
       return reply.send(await rounds.requestRoundRepeat(userId, request.params.roundId));
+    } catch (error: any) {
+      return reply.code(400).send({ error: error.message });
+    }
+  });
+
+  server.post<{ Params: { roundId: string } }>('/rounds/:roundId/difficulty', async (request, reply) => {
+    const userId = (request as any).userId as string;
+    const parsed = DifficultyBodySchema.safeParse(request.body ?? {});
+
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Invalid difficulty payload', details: parsed.error.issues });
+    }
+
+    try {
+      return reply.send(
+        await rounds.updateRoundDifficulty(
+          userId,
+          request.params.roundId,
+          parsed.data.difficulty,
+        ),
+      );
     } catch (error: any) {
       return reply.code(400).send({ error: error.message });
     }

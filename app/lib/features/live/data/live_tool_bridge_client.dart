@@ -29,11 +29,13 @@ class LiveToolBridgeClient {
       );
     }
 
+    final effectiveCorrelationId =
+        '${correlationId ?? 'corr_${DateTime.now().millisecondsSinceEpoch}'}_${call.callId}';
     final request = ToolExecutionRequest(
       toolName: call.toolName,
       arguments: call.arguments,
       sessionId: sessionId,
-      correlationId: correlationId ?? 'corr_${DateTime.now().millisecondsSinceEpoch}',
+      correlationId: effectiveCorrelationId,
     );
 
     try {

@@ -6,12 +6,13 @@ import '../../../design_system/tokens.dart';
 import '../../../design_system/components/waveform_visualizer.dart';
 import '../../../features/live/providers/live_providers.dart';
 import '../../../features/live/domain/live_connection_phase.dart';
+import '../../../core/providers.dart';
+import '../../world/providers/game_state_provider.dart';
 
-/// Screen 8 — Live onboarding with real Gemini voice AI conversation.
+/// Optional post-onboarding voice welcome.
 ///
-/// Starts an onboarding session where Mimz asks the user about their
-/// interests and district name via voice. The AI then calls save_user_profile
-/// to persist the profile before the user continues to /onboarding/summary.
+/// This is intentionally a short one-way intro after the district is ready.
+/// It should not collect profile data or behave like a second onboarding flow.
 class LiveOnboardingScreen extends ConsumerStatefulWidget {
   const LiveOnboardingScreen({super.key});
 
@@ -24,6 +25,11 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(apiClientProvider).updateProfile({
+        'meetMimzIntroSeen': true,
+      }).then((_) {
+        ref.invalidate(gameStateProvider);
+      }).catchError((_) {});
       ref.read(liveSessionControllerProvider).startOnboardingSession();
     });
   }
@@ -39,7 +45,6 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
     final sessionState = ref.watch(liveSessionStateProvider).valueOrNull;
     final phase = sessionState?.phase ?? LiveConnectionPhase.idle;
     final transcript = sessionState?.modelTranscript ?? '';
-    final isMicActive = sessionState?.isMicActive ?? false;
 
     return Scaffold(
       backgroundColor: MimzColors.nightSurface,
@@ -78,7 +83,7 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
                       IconButton(
                         onPressed: () {
                           ref.read(liveSessionControllerProvider).endSession();
-                          context.go('/district/emblem');
+                          context.go('/world');
                         },
                         icon: const Icon(Icons.close, color: MimzColors.white),
                       ),
@@ -111,7 +116,7 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
                 ),
                 const SizedBox(height: MimzSpacing.base),
                 Text(
-                  'Speak naturally — Mimz is listening.',
+                  'A quick district welcome, then you are back in the world.',
                   style: MimzTypography.bodyMedium.copyWith(
                     color: MimzColors.persimmonHit,
                   ),
@@ -119,58 +124,20 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
                 const Spacer(flex: 1),
                 // Waveform — driven by real session phase
                 WaveformVisualizer(
-                  isActive: isMicActive || phase == LiveConnectionPhase.modelSpeaking,
+                  isActive: phase == LiveConnectionPhase.modelSpeaking,
                   color: MimzColors.persimmonHit,
                   height: 100,
                   barCount: 9,
                 ),
                 const Spacer(flex: 2),
-                // Control buttons
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.huge),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Mic toggle — real barge-in
-                      GestureDetector(
-                        onTap: () {
-                          ref.read(liveSessionControllerProvider).interruptWithUserSpeech();
-                        },
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: isMicActive
-                                ? MimzColors.persimmonHit
-                                : MimzColors.persimmonHit.withValues(alpha: 0.6),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: MimzColors.persimmonHit.withValues(alpha: 0.3),
-                                blurRadius: 24,
-                                spreadRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            isMicActive ? Icons.mic : Icons.mic_none,
-                            color: MimzColors.white,
-                            size: 36,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: MimzSpacing.xxl),
-                // Skip / Continue button — available once connected
+                // Skip / Continue button — available once session is active
                 if (phase.isActive || phase.isTerminal)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
                     child: GestureDetector(
                       onTap: () {
                         ref.read(liveSessionControllerProvider).endSession();
-                        context.go('/district/emblem');
+                        context.go('/world');
                       },
                       child: Container(
                         width: double.infinity,
@@ -198,10 +165,10 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
                   child: GestureDetector(
-                    onTap: () {
-                      ref.read(liveSessionControllerProvider).endSession();
-                      context.go('/district/emblem');
-                    },
+                      onTap: () {
+                        ref.read(liveSessionControllerProvider).endSession();
+                        context.go('/world');
+                      },
                     child: Center(
                       child: Text(
                         'Skip intro',
@@ -225,18 +192,18 @@ class _LiveOnboardingScreenState extends ConsumerState<LiveOnboardingScreen> {
 
   String _phaseHint(LiveConnectionPhase phase) {
     switch (phase) {
-      case LiveConnectionPhase.fetchingToken:
       case LiveConnectionPhase.connecting:
-      case LiveConnectionPhase.handshaking:
         return 'Connecting to Mimz...';
-      case LiveConnectionPhase.connected:
-        return 'Say hello to get started!';
+      case LiveConnectionPhase.waitingForOpeningPrompt:
+        return 'Mimz is getting your welcome ready...';
       case LiveConnectionPhase.modelSpeaking:
-        return 'Listen closely...';
-      case LiveConnectionPhase.userSpeaking:
-        return 'Keep going...';
-      case LiveConnectionPhase.waitingForToolResult:
-        return 'Saving your profile...';
+        return 'Mimz is welcoming you...';
+      case LiveConnectionPhase.listeningForAnswer:
+        return 'Almost done...';
+      case LiveConnectionPhase.grading:
+        return 'Locking that in...';
+      case LiveConnectionPhase.roundComplete:
+        return 'All done. Your world is ready.';
       case LiveConnectionPhase.reconnecting:
         return 'Reconnecting...';
       case LiveConnectionPhase.ended:
@@ -256,10 +223,11 @@ class _OnboardingStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (String label, Color color) = switch (phase) {
-      LiveConnectionPhase.connected ||
+      LiveConnectionPhase.waitingForOpeningPrompt ||
       LiveConnectionPhase.modelSpeaking ||
-      LiveConnectionPhase.userSpeaking ||
-      LiveConnectionPhase.waitingForToolResult =>
+      LiveConnectionPhase.listeningForAnswer ||
+      LiveConnectionPhase.grading ||
+      LiveConnectionPhase.roundComplete =>
         ('MIMZ LIVE', MimzColors.persimmonHit),
       LiveConnectionPhase.reconnecting => ('RECONNECTING', MimzColors.dustyGold),
       LiveConnectionPhase.failed => ('OFFLINE', MimzColors.error),

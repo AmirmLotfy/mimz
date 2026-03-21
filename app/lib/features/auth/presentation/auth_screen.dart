@@ -74,8 +74,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         return;
       }
 
-      final isOnboarded = ref.read(isOnboardedProvider).valueOrNull ?? false;
-      context.go(isOnboarded ? '/world' : '/permissions');
+      context.go(nextRouteForUser(userState.valueOrNull!));
     } catch (e) {
       if (mounted) setState(() => _error = 'Sign-in failed. Try again.');
     } finally {

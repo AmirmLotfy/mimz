@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:mimz_app/features/settings/presentation/settings_screen.dart';
 import 'package:mimz_app/features/district/presentation/district_detail_screen.dart';
+import 'package:mimz_app/features/world/providers/world_provider.dart';
 import 'package:mimz_app/services/settings_service.dart';
 import 'package:mimz_app/services/api_client.dart';
 import 'package:mimz_app/services/auth_service.dart';
@@ -91,6 +93,12 @@ class FakeApiClient extends Fake implements ApiClient {
   Future<Map<String, dynamic>> bootstrap() async => {'user': MimzUser.demo.toJson()};
 }
 
+class FakeDistrictNotifier extends DistrictNotifier {
+  FakeDistrictNotifier(Ref ref) : super(ref) {
+    updateLocal(District.demo);
+  }
+}
+
 void main() {
   late MockAuthService mockAuthService;
 
@@ -114,7 +122,7 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 1200));
 
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('ACCOUNT'), findsOneWidget);
@@ -131,7 +139,9 @@ void main() {
           apiClient: FakeApiClient(),
           authService: mockAuthService,
           settingsService: FakeSettingsService(),
-        ),
+        )..add(
+            districtProvider.overrideWith((ref) => FakeDistrictNotifier(ref)),
+          ),
         child: const DistrictDetailScreen(),
       ),
     );

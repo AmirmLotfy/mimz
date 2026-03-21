@@ -20,13 +20,13 @@ District parseDistrictResponse(Map<String, dynamic> response) {
 }
 
 /// Minimal district used only for in-memory reward math when API state is not yet loaded.
-District _placeholderDistrict() => District(
+District _placeholderDistrict() => const District(
   id: '',
   name: 'My District',
   sectors: 0,
   area: '0.0 sq km',
   structures: [],
-  resources: const Resources(),
+  resources: Resources(),
   prestigeLevel: 1,
   influence: 0,
   influenceThreshold: 500,
@@ -131,6 +131,9 @@ class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
     final confirmed = state.valueOrNull ?? current;
     final gained = (confirmed.sectors - beforeSectors).clamp(0, 99999);
     final gainedSectors = gained > 0 ? gained : sectorsEarned;
+    final districtHealth = _ref.read(districtHealthSummaryProvider);
+    final structureProgress = _ref.read(structureProgressProvider);
+    final primaryAction = _ref.read(recommendedPrimaryActionProvider);
     state = AsyncValue.data(confirmed.copyWith(newSectors: gainedSectors));
 
     _ref.read(districtGrowthEventProvider.notifier).state =
@@ -138,6 +141,25 @@ class DistrictNotifier extends StateNotifier<AsyncValue<District>> {
           newSectors: gainedSectors,
           materialsEarned: materialsEarned,
           scoreEarned: score,
+          timestamp: DateTime.now(),
+        );
+    _ref.read(worldArrivalFeedbackProvider.notifier).state =
+        WorldArrivalFeedback(
+          districtName: confirmed.name,
+          sectorsGained: gainedSectors,
+          materials: materialsEarned,
+          newTotalSectors: confirmed.sectors,
+          score: score,
+          decayState: confirmed.decayState,
+          healthHeadline: districtHealth?.headline,
+          healthSummary: districtHealth?.summary,
+          nextActionTitle: primaryAction?.title,
+          structureReadyName:
+              structureProgress?.readyToBuild == true
+                  ? structureProgress?.nextStructureName
+                  : null,
+          reclaimableCells: districtHealth?.reclaimableCells ?? 0,
+          vulnerableCells: districtHealth?.vulnerableCells ?? 0,
           timestamp: DateTime.now(),
         );
     SoundService.instance.playDistrictGrowth();
@@ -208,6 +230,9 @@ final currentMissionProvider = FutureProvider<String>((ref) async {
 /// Growth event — triggers map animation when district grows
 final districtGrowthEventProvider = StateProvider<DistrictGrowthEvent?>((ref) => null);
 
+final worldArrivalFeedbackProvider =
+    StateProvider<WorldArrivalFeedback?>((ref) => null);
+
 class DistrictGrowthEvent {
   final int newSectors;
   final Resources materialsEarned;
@@ -218,6 +243,38 @@ class DistrictGrowthEvent {
     required this.newSectors,
     required this.materialsEarned,
     required this.scoreEarned,
+    required this.timestamp,
+  });
+}
+
+class WorldArrivalFeedback {
+  final String districtName;
+  final int sectorsGained;
+  final Resources materials;
+  final int newTotalSectors;
+  final int score;
+  final String decayState;
+  final String? healthHeadline;
+  final String? healthSummary;
+  final String? nextActionTitle;
+  final String? structureReadyName;
+  final int reclaimableCells;
+  final int vulnerableCells;
+  final DateTime timestamp;
+
+  WorldArrivalFeedback({
+    required this.districtName,
+    required this.sectorsGained,
+    required this.materials,
+    required this.newTotalSectors,
+    required this.score,
+    required this.decayState,
+    this.healthHeadline,
+    this.healthSummary,
+    this.nextActionTitle,
+    this.structureReadyName,
+    this.reclaimableCells = 0,
+    this.vulnerableCells = 0,
     required this.timestamp,
   });
 }

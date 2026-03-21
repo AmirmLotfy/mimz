@@ -16,7 +16,7 @@ export const GetCurrentDistrictArgs = z.object({}).default({});
 
 export const StartLiveRoundArgs = z.object({
   topic: z.string().default('General'),
-  difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
+  difficulty: z.enum(['easy', 'dynamic', 'hard']).default('dynamic'),
   mode: z.enum(['quiz', 'sprint', 'event']).default('quiz'),
   eventId: z.string().optional(),
 });
@@ -55,9 +55,9 @@ export const StartVisionQuestArgs = z.object({
   theme: z.string().default('discovery'),
 });
 export const ValidateVisionResultArgs = z.object({
+  questId: z.string().min(1),
   objectIdentified: z.string().min(1),
   confidence: z.number().min(0).max(1).default(0.5),
-  isValid: z.boolean().default(false),
 });
 export const UnlockStructureArgs = z.object({
   structureId: z.string().min(1),

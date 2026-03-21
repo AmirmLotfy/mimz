@@ -21,6 +21,8 @@ import { feedbackRoutes } from './routes/feedback.js';
 import { missionsRoutes } from './routes/missions.js';
 import { gameStateRoutes } from './routes/gameState.js';
 import { roundsRoutes } from './routes/rounds.js';
+import { visionQuestRoutes } from './routes/visionQuests.js';
+import { telemetryRoutes } from './routes/telemetry.js';
 
 // ─── Initialize Firebase ──────────────────────────
 initFirebase();
@@ -112,6 +114,8 @@ export async function buildApp() {
   await server.register(missionsRoutes, { prefix: '/missions' });
   await server.register(gameStateRoutes, { prefix: '' });
   await server.register(roundsRoutes, { prefix: '' });
+  await server.register(visionQuestRoutes, { prefix: '/vision-quests' });
+  await server.register(telemetryRoutes, { prefix: '/telemetry' });
   await server.register(leaderboardRoutes, { prefix: '/leaderboards' });
 
   return server;

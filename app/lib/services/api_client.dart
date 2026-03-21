@@ -202,6 +202,16 @@ class ApiClient {
     return res.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateRoundDifficulty(
+    String roundId, {
+    required String difficulty,
+  }) async {
+    final res = await _dio.post('/rounds/$roundId/difficulty', data: {
+      'difficulty': difficulty,
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> finishRound(String roundId) async {
     final res = await _dio.post('/rounds/$roundId/finish');
     return res.data as Map<String, dynamic>;
@@ -335,6 +345,32 @@ class ApiClient {
     final data = res.data as Map<String, dynamic>;
     final quests = data['quests'] as List<dynamic>? ?? [];
     return quests.cast<Map<String, dynamic>>();
+  }
+
+  Future<Map<String, dynamic>> startVisionQuest({String? theme}) async {
+    final res = await _dio.post('/vision-quests/start', data: {
+      if (theme != null) 'theme': theme,
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> captureVisionQuest(
+    String questId, {
+    String? objectIdentified,
+    double? confidence,
+    String? imageBase64,
+  }) async {
+    final res = await _dio.post('/vision-quests/$questId/capture', data: {
+      if (objectIdentified != null) 'objectIdentified': objectIdentified,
+      if (confidence != null) 'confidence': confidence,
+      if (imageBase64 != null) 'imageBase64': imageBase64,
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> finishVisionQuest(String questId) async {
+    final res = await _dio.post('/vision-quests/$questId/finish');
+    return res.data as Map<String, dynamic>;
   }
 
   // ─── Missions ──────────────────────────────────────────

@@ -7,6 +7,7 @@ import '../../services/audio_service.dart';
 import '../../services/location_service.dart';
 import '../../services/settings_service.dart';
 import '../../services/connectivity_service.dart';
+import '../../services/telemetry_service.dart';
 
 /// ─── Singleton Service Providers ────────────────────────
 
@@ -45,6 +46,10 @@ final biometricServiceProvider = Provider<BiometricService>((ref) {
 
 final settingsServiceProvider = Provider<SettingsService>((ref) {
   return SettingsService();
+});
+
+final telemetryServiceProvider = Provider<TelemetryService>((ref) {
+  return TelemetryService(ref.watch(apiClientProvider));
 });
 
 /// Reactive toggle — true if biometrics are currently enabled

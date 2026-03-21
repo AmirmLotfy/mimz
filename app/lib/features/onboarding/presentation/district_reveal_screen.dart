@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/providers.dart';
 
 /// First district reveal — emotional peak after naming/emblem.
 /// Shows the user's district on the map, then CTA to enter world.
@@ -79,6 +80,21 @@ class DistrictRevealScreen extends ConsumerWidget {
                   GestureDetector(
                     onTap: () async {
                       await ref.read(isOnboardedProvider.notifier).markOnboarded();
+                      try {
+                        await ref.read(apiClientProvider).updateProfile({
+                          'onboardingCompleted': true,
+                          'onboardingStage': 'completed',
+                        });
+                      } catch (_) {}
+                      final currentUser = ref.read(currentUserProvider).valueOrNull;
+                      if (currentUser != null) {
+                        ref.read(currentUserProvider.notifier).updateUser(
+                          currentUser.copyWith(
+                            onboardingCompleted: true,
+                            onboardingStage: 'completed',
+                          ),
+                        );
+                      }
                       if (context.mounted) context.go('/world');
                     },
                     child: Container(

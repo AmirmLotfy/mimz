@@ -6,26 +6,23 @@ enum LiveConnectionPhase {
   /// No session active.
   idle,
 
-  /// Fetching ephemeral token from backend.
-  fetchingToken,
-
-  /// WebSocket connection in progress.
+  /// Booting the live session transport and token.
   connecting,
 
-  /// WebSocket open, setup message sent, waiting for setupComplete.
-  handshaking,
-
-  /// Session is live and ready for interaction.
-  connected,
+  /// Connected, waiting for Mimz to deliver the opening prompt.
+  waitingForOpeningPrompt,
 
   /// Model is currently generating / streaming a response.
   modelSpeaking,
 
-  /// User mic is active, audio is being streamed.
-  userSpeaking,
+  /// The user can answer; mic is actively listening.
+  listeningForAnswer,
 
-  /// A tool call was issued; waiting for backend result.
-  waitingForToolResult,
+  /// A backend action is in progress (grading, hint, repeat, difficulty, etc).
+  grading,
+
+  /// The round has completed and the result is ready.
+  roundComplete,
 
   /// Connection lost; attempting reconnect.
   reconnecting,
@@ -36,8 +33,12 @@ enum LiveConnectionPhase {
   /// Unrecoverable failure.
   failed;
 
-  bool get isActive => this == connected || this == modelSpeaking ||
-      this == userSpeaking || this == waitingForToolResult;
+  bool get isActive =>
+      this == waitingForOpeningPrompt ||
+      this == modelSpeaking ||
+      this == listeningForAnswer ||
+      this == grading ||
+      this == roundComplete;
 
   bool get isTerminal => this == ended || this == failed;
 }

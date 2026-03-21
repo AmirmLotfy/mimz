@@ -15,13 +15,29 @@ import * as game from './gameService.js';
 
 type RoundMode = 'quiz' | 'sprint' | 'event';
 
+type DifficultyPreference = 'easy' | 'dynamic' | 'hard' | 'medium';
+
 function mapDifficultyPreference(
-  preference: string | undefined,
-  fallback: 'easy' | 'medium' | 'hard' = 'medium',
-): 'easy' | 'medium' | 'hard' {
+  preference: DifficultyPreference | string | undefined,
+  fallback: 'easy' | 'dynamic' | 'hard' = 'dynamic',
+): 'easy' | 'dynamic' | 'hard' {
   if (preference === 'easy') return 'easy';
   if (preference === 'hard') return 'hard';
   return fallback;
+}
+
+function toQuestionDifficulty(
+  preference: 'easy' | 'dynamic' | 'hard' | 'medium' | string,
+): 'easy' | 'medium' | 'hard' {
+  if (preference === 'easy' || preference === 'hard') return preference;
+  return 'medium';
+}
+
+function normalizeStoredRoundDifficulty(
+  difficulty: string | undefined,
+): 'easy' | 'dynamic' | 'hard' {
+  if (difficulty === 'easy' || difficulty === 'hard') return difficulty;
+  return 'dynamic';
 }
 
 function defaultTopicForUser(user: User): string {
@@ -72,6 +88,36 @@ function sumResources(a: Resources, b: Resources): Resources {
     glass: a.glass + b.glass,
     wood: a.wood + b.wood,
   };
+}
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function applyAutomaticSquadMissionContribution(
+  userId: string,
+  round: RoundSession,
+): Promise<{ squadId: string | null; missionId: string | null; amount: number }> {
+  const squadId = await db.getSquadIdForUser(userId);
+  if (!squadId) {
+    return { squadId: null, missionId: null, amount: 0 };
+  }
+
+  const missions = await db.getSquadMissions(squadId);
+  const activeMission = missions.find((mission) => {
+    const status = (mission.status as string | undefined) ?? '';
+    const goal = (mission.goalProgress as number | undefined) ?? (mission.targetProgress as number | undefined) ?? 0;
+    const progress = (mission.currentProgress as number | undefined) ?? 0;
+    return status !== 'completed' && progress < goal;
+  });
+
+  if (!activeMission?.id) {
+    return { squadId, missionId: null, amount: 0 };
+  }
+
+  const amount = Math.max(1, round.correctAnswers);
+  await db.updateSquadMissionProgress(squadId, activeMission.id as string, amount);
+  return { squadId, missionId: activeMission.id as string, amount };
 }
 
 function buildHint(question: Question): string {
@@ -206,7 +252,7 @@ export async function startRound(
   options: {
     mode?: RoundMode;
     topic?: string;
-    difficulty?: 'easy' | 'medium' | 'hard';
+    difficulty?: 'easy' | 'dynamic' | 'hard';
     eventId?: string;
   } = {},
 ): Promise<RoundDefinition> {
@@ -217,8 +263,17 @@ export async function startRound(
 
   const mode = options.mode ?? 'quiz';
   const count = questionCountForMode(mode);
-  const topic = options.topic ?? defaultTopicForUser(user);
-  const difficulty = options.difficulty ?? mapDifficultyPreference(user.difficultyPreference);
+  let topic = options.topic ?? defaultTopicForUser(user);
+  if (options.eventId && !options.topic) {
+    const event = await db.getEvent(options.eventId).catch(() => null);
+    if (event?.title?.trim()) {
+      topic = event.title.trim();
+    }
+  }
+  const difficulty = mapDifficultyPreference(
+    options.difficulty ?? user.difficultyPreference,
+  );
+  const questionDifficulty = toQuestionDifficulty(difficulty);
   const existing = await db.getActiveRound(userId);
 
   if (existing && existing.status === 'active') {
@@ -228,7 +283,7 @@ export async function startRound(
       roundId: existing.id,
       mode: existing.mode,
       topic: existing.topic,
-      difficulty: existing.difficulty,
+      difficulty: normalizeStoredRoundDifficulty(existing.difficulty),
       eventId: existing.eventId,
       questionCount: existing.questionCount,
       currentQuestionIndex: existing.currentQuestionIndex,
@@ -247,7 +302,7 @@ export async function startRound(
     userId,
     sessionId: `round_seed_${Date.now()}`,
     interests: user.interests,
-    difficulty,
+    difficulty: questionDifficulty,
     count,
     excludeIds: [],
     topic,
@@ -318,7 +373,8 @@ export async function answerRound(
   }
 
   const effects = await game.getStructureEffects(userId);
-  const validation = validateAnswer(question, answer, user.streak, round.difficulty);
+  const effectiveDifficulty = toQuestionDifficulty(round.difficulty);
+  const validation = validateAnswer(question, answer, user.streak, effectiveDifficulty);
 
   let xpAwarded = 0;
   let influenceGranted = 0;
@@ -328,9 +384,9 @@ export async function answerRound(
 
   if (validation.isCorrect) {
     xpAwarded = Math.floor(validation.pointsAwarded * effects.xpMultiplier);
-    materialsEarned = scaleResources(resourceGrantForDifficulty(round.difficulty), effects.materialMultiplier);
+    materialsEarned = scaleResources(resourceGrantForDifficulty(effectiveDifficulty), effects.materialMultiplier);
     influenceGranted = Math.floor(
-      game.calculateInfluenceGrant('grade_answer', round.difficulty, validation.newStreak) * effects.influenceMultiplier,
+      game.calculateInfluenceGrant('grade_answer', effectiveDifficulty, validation.newStreak) * effects.influenceMultiplier,
     );
 
     await db.incrementUserXp(userId, xpAwarded);
@@ -419,6 +475,81 @@ export async function answerRound(
   };
 }
 
+export async function updateRoundDifficulty(
+  userId: string,
+  roundId: string,
+  difficultyPreference: DifficultyPreference,
+): Promise<RoundDefinition & { appliesFromQuestionIndex: number }> {
+  const [user, round] = await Promise.all([
+    db.getUser(userId),
+    db.getRound(roundId),
+  ]);
+  if (!user) throw new Error('User not found');
+  if (!round || round.userId !== userId) throw new Error('Round not found');
+  if (round.status !== 'active') throw new Error('Round is no longer active');
+  if (round.roundComplete) throw new Error('Round is already complete');
+
+  const mappedDifficulty = mapDifficultyPreference(difficultyPreference);
+  const replacementDifficulty = toQuestionDifficulty(mappedDifficulty);
+  const appliesFromQuestionIndex = Math.min(
+    round.currentQuestionIndex + 1,
+    round.questionCount,
+  );
+
+  const remainingCount = Math.max(0, round.questionCount - appliesFromQuestionIndex);
+  let nextIds = round.questionIds.slice();
+
+  if (remainingCount > 0) {
+    const replacementQuestions = generateQuestions({
+      userId,
+      sessionId: `difficulty_${Date.now()}`,
+      interests: user.interests,
+      difficulty: replacementDifficulty,
+      count: remainingCount,
+      excludeIds: round.questionIds.slice(0, appliesFromQuestionIndex),
+      topic: round.topic,
+    });
+
+    nextIds = [
+      ...round.questionIds.slice(0, appliesFromQuestionIndex),
+      ...replacementQuestions.map((question) => question.id),
+    ];
+  }
+
+  await Promise.all([
+    db.updateRound(round.id, {
+      difficulty: mappedDifficulty,
+      questionIds: nextIds,
+    }),
+    db.updateUser(userId, {
+      difficultyPreference:
+        difficultyPreference === 'medium' ? 'dynamic' : (difficultyPreference === 'dynamic' ? 'dynamic' : difficultyPreference),
+    } as any),
+  ]);
+
+  const currentQuestionId = nextIds[round.currentQuestionIndex];
+  const currentQuestion = currentQuestionId ? getQuestionById(currentQuestionId) : null;
+
+  return {
+    roundId: round.id,
+    mode: round.mode,
+    topic: round.topic,
+    difficulty: mappedDifficulty,
+    eventId: round.eventId,
+    questionCount: round.questionCount,
+    currentQuestionIndex: round.currentQuestionIndex,
+    currentQuestion: currentQuestion ? toRoundQuestion(currentQuestion) : undefined,
+    questions: nextIds
+      .map((id) => getQuestionById(id))
+      .filter((question): question is Question => question !== null)
+      .map((question) => toRoundQuestion(question)),
+    hintCount: round.hintCount,
+    repeatCount: round.repeatCount,
+    isComplete: round.roundComplete,
+    appliesFromQuestionIndex,
+  };
+}
+
 export async function requestRoundHint(userId: string, roundId: string): Promise<{
   roundId: string;
   questionId: string;
@@ -471,9 +602,25 @@ export async function finishRound(userId: string, roundId: string): Promise<{
   questionsAnswered: number;
   correctAnswers: number;
   newBadges: string[];
+  dailyBonusXp: number;
+  dailyBonusInfluence: number;
+  squadContribution: {
+    squadId: string | null;
+    missionId: string | null;
+    amount: number;
+  };
+  isDailySprint: boolean;
+  eventParticipation: {
+    eventId: string | null;
+    joined: boolean;
+  };
 }> {
-  const round = await db.getRound(roundId);
+  const [round, user] = await Promise.all([
+    db.getRound(roundId),
+    db.getUser(userId),
+  ]);
   if (!round || round.userId !== userId) throw new Error('Round not found');
+  if (!user) throw new Error('User not found');
 
   if (round.status !== 'completed') {
     await db.updateRound(round.id, {
@@ -483,12 +630,39 @@ export async function finishRound(userId: string, roundId: string): Promise<{
     });
   }
 
+  const qualifiesForDailyBonus =
+    round.mode == 'sprint' && user.lastActivityDate != todayUtc();
+  let dailyBonusXp = 0;
+  let dailyBonusInfluence = 0;
+  if (qualifiesForDailyBonus) {
+    dailyBonusXp = 150;
+    dailyBonusInfluence = game.calculateInfluenceGrant('event', 'easy', user.dailyStreak);
+    await db.incrementUserXp(userId, dailyBonusXp);
+    await db.incrementUserInfluence(userId, dailyBonusInfluence);
+    const districtForBonus = await game.getDistrict(userId);
+    if (districtForBonus) {
+      await db.incrementDistrictInfluence(districtForBonus.id, dailyBonusInfluence);
+    }
+    await Promise.all([
+      game.grantReward(userId, 'xp', dailyBonusXp, 'daily_sprint_bonus', round.id),
+      game.grantReward(userId, 'influence', dailyBonusInfluence, 'daily_sprint_bonus', round.id),
+    ]);
+  }
+
   await db.updateDailyStreak(userId);
 
   const district = await game.getDistrict(userId);
   if (district && district.structures.length > 0) {
     await db.addResources(district.id, game.calculateResourceRate(district.structures));
   }
+
+  let eventParticipation = { eventId: null as string | null, joined: false };
+  if (round.eventId) {
+    await db.joinEvent(round.eventId, userId).catch(() => {});
+    eventParticipation = { eventId: round.eventId, joined: true };
+  }
+
+  const squadContribution = await applyAutomaticSquadMissionContribution(userId, round);
 
   await updateLeaderboardsForFinishedRound(userId, round);
   await game.updatePrestigeIfNeeded(userId);
@@ -502,5 +676,10 @@ export async function finishRound(userId: string, roundId: string): Promise<{
     questionsAnswered: round.questionsAsked,
     correctAnswers: round.correctAnswers,
     newBadges,
+    dailyBonusXp,
+    dailyBonusInfluence,
+    squadContribution,
+    isDailySprint: round.mode === 'sprint',
+    eventParticipation,
   };
 }

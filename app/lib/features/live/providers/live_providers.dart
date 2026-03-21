@@ -94,6 +94,7 @@ final liveSessionControllerProvider = Provider<LiveSessionController>((ref) {
   }
 
   final controller = LiveSessionController(
+    apiClient: ref.watch(apiClientProvider),
     ws: ref.watch(liveWsClientProvider),
     tokenClient: ref.watch(liveTokenClientProvider),
     toolBridge: ref.watch(liveToolBridgeProvider),
@@ -101,6 +102,7 @@ final liveSessionControllerProvider = Provider<LiveSessionController>((ref) {
     audioPlayback: ref.watch(liveAudioPlaybackProvider),
     camera: ref.watch(liveCameraProvider),
     logger: ref.watch(liveSessionLoggerProvider),
+    telemetry: ref.watch(telemetryServiceProvider),
     mockAdapter: ref.watch(liveMockAdapterProvider),
     useMock: useMock,
     authPreconditionError: authPreconditionError,

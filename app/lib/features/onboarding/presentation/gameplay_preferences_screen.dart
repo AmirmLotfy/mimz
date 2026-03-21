@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/providers.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
 
 /// Screen — Gameplay preferences: difficulty, squad, voice
@@ -20,12 +22,46 @@ class _GameplayPreferencesScreenState
   String _difficulty = 'dynamic';
   String _squad = 'social';
 
-  void _proceed() {
+  @override
+  void initState() {
+    super.initState();
+    final onboarding = ref.read(onboardingDataProvider);
+    final user = ref.read(currentUserProvider).valueOrNull;
+    _difficulty = onboarding.difficultyPreference.isNotEmpty
+        ? onboarding.difficultyPreference
+        : user?.difficultyPreference ?? 'dynamic';
+    _squad = onboarding.squadPreference.isNotEmpty
+        ? onboarding.squadPreference
+        : user?.squadPreference ?? 'social';
+  }
+
+  Future<void> _proceed() async {
     HapticFeedback.mediumImpact();
     ref.read(onboardingDataProvider.notifier).updateField(
           difficultyPreference: _difficulty,
           squadPreference: _squad,
         );
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user != null) {
+      ref.read(currentUserProvider.notifier).updateUser(
+            user.copyWith(
+              difficultyPreference: _difficulty,
+              squadPreference: _squad,
+              onboardingStage: 'summary',
+            ),
+          );
+    }
+
+    try {
+      await ref.read(apiClientProvider).updateProfile({
+        'difficultyPreference': _difficulty,
+        'squadPreference': _squad,
+        'onboardingStage': 'summary',
+      });
+    } catch (_) {}
+
+    if (!context.mounted) return;
     context.push('/onboarding/summary');
   }
 
@@ -89,22 +125,22 @@ class _GameplayPreferencesScreenState
     final options = [
       (
         id: 'easy',
-        label: 'Casual',
-        subtitle: 'Relaxed pace, room for reflection',
+        label: 'Easy',
+        subtitle: 'Softer questions, steadier pace, clean onboarding',
         icon: Icons.sentiment_satisfied_alt,
         color: MimzColors.mossCore,
       ),
       (
         id: 'dynamic',
-        label: 'Dynamic',
-        subtitle: 'Adapts to your performance in real-time',
+        label: 'Adaptive',
+        subtitle: 'Balances challenge and momentum based on your answers',
         icon: Icons.auto_awesome,
         color: MimzColors.mistBlue,
       ),
       (
         id: 'hard',
-        label: 'Challenger',
-        subtitle: 'Max difficulty, maximum growth',
+        label: 'Hard',
+        subtitle: 'Sharper questions, faster pressure, stronger rewards',
         icon: Icons.local_fire_department,
         color: MimzColors.dustyGold,
       ),

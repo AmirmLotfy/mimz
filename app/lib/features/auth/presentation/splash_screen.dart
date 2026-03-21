@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../design_system/tokens.dart';
 import '../providers/auth_provider.dart';
+import '../../../services/auth_service.dart';
 import '../../../core/providers.dart';
 
 /// Screen 1 — Splash screen with smart bootstrap.
@@ -43,58 +45,104 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _bootstrap() async {
-    final healthFuture = ref.read(apiClientProvider).checkHealth();
-    final animFuture = Future.delayed(const Duration(milliseconds: 1000));
-
-    await animFuture;
-    if (!mounted) return;
-
-    final authStatus = ref.read(authStatusProvider);
-    if (authStatus.isLoading) {
-      await Future.delayed(const Duration(milliseconds: 400));
+    final telemetry = ref.read(telemetryServiceProvider);
+    final startedAt = DateTime.now();
+    var authStatus = ref.read(authStatusProvider).valueOrNull ??
+        ref.read(authServiceProvider).currentStatus;
+    if (authStatus == AuthStatus.unknown) {
+      try {
+        authStatus = await ref
+            .read(authStatusProvider.future)
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {
+        authStatus = ref.read(authServiceProvider).currentStatus;
+      }
       if (!mounted) return;
     }
 
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    final isAuthenticated = authStatus == AuthStatus.authenticated;
     if (!isAuthenticated) {
       context.go('/welcome');
       return;
     }
 
-    final backendReachable = await healthFuture;
-    if (!backendReachable) {
-      setState(() =>
-          _bootstrapError = 'Backend is temporarily unavailable. Please retry.');
-      return;
-    }
+    unawaited(
+      telemetry.track(
+        'bootstrap_started',
+        route: '/splash',
+        metadata: {
+          'authStatus': authStatus.name,
+        },
+      ),
+    );
 
-    await ref.read(currentUserProvider.notifier).fetchUser();
-    if (!mounted) return;
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser.hasError) {
-      final message = bootstrapFailureMessage(currentUser.error);
+    var resolvedUser = ref.read(currentUserProvider);
+    if (!resolvedUser.hasValue) {
+      await ref.read(currentUserProvider.notifier).fetchUser();
+      if (!mounted) return;
+      resolvedUser = ref.read(currentUserProvider);
+    }
+    if (resolvedUser.hasError) {
+      final message = bootstrapFailureMessage(resolvedUser.error);
       if (message == 'Sign-in expired. Please sign in again.') {
+        unawaited(
+          telemetry.track(
+            'bootstrap_failed',
+            route: '/splash',
+            metadata: {
+              'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
+              'reason': 'sign_in_expired',
+            },
+          ),
+        );
         await ref.read(isOnboardedProvider.notifier).resetOnboarding();
         await ref.read(authServiceProvider).signOut();
         if (mounted) context.go('/welcome');
         return;
       }
+      unawaited(
+        telemetry.track(
+          'bootstrap_failed',
+          route: '/splash',
+          metadata: {
+            'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
+            'reason': message,
+          },
+        ),
+      );
       setState(() => _bootstrapError = message);
       return;
     }
 
-    final isOnboardedAsync = ref.read(isOnboardedProvider);
-    if (isOnboardedAsync.isLoading) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
+    final user = resolvedUser.valueOrNull;
+    if (user == null) {
+      unawaited(
+        telemetry.track(
+          'bootstrap_failed',
+          route: '/splash',
+          metadata: {
+            'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
+            'reason': 'missing_user_profile',
+          },
+        ),
+      );
+      setState(() => _bootstrapError = 'Could not load your profile. Please retry.');
+      return;
     }
-
-    final isOnboarded = ref.read(isOnboardedProvider).valueOrNull ?? false;
-    if (isOnboarded) {
-      context.go('/world');
-    } else {
-      context.go('/onboarding/profile-setup');
-    }
+    final nextRoute = nextRouteForUser(user);
+    unawaited(
+      telemetry.track(
+        'bootstrap_resolved',
+        route: nextRoute,
+        metadata: {
+          'durationMs': DateTime.now().difference(startedAt).inMilliseconds,
+          'onboardingCompleted': user.onboardingCompleted,
+          'onboardingStage': user.onboardingStage,
+          'nextRoute': nextRoute,
+        },
+      ),
+    );
+    context.go(nextRoute);
   }
 
   @override

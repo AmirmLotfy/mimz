@@ -10,10 +10,12 @@ import 'live_backend_dtos.dart';
 /// token so system instructions are never cross-contaminated.
 class LiveTokenClient {
   final Dio _dio;
-  EphemeralTokenResponse? _cachedToken;
-  String? _cachedSessionType;
+  final Map<String, EphemeralTokenResponse> _cachedTokens = {};
 
   LiveTokenClient({required Dio dio}) : _dio = dio;
+
+  String _cacheKey(String sessionType, String? eventId) =>
+      '$sessionType::${eventId ?? ''}';
 
   /// Fetch a fresh ephemeral token. If a valid cached token exists for the
   /// same [sessionType] with at least [minRemaining] time left, returns it.
@@ -23,12 +25,12 @@ class LiveTokenClient {
     String? eventId,
     Duration minRemaining = const Duration(minutes: 1),
   }) async {
-    // Return cached only if same session type and still valid
-    if (_cachedToken != null &&
-        _cachedSessionType == sessionType &&
-        !_cachedToken!.isExpired &&
-        _cachedToken!.timeRemaining > minRemaining) {
-      return _cachedToken!;
+    final key = _cacheKey(sessionType, eventId);
+    final cached = _cachedTokens[key];
+    if (cached != null &&
+        !cached.isExpired &&
+        cached.timeRemaining > minRemaining) {
+      return cached;
     }
 
     try {
@@ -57,8 +59,7 @@ class LiveTokenClient {
         );
       }
 
-      _cachedToken = token;
-      _cachedSessionType = sessionType;
+      _cachedTokens[key] = token;
       if (kDebugMode) {
         final traceId = response.headers.value('x-correlation-id');
         debugPrint('[Mimz][Live] token_fetched sessionType=$sessionType traceId=$traceId');
@@ -128,10 +129,15 @@ class LiveTokenClient {
   }
 
   /// Invalidate the cached token (e.g., before reconnect).
-  void invalidate() {
-    _cachedToken = null;
+  void invalidate({String? sessionType, String? eventId}) {
+    if (sessionType == null) {
+      _cachedTokens.clear();
+      return;
+    }
+    _cachedTokens.remove(_cacheKey(sessionType, eventId));
   }
 
   /// Whether a usable token is available.
-  bool get hasValidToken => _cachedToken != null && !_cachedToken!.isExpired;
+  bool get hasValidToken =>
+      _cachedTokens.values.any((token) => !token.isExpired);
 }

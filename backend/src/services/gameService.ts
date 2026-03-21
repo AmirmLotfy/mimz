@@ -27,6 +27,7 @@ export async function bootstrapUser(userId: string, email?: string): Promise<Use
     streak: 0,
     bestStreak: 0,
     dailyStreak: 0,
+    activityHistory: [],
     sectors: 1,
     districtName: 'My District',
     interests: [],
@@ -34,6 +35,9 @@ export async function bootstrapUser(userId: string, email?: string): Promise<Use
     squadPreference: 'social',
     topicStats: {},
     visibility: 'coarse',
+    onboardingStage: 'profile',
+    onboardingCompleted: false,
+    meetMimzIntroSeen: false,
     createdAt: now,
   } as User;
 
@@ -100,6 +104,16 @@ export async function updateProfile(
     emblemId?: string | null;
   },
 ): Promise<User | null> {
+  const incomingDifficulty = updates.difficultyPreference as string | undefined;
+  const normalizedDifficulty =
+    incomingDifficulty === 'medium'
+      ? 'dynamic'
+      : incomingDifficulty === 'casual'
+        ? 'easy'
+        : incomingDifficulty === 'challenger'
+          ? 'hard'
+        : incomingDifficulty;
+
   // Whitelist allowed fields
   const safe: Partial<User> = {};
   if (updates.displayName !== undefined) {
@@ -114,9 +128,19 @@ export async function updateProfile(
   if (updates.majorOrProfession !== undefined) safe.majorOrProfession = updates.majorOrProfession;
   if (updates.interests !== undefined) safe.interests = updates.interests;
 
-  if (updates.difficultyPreference !== undefined) safe.difficultyPreference = updates.difficultyPreference;
+  if (normalizedDifficulty !== undefined) {
+    safe.difficultyPreference = normalizedDifficulty as User['difficultyPreference'];
+  }
   if (updates.squadPreference !== undefined) safe.squadPreference = updates.squadPreference;
   if (updates.voicePreference !== undefined) safe.voicePreference = updates.voicePreference;
+  if (updates.onboardingStage !== undefined) safe.onboardingStage = updates.onboardingStage;
+  if (updates.onboardingCompleted !== undefined) {
+    safe.onboardingCompleted = updates.onboardingCompleted;
+    if (updates.onboardingCompleted) {
+      safe.onboardingStage = 'completed';
+    }
+  }
+  if (updates.meetMimzIntroSeen !== undefined) safe.meetMimzIntroSeen = updates.meetMimzIntroSeen;
 
   if (updates.emblemId !== undefined) safe.emblemId = updates.emblemId;
 
@@ -388,6 +412,62 @@ export function slugifyTopic(topic: string): string {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 48) || 'general';
+}
+
+export function buildVisionQuestBlueprint(theme: string): {
+  targetPrompt: string;
+  targetKeywords: string[];
+  rewardStructureId?: string;
+} {
+  const normalized = theme.trim().toLowerCase();
+  switch (normalized) {
+    case 'science':
+      return {
+        targetPrompt: 'Show me something related to science: a notebook, diagram, lab item, or science book.',
+        targetKeywords: ['science', 'notebook', 'diagram', 'book', 'lab', 'experiment'],
+        rewardStructureId: 'observatory',
+      };
+    case 'engineering':
+      return {
+        targetPrompt: 'Show me something engineered: a tool, circuit, device, sketch, or technical note.',
+        targetKeywords: ['tool', 'device', 'circuit', 'engineer', 'sketch', 'technical'],
+        rewardStructureId: 'maker_hub',
+      };
+    case 'nature':
+      return {
+        targetPrompt: 'Show me something from nature: a plant, leaf, flower, or natural texture.',
+        targetKeywords: ['plant', 'leaf', 'flower', 'nature', 'tree', 'grass'],
+        rewardStructureId: 'park_pavilion',
+      };
+    case 'design':
+      return {
+        targetPrompt: 'Show me something designed: a poster, book cover, object, or visual composition.',
+        targetKeywords: ['design', 'poster', 'cover', 'object', 'layout', 'visual'],
+        rewardStructureId: 'library',
+      };
+    default:
+      return {
+        targetPrompt: 'Show me something that matches the theme around you.',
+        targetKeywords: ['object', 'item', 'thing', normalized],
+      };
+  }
+}
+
+export function validateVisionQuestObservation(
+  targetKeywords: string[],
+  objectIdentified: string,
+  confidence: number,
+): boolean {
+  if (!objectIdentified.trim()) return false;
+  if (confidence < 0.5) return false;
+
+  const normalizedObject = objectIdentified.trim().toLowerCase();
+  return targetKeywords.some((keyword) => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    return normalizedKeyword.length > 0 &&
+        (normalizedObject.includes(normalizedKeyword) ||
+            normalizedKeyword.includes(normalizedObject));
+  });
 }
 
 export function deriveDecayState(district: District | null): 'stable' | 'cooling' | 'vulnerable' | 'reclaimable' {
@@ -880,18 +960,62 @@ export async function resolveConflict(
   winnerId: string,
   cellsWon: number,
 ): Promise<void> {
+  const conflict = await db.getConflict(conflictId);
+  if (!conflict) {
+    throw new Error('Conflict not found');
+  }
+
+  const attackerId = conflict.attackerId as string | undefined;
+  const defenderId = conflict.defenderId as string | undefined;
+  const loserId = winnerId == attackerId ? defenderId : attackerId ?? defenderId;
+  const transferCount = Math.max(0, cellsWon);
+
   await db.updateConflict(conflictId, {
     status: 'resolved',
-    cellsWon,
+    cellsWon: transferCount,
     resolvedAt: new Date().toISOString(),
   });
 
-  if (cellsWon > 0) {
-    const district = await db.getDistrictByOwner(winnerId);
-    if (district) {
-      await db.expandTerritory(district.id, cellsWon);
-      await db.incrementUserSectors(winnerId, cellsWon);
+  if (transferCount <= 0) {
+    return;
+  }
+
+  if (loserId && loserId != winnerId) {
+    const loserDistrict = await db.getDistrictByOwner(loserId);
+    if (loserDistrict) {
+      const loserCells: TerritoryCell[] =
+          (((loserDistrict as any).cells as TerritoryCell[] | undefined) ?? []);
+      const removableFrontier = loserCells
+        .filter((cell) => cell.layer === 'frontier')
+        .sort((a, b) => a.stability - b.stability);
+
+      if (removableFrontier.length > 0) {
+        const removableIds = new Set(
+          removableFrontier
+            .slice(0, transferCount)
+            .map((cell) => cell.id),
+        );
+        const remainingCells =
+          loserCells.filter((cell) => !removableIds.has(cell.id));
+        await db.updateDistrict(loserDistrict.id, {
+          cells: remainingCells,
+          sectors: remainingCells.length,
+          area: `${(remainingCells.length * 1.1).toFixed(1)} sq km`,
+        } as any);
+        await db.updateUser(loserId, { sectors: remainingCells.length } as any);
+      }
     }
+  }
+
+  const winnerDistrict = await db.getDistrictByOwner(winnerId);
+  if (winnerDistrict) {
+    await db.expandTerritory(winnerDistrict.id, transferCount);
+    await db.incrementUserSectors(winnerId, transferCount);
+    await syncTerritoryCells(winnerId);
+  }
+
+  if (loserId && loserId != winnerId) {
+    await syncTerritoryCells(loserId).catch(() => {});
   }
 }
 
@@ -908,8 +1032,8 @@ export async function processInactivityTakeover(
   if (neutralized.length === 0) return { cellsClaimed: 0 };
 
   const cellsToClaim = Math.min(neutralized.length, 3);
-
-  const remaining = cells.filter(c => !(c.layer === 'frontier' && c.stability <= 0));
+  const neutralizedIds = new Set(neutralized.slice(0, cellsToClaim).map((cell) => cell.id));
+  const remaining = cells.filter(c => !neutralizedIds.has(c.id));
   await db.updateDistrict(inactiveDistrict.id, {
     cells: remaining,
     sectors: remaining.length,

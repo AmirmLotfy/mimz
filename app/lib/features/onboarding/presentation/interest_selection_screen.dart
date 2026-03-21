@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/providers.dart';
 import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../services/haptics_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
 
 // Interest taxonomy — mirrors backend /interests/taxonomy
@@ -78,6 +80,14 @@ class _InterestSelectionScreenState
 
   bool get _canContinue => _selected.length >= _minInterests;
 
+  @override
+  void initState() {
+    super.initState();
+    final cached = ref.read(interestsProvider);
+    final user = ref.read(currentUserProvider).valueOrNull;
+    _selected.addAll(cached.isNotEmpty ? cached : user?.interests ?? const []);
+  }
+
   void _toggleInterest(String interest) {
     ref.read(hapticsServiceProvider).selection();
     setState(() {
@@ -89,10 +99,31 @@ class _InterestSelectionScreenState
     });
   }
 
-  void _proceed() {
+  Future<void> _proceed() async {
     ref.read(hapticsServiceProvider).mediumImpact();
+    final selectedInterests = _selected.toList();
+
     // Save selections into both providers
-    ref.read(interestsProvider.notifier).state = _selected.toList();
+    ref.read(interestsProvider.notifier).state = selectedInterests;
+
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user != null) {
+      ref.read(currentUserProvider.notifier).updateUser(
+            user.copyWith(
+              interests: selectedInterests,
+              onboardingStage: 'preferences',
+            ),
+          );
+    }
+
+    try {
+      await ref.read(apiClientProvider).updateProfile({
+        'interests': selectedInterests,
+        'onboardingStage': 'preferences',
+      });
+    } catch (_) {}
+
+    if (!context.mounted) return;
     context.push('/onboarding/preferences');
   }
 

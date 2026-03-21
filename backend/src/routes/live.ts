@@ -126,7 +126,7 @@ export async function liveRoutes(server: FastifyInstance) {
   // ─── GET /live/config ────────────────────────────
   server.get('/config', async (request: FastifyRequest, reply: FastifyReply) => {
     return {
-      supportedModes: ['onboarding', 'quiz', 'vision_quest', 'event'],
+      supportedModes: ['onboarding', 'quiz', 'sprint', 'vision_quest', 'event'],
       voiceName: 'Aoede',
       responseModalities: ['AUDIO'],
     };

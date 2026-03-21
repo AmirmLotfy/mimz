@@ -31,6 +31,7 @@ class LiveSessionState {
   final int questionCount;
   final int currentQuestionIndex;
   final String? roundTopic;
+  final String? roundDifficultyPreference;
 
   // ─── Active tool call ────────────────────────────
   final String? activeToolCallId;
@@ -49,6 +50,7 @@ class LiveSessionState {
   // ─── Error ───────────────────────────────────────
   final LiveError? error;
   final int reconnectAttempts;
+  final int silencePromptCount;
 
   // ─── Latest backend-confirmed reward ─────────────
   final Map<String, dynamic>? lastRewardPayload;
@@ -84,6 +86,7 @@ class LiveSessionState {
     this.questionCount = 0,
     this.currentQuestionIndex = 0,
     this.roundTopic,
+    this.roundDifficultyPreference,
     this.activeToolCallId,
     this.activeToolName,
     this.isMicActive = false,
@@ -92,6 +95,7 @@ class LiveSessionState {
     this.audioAmplitude = 0.0,
     this.error,
     this.reconnectAttempts = 0,
+    this.silencePromptCount = 0,
     this.lastRewardPayload,
     this.grantedXp = 0,
     this.grantedSectors = 0,
@@ -118,6 +122,7 @@ class LiveSessionState {
     int? questionCount,
     int? currentQuestionIndex,
     String? roundTopic,
+    String? roundDifficultyPreference,
     String? activeToolCallId,
     String? activeToolName,
     bool? isMicActive,
@@ -126,6 +131,7 @@ class LiveSessionState {
     double? audioAmplitude,
     LiveError? error,
     int? reconnectAttempts,
+    int? silencePromptCount,
     Map<String, dynamic>? lastRewardPayload,
     int? grantedXp,
     int? grantedSectors,
@@ -154,6 +160,8 @@ class LiveSessionState {
       questionCount: questionCount ?? this.questionCount,
       currentQuestionIndex: currentQuestionIndex ?? this.currentQuestionIndex,
       roundTopic: roundTopic ?? this.roundTopic,
+      roundDifficultyPreference:
+          roundDifficultyPreference ?? this.roundDifficultyPreference,
       activeToolCallId: clearToolCall ? null : (activeToolCallId ?? this.activeToolCallId),
       activeToolName: clearToolCall ? null : (activeToolName ?? this.activeToolName),
       isMicActive: isMicActive ?? this.isMicActive,
@@ -162,6 +170,7 @@ class LiveSessionState {
       audioAmplitude: audioAmplitude ?? this.audioAmplitude,
       error: clearError ? null : (error ?? this.error),
       reconnectAttempts: reconnectAttempts ?? this.reconnectAttempts,
+      silencePromptCount: silencePromptCount ?? this.silencePromptCount,
       lastRewardPayload: lastRewardPayload ?? this.lastRewardPayload,
       grantedXp: grantedXp ?? this.grantedXp,
       grantedSectors: grantedSectors ?? this.grantedSectors,

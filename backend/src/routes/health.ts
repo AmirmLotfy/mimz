@@ -15,7 +15,12 @@ export async function healthRoutes(server: FastifyInstance) {
   // GET /readyz — Readiness probe (checks Firestore connectivity without composite index)
   server.get('/readyz', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      await getDb().collection('_health').limit(1).get();
+      await Promise.race([
+        getDb().collection('_health').limit(1).get(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Firestore readiness timeout')), 1200),
+        ),
+      ]);
       return { status: 'ready', timestamp: new Date().toISOString() };
     } catch (err) {
       return reply.status(503).send({ status: 'not ready', error: 'Firestore unavailable' });

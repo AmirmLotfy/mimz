@@ -39,7 +39,6 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
   QuizStatus? _prevStatus;
   bool _sessionSoundPlayed = false;
   bool _modelHasSpoken = false;
-  bool _difficultyHarder = true;
   LiveSessionController? _controller;
 
   @override
@@ -117,11 +116,27 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
     final currentPrompt = sessionState?.currentPrompt ?? '';
     final activeToolName = sessionState?.activeToolName;
     final questionCount = sessionState?.questionCount ?? 0;
+    final roundDifficulty =
+        sessionState?.roundDifficultyPreference ?? 'dynamic';
+    final silencePromptCount = sessionState?.silencePromptCount ?? 0;
     final currentQuestionNumber = questionCount > 0
         ? ((sessionState?.currentQuestionIndex ?? 0) + 1)
             .clamp(1, questionCount)
         : 0;
     final roundTopic = sessionState?.roundTopic;
+    final showStartupOverlay = _shouldShowStartupOverlay(
+      phase,
+      transcript,
+      currentPrompt,
+      _modelHasSpoken,
+      activeToolName,
+    );
+    final startupCopy = _startupOverlayCopy(
+      phase,
+      activeToolName,
+      currentPrompt: currentPrompt,
+      questionCount: questionCount,
+    );
 
     // Sound hooks — fire on status changes
     if (quiz.status != _prevStatus) {
@@ -321,19 +336,29 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
                       const EdgeInsets.symmetric(horizontal: MimzSpacing.xxl),
                   child: AnimatedSwitcher(
                     duration: 400.ms,
-                    child: Text(
-                      key: ValueKey(transcript),
-                      transcript.isNotEmpty
-                          ? transcript
-                          : currentPrompt.isNotEmpty
-                              ? currentPrompt
-                              : _phaseHintText(
-                                  phase, _modelHasSpoken, activeToolName),
-                      style: MimzTypography.displayMedium.copyWith(
-                        color: MimzColors.white,
-                        fontSize: 22,
+                    child: Container(
+                      key: ValueKey(transcript.isNotEmpty ? transcript : currentPrompt),
+                      padding: const EdgeInsets.all(MimzSpacing.lg),
+                      decoration: BoxDecoration(
+                        color: MimzColors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(MimzRadius.xl),
+                        border: Border.all(
+                          color: MimzColors.white.withValues(alpha: 0.08),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
+                      child: Text(
+                        transcript.isNotEmpty
+                            ? transcript
+                            : currentPrompt.isNotEmpty
+                                ? currentPrompt
+                                : _phaseHintText(
+                                    phase, _modelHasSpoken, activeToolName),
+                        style: MimzTypography.displayMedium.copyWith(
+                          color: MimzColors.white,
+                          fontSize: 22,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
                 ),
@@ -365,9 +390,19 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: MimzSpacing.sm),
+                _LiveGuidanceCard(
+                  phase: phase,
+                  silencePromptCount: silencePromptCount,
+                  roundReady: sessionState?.currentRoundId != null,
+                ),
                 const Spacer(flex: 2),
                 // Hint / Repeat / Difficulty action bar
-                _buildActionBar(phase, sessionState?.currentRoundId != null),
+                _buildActionBar(
+                  phase,
+                  sessionState?.currentRoundId != null,
+                  roundDifficulty,
+                ),
                 const SizedBox(height: MimzSpacing.sm),
                 // Bottom toolbar — mic button
                 Padding(
@@ -386,9 +421,7 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
             ),
 
             // ─── Connecting overlay (UX-01) ────────────────────
-            if (!phase.isActive &&
-                !phase.isTerminal &&
-                phase != LiveConnectionPhase.idle)
+            if (showStartupOverlay)
               Positioned.fill(
                 child: Container(
                   color: MimzColors.nightSurface.withValues(alpha: 0.92),
@@ -401,14 +434,14 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
                       ),
                       const SizedBox(height: MimzSpacing.xl),
                       Text(
-                        'Connecting to Mimz...',
+                        startupCopy.$1,
                         style: MimzTypography.headlineMedium.copyWith(
                           color: MimzColors.white,
                         ),
                       ).animate().fadeIn(duration: 400.ms),
                       const SizedBox(height: MimzSpacing.sm),
                       Text(
-                        _phaseHintText(phase, _modelHasSpoken, activeToolName),
+                        startupCopy.$2,
                         style: MimzTypography.bodySmall.copyWith(
                           color: MimzColors.white.withValues(alpha: 0.5),
                         ),
@@ -448,26 +481,29 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
     String? activeToolName,
   ) {
     switch (phase) {
-      case LiveConnectionPhase.fetchingToken:
-        return 'Getting ready...';
       case LiveConnectionPhase.connecting:
-      case LiveConnectionPhase.handshaking:
         return 'Starting your round...';
-      case LiveConnectionPhase.connected:
-        // Before the model has spoken: waiting for opening question.
-        // After it has spoken: the ball is in the user's court.
+      case LiveConnectionPhase.waitingForOpeningPrompt:
         return modelHasSpoken
             ? 'Your turn — speak your answer!'
             : 'Starting round...';
       case LiveConnectionPhase.modelSpeaking:
         return 'Mimz is asking...';
-      case LiveConnectionPhase.userSpeaking:
+      case LiveConnectionPhase.listeningForAnswer:
         return 'Listening to you...';
-      case LiveConnectionPhase.waitingForToolResult:
-        if (activeToolName == 'request_round_hint') return 'Pulling a hint...';
-        if (activeToolName == 'request_round_repeat')
+      case LiveConnectionPhase.grading:
+        if (activeToolName == 'request_round_hint') {
+          return 'Pulling a hint...';
+        }
+        if (activeToolName == 'request_round_repeat') {
           return 'Repeating the question...';
+        }
+        if (activeToolName == 'change_round_difficulty') {
+          return 'Tuning the next questions...';
+        }
         return 'Checking your answer...';
+      case LiveConnectionPhase.roundComplete:
+        return 'Round complete!';
       case LiveConnectionPhase.reconnecting:
         return 'Reconnecting...';
       case LiveConnectionPhase.ended:
@@ -479,21 +515,100 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
     }
   }
 
+  bool _shouldShowStartupOverlay(
+    LiveConnectionPhase phase,
+    String transcript,
+    String currentPrompt,
+    bool modelHasSpoken,
+    String? activeToolName,
+  ) {
+    if (phase == LiveConnectionPhase.connecting ||
+        phase == LiveConnectionPhase.reconnecting) {
+      return true;
+    }
+    if (phase == LiveConnectionPhase.failed ||
+        phase == LiveConnectionPhase.ended ||
+        phase == LiveConnectionPhase.roundComplete ||
+        phase == LiveConnectionPhase.idle) {
+      return false;
+    }
+    if (phase == LiveConnectionPhase.grading &&
+        activeToolName == 'start_live_round' &&
+        !modelHasSpoken) {
+      return true;
+    }
+    return phase == LiveConnectionPhase.waitingForOpeningPrompt &&
+        transcript.isEmpty &&
+        currentPrompt.isEmpty &&
+        !modelHasSpoken;
+  }
+
+  (String, String) _startupOverlayCopy(
+    LiveConnectionPhase phase,
+    String? activeToolName, {
+    required String currentPrompt,
+    required int questionCount,
+  }) {
+    switch (phase) {
+      case LiveConnectionPhase.connecting:
+        return (
+          'Connecting voice',
+          'Securing your live link to Mimz.',
+        );
+      case LiveConnectionPhase.reconnecting:
+        return (
+          'Restoring your round',
+          'Reconnecting once and keeping your progress intact.',
+        );
+      case LiveConnectionPhase.grading:
+        if (activeToolName == 'start_live_round') {
+          return (
+            'Preparing your round',
+            questionCount > 0
+                ? 'Locking in question 1 of $questionCount.'
+                : 'Building the first question for your district.',
+          );
+        }
+        return (
+          'Checking your round',
+          'Confirming the next step with the backend.',
+        );
+      case LiveConnectionPhase.waitingForOpeningPrompt:
+        if (currentPrompt.isNotEmpty) {
+          return (
+            'Fetching first question',
+            'Your opening prompt is almost ready.',
+          );
+        }
+        return (
+          'Preparing your round',
+          'Choosing the best opening question for right now.',
+        );
+      default:
+        return (
+          'Preparing your round',
+          'Getting Mimz ready.',
+        );
+    }
+  }
+
   String _statusLabel(
     LiveConnectionPhase phase,
     QuizStatus quizStatus,
     String? activeToolName,
   ) {
     if (quizStatus == QuizStatus.correct) return '✅ CORRECT!';
-    if (quizStatus == QuizStatus.incorrect) return '❌ NOT QUITE...';
-    if (phase == LiveConnectionPhase.userSpeaking) return '🎙 ANSWERING...';
-    if (phase == LiveConnectionPhase.connected) return 'YOUR TURN';
-    if (phase == LiveConnectionPhase.modelSpeaking) return '🔊 MIMZ SPEAKING';
-    if (phase == LiveConnectionPhase.waitingForToolResult) {
-      if (activeToolName == 'request_round_hint') return '💡 GETTING HINT...';
-      if (activeToolName == 'request_round_repeat') return '🔁 REPEATING...';
-      return '⏳ CHECKING...';
+    if (quizStatus == QuizStatus.incorrect) return 'Not quite';
+    if (phase == LiveConnectionPhase.listeningForAnswer) return 'Your turn';
+    if (phase == LiveConnectionPhase.waitingForOpeningPrompt) return 'Preparing round';
+    if (phase == LiveConnectionPhase.modelSpeaking) return 'Mimz is speaking';
+    if (phase == LiveConnectionPhase.grading) {
+      if (activeToolName == 'request_round_hint') return 'Getting hint';
+      if (activeToolName == 'request_round_repeat') return 'Repeating';
+      if (activeToolName == 'change_round_difficulty') return 'Updating difficulty';
+      return 'Checking';
     }
+    if (phase == LiveConnectionPhase.roundComplete) return 'Round complete';
     return '';
   }
 
@@ -504,9 +619,15 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
         );
   }
 
-  Widget _buildActionBar(LiveConnectionPhase phase, bool roundReady) {
+  Widget _buildActionBar(
+    LiveConnectionPhase phase,
+    bool roundReady,
+    String roundDifficulty,
+  ) {
     final controller = ref.read(liveSessionControllerProvider);
-    final isActive = phase.isActive && roundReady;
+    final isActive = phase.isActive &&
+        phase != LiveConnectionPhase.roundComplete &&
+        roundReady;
     final hintsLeft =
         LiveSessionController.maxHintsPerRound - controller.hintCount;
     final repeatsLeft =
@@ -514,8 +635,10 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: MimzSpacing.xxl),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: MimzSpacing.md,
+        runSpacing: MimzSpacing.sm,
         children: [
           _ActionChip(
             icon: Icons.lightbulb_outline,
@@ -524,7 +647,6 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
             enabled: isActive && hintsLeft > 0,
             onTap: () => controller.requestHint(),
           ),
-          const SizedBox(width: MimzSpacing.md),
           _ActionChip(
             icon: Icons.refresh,
             label: 'Repeat',
@@ -532,19 +654,103 @@ class _LiveQuizScreenState extends ConsumerState<LiveQuizScreen> {
             enabled: isActive && repeatsLeft > 0,
             onTap: () => controller.requestRepeat(),
           ),
-          const SizedBox(width: MimzSpacing.md),
-          _ActionChip(
-            icon: _difficultyHarder ? Icons.trending_up : Icons.trending_down,
-            label: _difficultyHarder ? 'Harder' : 'Easier',
+          _DifficultyChip(
+            label: 'Easy',
+            selected: roundDifficulty == 'easy',
             enabled: isActive,
-            onTap: () {
-              controller.requestDifficultyChange(harder: _difficultyHarder);
-              setState(() => _difficultyHarder = !_difficultyHarder);
-            },
+            onTap: () => controller.requestDifficultyChange('easy'),
+          ),
+          _DifficultyChip(
+            label: 'Adaptive',
+            selected: roundDifficulty == 'dynamic',
+            enabled: isActive,
+            onTap: () => controller.requestDifficultyChange('dynamic'),
+          ),
+          _DifficultyChip(
+            label: 'Hard',
+            selected: roundDifficulty == 'hard',
+            enabled: isActive,
+            onTap: () => controller.requestDifficultyChange('hard'),
           ),
         ],
       ),
     );
+  }
+}
+
+class _LiveGuidanceCard extends StatelessWidget {
+  final LiveConnectionPhase phase;
+  final int silencePromptCount;
+  final bool roundReady;
+
+  const _LiveGuidanceCard({
+    required this.phase,
+    required this.silencePromptCount,
+    required this.roundReady,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String? text;
+    Color accent = MimzColors.mistBlue;
+
+    if (!roundReady) {
+      text = 'Locking in your live round and first question.';
+      accent = MimzColors.mistBlue;
+    } else if (phase == LiveConnectionPhase.listeningForAnswer) {
+      if (silencePromptCount >= 2) {
+        text = 'Say your answer now, or say hint or repeat.';
+        accent = MimzColors.dustyGold;
+      } else if (silencePromptCount == 1) {
+        text = 'Need a nudge? You can answer now, ask for a hint, or say repeat.';
+        accent = MimzColors.dustyGold;
+      } else {
+        text = 'Answer out loud. You can also say hint or repeat.';
+      }
+    } else if (phase == LiveConnectionPhase.waitingForOpeningPrompt) {
+      if (silencePromptCount > 0) {
+        text = 'Mimz is re-prompting. Answer when you are ready.';
+        accent = MimzColors.dustyGold;
+      } else {
+        text = 'Mimz is lining up the next spoken turn.';
+      }
+    } else if (phase == LiveConnectionPhase.grading) {
+      text = 'Backend is checking this turn before the next question.';
+    }
+
+    if (text == null || text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: MimzSpacing.xxl),
+      padding: const EdgeInsets.symmetric(
+        horizontal: MimzSpacing.md,
+        vertical: MimzSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: MimzColors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(MimzRadius.lg),
+        border: Border.all(color: accent.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.tips_and_updates_outlined, color: accent, size: 15),
+          const SizedBox(width: MimzSpacing.sm),
+          Flexible(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: MimzTypography.caption.copyWith(
+                color: MimzColors.white.withValues(alpha: 0.82),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 220.ms);
   }
 }
 
@@ -656,10 +862,60 @@ class _ActionChip extends StatelessWidget {
   }
 }
 
+class _DifficultyChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _DifficultyChip({
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final opacity = enabled ? 1.0 : 0.35;
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: opacity,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(
+            horizontal: MimzSpacing.md,
+            vertical: MimzSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? MimzColors.persimmonHit.withValues(alpha: 0.18)
+                : MimzColors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(MimzRadius.pill),
+            border: Border.all(
+              color: selected
+                  ? MimzColors.persimmonHit
+                  : MimzColors.white.withValues(alpha: 0.12),
+            ),
+          ),
+          child: Text(
+            label,
+            style: MimzTypography.caption.copyWith(
+              color: selected ? MimzColors.persimmonHit : MimzColors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Mic button that correctly handles all live session phases:
 /// - modelSpeaking: red pulsing ring + tap → barge-in interrupt
-/// - userSpeaking:  active green mic + listening animation
-/// - connected/idle: mic icon, mic is streaming (passive)
+/// - listeningForAnswer: active green mic + listening state
+/// - waitingForOpeningPrompt/grading: passive / disabled
 /// - inactive:       mic_off, dimmed
 class _MicButton extends ConsumerWidget {
   final LiveConnectionPhase phase;
@@ -670,14 +926,14 @@ class _MicButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isModelSpeaking = phase == LiveConnectionPhase.modelSpeaking;
-    final isUserSpeaking = phase == LiveConnectionPhase.userSpeaking;
+    final isListening = phase == LiveConnectionPhase.listeningForAnswer;
     final isActive = phase.isActive;
 
     final Color bgColor;
     final Color iconColor;
     final IconData icon;
 
-    if (isUserSpeaking) {
+    if (isListening) {
       bgColor = MimzColors.mossCore;
       iconColor = MimzColors.white;
       icon = Icons.mic;
@@ -741,7 +997,7 @@ class _MicButton extends ConsumerWidget {
         Text(
           isModelSpeaking
               ? 'Tap to interrupt'
-              : isUserSpeaking
+              : isListening
                   ? 'Listening...'
                   : isActive && isMicActive
                       ? 'Mic on'
@@ -768,11 +1024,12 @@ class _SessionStatusChip extends StatelessWidget {
     final activeColor =
         isSprint ? MimzColors.dustyGold : MimzColors.persimmonHit;
     final (String label, Color color) = switch (phase) {
-      LiveConnectionPhase.connected ||
+      LiveConnectionPhase.waitingForOpeningPrompt ||
       LiveConnectionPhase.modelSpeaking ||
-      LiveConnectionPhase.userSpeaking ||
-      LiveConnectionPhase.waitingForToolResult =>
+      LiveConnectionPhase.listeningForAnswer ||
+      LiveConnectionPhase.grading =>
         (activeLabel, activeColor),
+      LiveConnectionPhase.roundComplete => ('ROUND COMPLETE', MimzColors.acidLime),
       LiveConnectionPhase.reconnecting => (
           'RECONNECTING',
           MimzColors.dustyGold
@@ -884,6 +1141,16 @@ class _FailedSessionOverlay extends StatelessWidget {
         sessionState?.error?.message ?? 'Session failed. Tap to retry.';
     final showOpenSettings =
         sessionState?.error?.recovery == LiveErrorRecovery.openSettings;
+    final phaseLabel = _phaseLabel(sessionState?.phase);
+    final reconnectAttempts = sessionState?.reconnectAttempts ?? 0;
+    final currentRoundId = sessionState?.currentRoundId;
+    final canResumeRound = currentRoundId != null && currentRoundId.isNotEmpty;
+    final currentQuestionIndex = sessionState?.currentQuestionIndex ?? 0;
+    final questionCount = sessionState?.questionCount ?? 0;
+    final sessionTrace = sessionState?.correlationId;
+    final errorDetail = sessionState?.error?.detail;
+    final primaryLabel =
+        showOpenSettings ? 'Open Settings' : (canResumeRound ? 'Resume Round' : primaryButton);
 
     return Container(
       color: MimzColors.nightSurface.withValues(alpha: 0.95),
@@ -911,6 +1178,63 @@ class _FailedSessionOverlay extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ).animate().fadeIn(delay: 150.ms, duration: 300.ms),
+          const SizedBox(height: MimzSpacing.base),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: MimzSpacing.xl),
+            padding: const EdgeInsets.all(MimzSpacing.base),
+            decoration: BoxDecoration(
+              color: MimzColors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(MimzRadius.lg),
+              border: Border.all(
+                color: MimzColors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SESSION REPORT',
+                  style: MimzTypography.caption.copyWith(
+                    color: MimzColors.white.withValues(alpha: 0.65),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: MimzSpacing.sm),
+                _FailureMetaRow(
+                  label: 'State',
+                  value: phaseLabel,
+                ),
+                _FailureMetaRow(
+                  label: 'Reconnects',
+                  value: '$reconnectAttempts',
+                ),
+                if (canResumeRound)
+                  _FailureMetaRow(
+                    label: 'Round',
+                    value: questionCount > 0
+                        ? 'Saved at question ${currentQuestionIndex.clamp(0, questionCount - 1) + 1}/$questionCount'
+                        : 'Saved and ready to resume',
+                  ),
+                if (sessionTrace != null && sessionTrace.isNotEmpty)
+                  _FailureMetaRow(
+                    label: 'Trace',
+                    value: sessionTrace,
+                  ),
+                if (errorDetail != null && errorDetail.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: MimzSpacing.sm),
+                    child: Text(
+                      errorDetail,
+                      style: MimzTypography.caption.copyWith(
+                        color: MimzColors.white.withValues(alpha: 0.5),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ).animate().fadeIn(delay: 220.ms, duration: 300.ms),
           const SizedBox(height: MimzSpacing.xxl),
           if (showOpenSettings)
             GestureDetector(
@@ -925,7 +1249,7 @@ class _FailedSessionOverlay extends StatelessWidget {
                   borderRadius: BorderRadius.circular(MimzRadius.pill),
                 ),
                 child: Text(
-                  'Open Settings',
+                  primaryLabel,
                   style: MimzTypography.headlineMedium.copyWith(
                     color: MimzColors.white,
                     fontWeight: FontWeight.w700,
@@ -949,7 +1273,7 @@ class _FailedSessionOverlay extends StatelessWidget {
                   borderRadius: BorderRadius.circular(MimzRadius.pill),
                 ),
                 child: Text(
-                  primaryButton,
+                  primaryLabel,
                   style: MimzTypography.headlineMedium.copyWith(
                     color: MimzColors.white,
                     fontWeight: FontWeight.w700,
@@ -964,12 +1288,79 @@ class _FailedSessionOverlay extends StatelessWidget {
           if (!showOpenSettings) ...[
             TextButton(
               onPressed: onReset,
-              child: const Text('Reset Session'),
+              child: Text(canResumeRound ? 'Start Fresh Instead' : 'Reset Session'),
             ),
           ],
           TextButton(
             onPressed: onBackToWorld,
             child: const Text('Back to World'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _phaseLabel(LiveConnectionPhase? phase) {
+    switch (phase) {
+      case LiveConnectionPhase.connecting:
+        return 'Connecting voice';
+      case LiveConnectionPhase.waitingForOpeningPrompt:
+        return 'Preparing round';
+      case LiveConnectionPhase.modelSpeaking:
+        return 'Mimz speaking';
+      case LiveConnectionPhase.listeningForAnswer:
+        return 'Listening';
+      case LiveConnectionPhase.grading:
+        return 'Checking';
+      case LiveConnectionPhase.roundComplete:
+        return 'Round complete';
+      case LiveConnectionPhase.reconnecting:
+        return 'Reconnecting';
+      case LiveConnectionPhase.failed:
+        return 'Failed';
+      case LiveConnectionPhase.ended:
+        return 'Ended';
+      case LiveConnectionPhase.idle:
+      case null:
+        return 'Idle';
+    }
+  }
+}
+
+class _FailureMetaRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _FailureMetaRow({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label.toUpperCase(),
+              style: MimzTypography.caption.copyWith(
+                color: MimzColors.white.withValues(alpha: 0.42),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: MimzTypography.caption.copyWith(
+                color: MimzColors.white.withValues(alpha: 0.82),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),

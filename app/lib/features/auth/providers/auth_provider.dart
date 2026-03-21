@@ -6,6 +6,7 @@ import '../../../core/providers.dart';
 import '../../../data/models/user.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/push_notification_service.dart';
+import '../../world/providers/game_state_provider.dart';
 
 /// Stream of auth status changes
 final authStatusProvider = StreamProvider<AuthStatus>((ref) {
@@ -54,6 +55,11 @@ class OnboardingNotifier extends StateNotifier<AsyncValue<bool>> {
   Future<void> markOnboarded() async {
     await _storage.write(key: _kOnboardingKey, value: 'true');
     if (mounted) state = const AsyncValue.data(true);
+  }
+
+  Future<void> syncFromBackend(bool onboarded) async {
+    await _storage.write(key: _kOnboardingKey, value: onboarded ? 'true' : 'false');
+    if (mounted) state = AsyncValue.data(onboarded);
   }
 
   /// Reset — called on sign out to remove the flag.
@@ -108,8 +114,48 @@ String bootstrapFailureMessage(Object? err) {
   return 'Could not load your profile. Please retry.';
 }
 
+bool hasCoreUserProfile(MimzUser user) {
+  return (user.preferredName?.trim().isNotEmpty ?? false) &&
+      (user.ageBand?.trim().isNotEmpty ?? false) &&
+      (user.studyWorkStatus?.trim().isNotEmpty ?? false);
+}
+
+String nextRouteForUser(MimzUser user) {
+  if (user.onboardingCompleted) return '/world';
+
+  switch (user.onboardingStage) {
+    case 'interests':
+      return '/onboarding/interests';
+    case 'preferences':
+      return '/onboarding/preferences';
+    case 'summary':
+      return '/onboarding/summary';
+    case 'permissions_location':
+      return '/permissions/location';
+    case 'permissions_microphone':
+      return '/permissions/microphone';
+    case 'profile':
+      if (!hasCoreUserProfile(user)) return '/onboarding/profile-setup';
+      if (user.interests.isEmpty) return '/onboarding/interests';
+      return '/onboarding/preferences';
+    case 'permissions':
+      return '/permissions/location';
+    case 'emblem':
+      return '/district/emblem';
+    case 'district_name':
+      return '/district/name';
+    case 'district_reveal':
+      return '/district/reveal';
+    case 'completed':
+      return '/world';
+    default:
+      return '/onboarding/profile-setup';
+  }
+}
+
 class CurrentUserNotifier extends StateNotifier<AsyncValue<MimzUser>> {
   final Ref _ref;
+  Future<void>? _fetchInFlight;
 
   CurrentUserNotifier(this._ref) : super(const AsyncValue.loading()) {
     _init();
@@ -119,9 +165,13 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<MimzUser>> {
     final authService = _ref.read(authServiceProvider);
     if (authService.currentStatus == AuthStatus.authenticated) {
       await fetchUser();
-    } else {
+    } else if (authService.currentStatus == AuthStatus.unauthenticated) {
       // Not authenticated — no user to show
       state = const AsyncValue.error('Not authenticated', StackTrace.empty);
+    } else {
+      // Wait for Firebase/auth bootstrap to resolve instead of flashing an
+      // unauthenticated error during startup.
+      state = const AsyncValue.loading();
     }
 
     // Listen for future auth state changes to keep user in sync
@@ -132,14 +182,31 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<MimzUser>> {
       } else if (status == AuthStatus.unauthenticated) {
         PushNotificationService.instance
             .unregister(_ref.read(apiClientProvider));
+        GameStateCacheStore.instance.clear();
+        _ref.invalidate(gameStateProvider);
         state = const AsyncValue.error('Not authenticated', StackTrace.empty);
       }
     });
   }
 
   Future<void> fetchUser() async {
+    if (_fetchInFlight != null) {
+      return _fetchInFlight!;
+    }
+    final future = _fetchUserInternal();
+    _fetchInFlight = future;
+    try {
+      await future;
+    } finally {
+      _fetchInFlight = null;
+    }
+  }
+
+  Future<void> _fetchUserInternal() async {
     final previousUser = state.valueOrNull;
-    state = const AsyncValue.loading();
+    if (previousUser == null) {
+      state = const AsyncValue.loading();
+    }
     final auth = _ref.read(authServiceProvider);
     await auth.getIdToken();
 
@@ -149,10 +216,18 @@ class CurrentUserNotifier extends StateNotifier<AsyncValue<MimzUser>> {
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
         final apiClient = _ref.read(apiClientProvider);
-        final response = await apiClient.bootstrap();
-        final user =
-            MimzUser.fromJson(response['user'] as Map<String, dynamic>);
+        final snapshot = await _ref.read(gameStateProvider.notifier).load(
+              force: true,
+              bootstrapIfMissing: true,
+            );
+        final user = snapshot?.user;
+        if (user == null) {
+          throw StateError('Game state did not include a user profile.');
+        }
         state = AsyncValue.data(user);
+        await _ref
+            .read(isOnboardedProvider.notifier)
+            .syncFromBackend(user.onboardingCompleted);
         PushNotificationService.instance.initialize(apiClient);
         return;
       } on DioException catch (e, st) {

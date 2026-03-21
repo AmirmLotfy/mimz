@@ -6,6 +6,7 @@ import '../../../design_system/tokens.dart';
 import '../../../design_system/components/mimz_button.dart';
 import '../../../services/haptics_service.dart';
 import '../../../core/providers.dart';
+import '../../auth/providers/auth_provider.dart';
 
 /// Emblem selection screen — choose your district identity
 class EmblemSelectionScreen extends ConsumerStatefulWidget {
@@ -179,8 +180,16 @@ class _EmblemSelectionScreenState extends ConsumerState<EmblemSelectionScreen> {
                 ref.read(hapticsServiceProvider).mediumImpact();
                 final emblemId = _emblems[_selectedIndex].name.toLowerCase();
                 try {
-                  await ref.read(apiClientProvider)
-                      .patch('/profile', {'emblemId': emblemId});
+                  await ref.read(apiClientProvider).patch('/profile', {
+                    'emblemId': emblemId,
+                    'onboardingStage': 'district_name',
+                  });
+                  final user = ref.read(currentUserProvider).valueOrNull;
+                  if (user != null) {
+                    ref.read(currentUserProvider.notifier).updateUser(
+                      user.copyWith(onboardingStage: 'district_name'),
+                    );
+                  }
                 } catch (_) {}
                 if (context.mounted) context.go('/district/name');
               },

@@ -115,8 +115,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen>
     }
 
     setState(() => _loading = false);
-    final isOnboarded = ref.read(isOnboardedProvider).valueOrNull ?? false;
-    context.go(isOnboarded ? '/world' : '/permissions');
+    context.go(nextRouteForUser(userState.valueOrNull!));
   }
 
   Future<void> _signUp() async {
@@ -149,8 +148,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen>
     }
 
     setState(() => _loading = false);
-    // New user → always goes to permissions/onboarding
-    context.go('/permissions');
+    context.go(nextRouteForUser(userState.valueOrNull!));
   }
 
   Future<void> _showForgotPassword() async {

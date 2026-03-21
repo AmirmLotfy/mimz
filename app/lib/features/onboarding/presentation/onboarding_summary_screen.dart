@@ -46,6 +46,7 @@ class _OnboardingSummaryScreenState
       if (onboardingData.preferredName != null &&
           onboardingData.preferredName!.isNotEmpty)
         'displayName': onboardingData.preferredName,
+      'onboardingStage': 'permissions_location',
     };
 
     // Update local user state immediately for snappy UI
@@ -58,6 +59,7 @@ class _OnboardingSummaryScreenState
             difficultyPreference: onboardingData.difficultyPreference,
             squadPreference: onboardingData.squadPreference,
             interests: interests,
+            onboardingStage: 'permissions_location',
           ));
     }
 
@@ -77,7 +79,7 @@ class _OnboardingSummaryScreenState
 
     if (mounted) {
       setState(() => _isSaving = false);
-      context.go('/permissions');
+      context.go('/permissions/location');
     }
   }
 
